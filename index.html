@@ -19,7 +19,8 @@
         }
     </script>
     <!-- Referencia al archivo manifest.json para la funcionalidad PWA -->
-    <link rel="manifest" href="manifest.json">
+    <!-- IMPORTANTE: La ruta del manifest debe ser relativa al subdirectorio del repositorio en GitHub Pages -->
+    <link rel="manifest" href="/admin/manifest.json">
     <!-- Estilos personalizados para asegurar que la página ocupe toda la altura y el contenido esté centrado -->
     <style>
         body {
@@ -130,7 +131,9 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/service-worker.js')
+                // IMPORTANTE: La ruta del Service Worker debe ser relativa al subdirectorio del repositorio en GitHub Pages
+                // Asegúrate de que 'admin' sea el nombre de tu repositorio en GitHub.
+                navigator.serviceWorker.register('/admin/service-worker.js')
                     .then(registration => {
                         console.log('Service Worker registrado con éxito:', registration);
                     })
@@ -144,8 +147,8 @@
     <!-- Importa las librerías de Firebase -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Variables globales para Firebase (serán accesibles en otros módulos JS)
         let app;
@@ -153,25 +156,34 @@
         let auth;
         let userId;
 
+        // TU OBJETO firebaseConfig DE LA CONSOLA DE FIREBASE
+        const firebaseConfig = {
+            apiKey: "AIzaSyBags4wEqc_v8GGsHoLBwStPf0FIJgT6hE",
+            authDomain: "admin-804f6.firebaseapp.com",
+            projectId: "admin-804f6",
+            storageBucket: "admin-804f6.firebasestorage.app",
+            messagingSenderId: "641744033630",
+            appId: "1:641744033630:web:7e61b41752b1882a6461cf",
+            measurementId: "G-DFL37S2NVX"
+        };
+
         // Función para inicializar Firebase y autenticar al usuario
         async function initializeFirebase() {
             try {
-                // Asegúrate de que __firebase_config esté disponible globalmente.
-                // Si no lo está (ej. en desarrollo local sin el entorno de Canvas), usa un valor por defecto.
-                const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
+                // No usamos __firebase_config aquí, sino la configuración pegada arriba
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
 
                 // Autenticación: intenta con el token personalizado si está disponible, de lo contrario, anónimamente.
-                if (typeof __initial_auth_token !== 'undefined') {
+                // La variable __initial_auth_token es del entorno de Canvas, no de GitHub Pages.
+                // Para GitHub Pages, nos autenticaremos anónimamente si no hay un sistema de login.
+                if (typeof __initial_auth_token !== 'undefined') { // Esto solo funciona en Canvas
                     await signInWithCustomToken(auth, __initial_auth_token);
-                    console.log('Firebase: Autenticado con token personalizado.');
-                } else {
+                    console.log('Firebase: Autenticado con token personalizado (Entorno Canvas).');
+                } else { // Esto es lo que se ejecutará en GitHub Pages
                     await signInAnonymously(auth);
-                    console.log('Firebase: Autenticado anónimamente.');
+                    console.log('Firebase: Autenticado anónimamente (GitHub Pages o desarrollo local).');
                 }
 
                 // Obtener el ID del usuario actual
@@ -183,7 +195,8 @@
                 window.firebaseDb = db;
                 window.firebaseAuth = auth;
                 window.currentUserId = userId;
-                window.currentAppId = appId; // También exportamos el appId
+                // Para GitHub Pages, el appId del proyecto Firebase es el mismo que el projectId en la config
+                window.currentAppId = firebaseConfig.projectId;
 
                 console.log('Firebase inicializado y autenticado con éxito.');
 
@@ -197,3 +210,4 @@
     </script>
 </body>
 </html>
+
