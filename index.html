@@ -140,5 +140,60 @@
             });
         }
     </script>
+
+    <!-- Importa las librerías de Firebase -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Variables globales para Firebase (serán accesibles en otros módulos JS)
+        let app;
+        let db;
+        let auth;
+        let userId;
+
+        // Función para inicializar Firebase y autenticar al usuario
+        async function initializeFirebase() {
+            try {
+                // Asegúrate de que __firebase_config esté disponible globalmente.
+                // Si no lo está (ej. en desarrollo local sin el entorno de Canvas), usa un valor por defecto.
+                const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Autenticación: intenta con el token personalizado si está disponible, de lo contrario, anónimamente.
+                if (typeof __initial_auth_token !== 'undefined') {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                    console.log('Firebase: Autenticado con token personalizado.');
+                } else {
+                    await signInAnonymously(auth);
+                    console.log('Firebase: Autenticado anónimamente.');
+                }
+
+                // Obtener el ID del usuario actual
+                userId = auth.currentUser?.uid || crypto.randomUUID();
+                console.log('Firebase: User ID:', userId);
+
+                // Exportar las instancias de Firebase y userId para que otros módulos puedan usarlas
+                window.firebaseApp = app;
+                window.firebaseDb = db;
+                window.firebaseAuth = auth;
+                window.currentUserId = userId;
+                window.currentAppId = appId; // También exportamos el appId
+
+                console.log('Firebase inicializado y autenticado con éxito.');
+
+            } catch (error) {
+                console.error('Error al inicializar Firebase o autenticar:', error);
+            }
+        }
+
+        // Llama a la función de inicialización cuando la ventana esté cargada
+        window.addEventListener('load', initializeFirebase);
+    </script>
 </body>
 </html>
