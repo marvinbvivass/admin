@@ -49,47 +49,47 @@ export async function renderPreciosSection(container) {
             <h2 class="text-4xl font-bold text-gray-900 mb-6 text-center">Gestión de Precios</h2>
 
             <!-- Controles de filtro y valores de conversión -->
-            <div class="mb-6 p-4 bg-gray-50 rounded-lg shadow-inner grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+            <div class="mb-4 p-3 bg-gray-50 rounded-lg shadow-inner grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 items-end">
                 <div>
-                    <label for="filter-rubro" class="block text-sm font-medium text-gray-700 mb-1">Filtrar por Rubro:</label>
-                    <select id="filter-rubro" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+                    <label for="filter-rubro" class="block text-sm font-medium text-gray-700 mb-0.5">Filtrar por Rubro:</label>
+                    <select id="filter-rubro" class="w-full p-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
                         <option value="">Todos los Rubros</option>
                         <!-- Opciones de rubro se cargarán dinámicamente -->
                     </select>
                 </div>
                 <div>
-                    <label for="filter-segmento" class="block text-sm font-medium text-gray-700 mb-1">Filtrar por Segmento:</label>
-                    <select id="filter-segmento" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+                    <label for="filter-segmento" class="block text-sm font-medium text-gray-700 mb-0.5">Filtrar por Segmento:</label>
+                    <select id="filter-segmento" class="w-full p-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
                         <option value="">Todos los Segmentos</option>
                         <!-- Opciones de segmento se cargarán dinámicamente -->
                     </select>
                 </div>
                 <div>
-                    <label for="input-cop" class="block text-sm font-medium text-gray-700 mb-1">Valor COP:</label>
-                    <input type="number" step="0.01" id="input-cop" placeholder="Ej: 4000" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+                    <label for="input-cop" class="block text-sm font-medium text-gray-700 mb-0.5">Valor COP:</label>
+                    <input type="number" step="0.01" id="input-cop" placeholder="Ej: 4000" class="w-full p-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
                 </div>
                 <div>
-                    <label for="input-bs" class="block text-sm font-medium text-gray-700 mb-1">Valor BS:</label>
-                    <input type="number" step="0.01" id="input-bs" placeholder="Ej: 36" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+                    <label for="input-bs" class="block text-sm font-medium text-gray-700 mb-0.5">Valor BS:</label>
+                    <input type="number" step="0.01" id="input-bs" placeholder="Ej: 36" class="w-full p-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
                 </div>
             </div>
 
             <!-- Tabla de productos y precios -->
-            <div class="bg-white p-2 rounded-md border border-gray-200 max-h-96 overflow-y-auto shadow-md">
+            <div class="bg-white p-1 rounded-md border border-gray-200 max-h-96 overflow-y-auto shadow-md">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50 sticky top-0">
                         <tr>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rubro</th>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Segmento</th>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pres.</th>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio Original</th>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio COP</th>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio BS</th>
+                            <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rubro</th>
+                            <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Segmento</th>
+                            <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pres.</th>
+                            <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio Original</th>
+                            <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio COP</th>
+                            <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio BS</th>
                         </tr>
                     </thead>
                     <tbody id="precios-table-body" class="bg-white divide-y divide-gray-200">
                         <!-- Filas de productos se cargarán aquí -->
-                        <tr><td colspan="6" class="px-4 py-2 whitespace-nowrap text-xs text-gray-500 text-center">Cargando productos...</td></tr>
+                        <tr><td colspan="6" class="px-2 py-1 whitespace-nowrap text-xs text-gray-500 text-center">Cargando productos...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -160,7 +160,7 @@ export async function renderPreciosSection(container) {
         preciosTableBody.innerHTML = ''; // Limpiar tabla
 
         if (productsToRender.length === 0) {
-            preciosTableBody.innerHTML = `<tr><td colspan="6" class="px-4 py-2 whitespace-nowrap text-xs text-gray-500 text-center">No hay productos que coincidan con los filtros.</td></tr>`;
+            preciosTableBody.innerHTML = `<tr><td colspan="6" class="px-2 py-1 whitespace-nowrap text-xs text-gray-500 text-center">No hay productos que coincidan con los filtros.</td></tr>`;
             return;
         }
 
@@ -171,12 +171,12 @@ export async function renderPreciosSection(container) {
             const row = document.createElement('tr');
             row.className = 'hover:bg-gray-100'; // Efecto hover para las filas
             row.innerHTML = `
-                <td class="px-4 py-2 whitespace-nowrap text-xs font-medium text-gray-900">${producto.Rubro || 'N/A'}</td>
-                <td class="px-4 py-2 whitespace-nowrap text-xs text-gray-500">${producto.Segmento || 'N/A'}</td>
-                <td class="px-4 py-2 whitespace-nowrap text-xs text-gray-500">${producto.Presentacion || 'N/A'}</td>
-                <td class="px-4 py-2 whitespace-nowrap text-xs text-gray-500">$${(producto.Precio || 0).toFixed(2)}</td>
-                <td class="px-4 py-2 whitespace-nowrap text-xs text-gray-500">COP ${precioCop}</td>
-                <td class="px-4 py-2 whitespace-nowrap text-xs text-gray-500">BS ${precioBs}</td>
+                <td class="px-2 py-1 whitespace-nowrap text-xs font-medium text-gray-900">${producto.Rubro || 'N/A'}</td>
+                <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${producto.Segmento || 'N/A'}</td>
+                <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${producto.Presentacion || 'N/A'}</td>
+                <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">$${(producto.Precio || 0).toFixed(2)}</td>
+                <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">COP ${precioCop}</td>
+                <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">BS ${precioBs}</td>
             `;
             preciosTableBody.appendChild(row);
         });
@@ -203,3 +203,4 @@ export async function renderPreciosSection(container) {
     // Cargar productos y filtros al inicializar la sección
     loadProductsAndFilters();
 }
+
