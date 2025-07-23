@@ -36,8 +36,8 @@ const firebaseConfigLocal = {
 };
 
 // USER ID DE PRUEBA (SOLO PARA DESARROLLO LOCAL/GITHUB PAGES SI NO HAY AUTENTICACIÓN REAL)
-// EN UN ENTORNO DE PRODUCCIÓN, EL userId DEBE PROVENIR DEL USUARIO AUTENTICADO POR FIREBASE.
-const TEST_USER_ID = "hiKJDsYSD2U4gj71q8GQStr2Rhb2"; // <--- REEMPLAZA CON UN USER ID VÁLIDO DE TU FIREBASE SI LO NECESITAS PARA PRUEBAS
+// ESTE ES EL ID QUE ME PROPORCIONASTE.
+const TEST_USER_ID = "hiKJDsYSD2U4gj71q8GQStr2Rhb2"; // <--- TU USER ID DE FIREBASE
 
 // Función de inicialización de Firebase
 async function initializeFirebase() {
@@ -61,16 +61,23 @@ async function initializeFirebase() {
         } else {
             await signInAnonymously(window.firebaseAuth);
             console.log('Firebase: Autenticado anónimamente (GitHub Pages o desarrollo local).');
-            // Si la autenticación anónima genera un nuevo UID, lo usamos.
-            // Si necesitas un UID fijo para pruebas fuera de Canvas, puedes forzarlo aquí:
-            // window.currentUserId = TEST_USER_ID;
-            // console.warn('ADVERTENCIA: Usando un USER ID de prueba fijo para depuración. ¡Remueve esto en producción!');
+            // Forzamos el User ID de prueba aquí para que cargue tus datos existentes
+            window.currentUserId = TEST_USER_ID;
+            console.warn('ADVERTENCIA: Usando un USER ID de prueba fijo para depuración. ¡Remueve esto en producción si usas autenticación real!');
         }
 
         // Observar cambios en el estado de autenticación para obtener el UID
         onAuthStateChanged(window.firebaseAuth, (user) => {
             if (user) {
-                window.currentUserId = user.uid;
+                // Si estamos en Canvas y el token funciona, este UID es el correcto.
+                // Si estamos fuera de Canvas y forzamos TEST_USER_ID, este callback puede sobrescribirlo
+                // si el usuario anónimo es diferente. Por eso, el forzado se hace después.
+                if (typeof __initial_auth_token === 'undefined' || __initial_auth_token === '') {
+                    // Si no estamos en Canvas, mantenemos el TEST_USER_ID forzado.
+                    window.currentUserId = TEST_USER_ID;
+                } else {
+                    window.currentUserId = user.uid; // En Canvas, usamos el UID real.
+                }
                 console.log('Firebase: User ID activo:', window.currentUserId);
             } else {
                 window.currentUserId = null;
@@ -202,3 +209,4 @@ async function renderApp() {
 
 // Iniciar la aplicación cuando el DOM esté completamente cargado
 document.addEventListener('DOMContentLoaded', renderApp);
+
