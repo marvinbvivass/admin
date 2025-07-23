@@ -239,11 +239,8 @@ export async function renderClientesSection(container) {
                 Observaciones: container.querySelector('#add-observaciones').value
             };
 
-            // Validación básica
-            if (!cliente.CEP || !cliente.NombreComercial || !cliente.NombrePersonal || !cliente.Zona || !cliente.Sector || !cliente.Tlf) {
-                alert('Por favor, completa todos los campos obligatorios (CEP, Nombre Comercial, Nombre Personal, Zona, Sector, Teléfono).');
-                return;
-            }
+            // No se realiza validación estricta aquí para permitir campos vacíos.
+            // Los campos vacíos se guardarán como cadenas vacías.
 
             const id = await agregarCliente(cliente);
             if (id) {
