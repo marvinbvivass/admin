@@ -3,15 +3,11 @@
 // utilizando Firebase Firestore, y también se encarga de renderizar su interfaz de usuario.
 
 // Importa las funciones necesarias de Firebase Firestore.
-import { collection, addDoc, doc, updateDoc, deleteDoc, getDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { collection, addDoc, doc, updateDoc, deleteDoc, getDoc, getDocs, query, where, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-// Mapa de Rubros y Segmentos para las listas desplegables
-const rubroSegmentoMap = {
-    "Cerveceria": ["Cerveza", "Malta"],
-    "P&M": ["PEP"],
-    "Alimentos": ["Harina", "Pasta"],
-    "P&G": ["Shampoo", "Jabon en polvo"]
-};
+// Variable para almacenar el mapa de rubros a segmentos, cargado desde Firebase
+let rubroSegmentoMap = {};
+const RUBRO_SEGMENTO_CONFIG_DOC_ID = 'rubrosSegmentos'; // ID fijo para el documento de configuración
 
 // Función auxiliar para obtener la instancia de Firestore y el ID de usuario/appId
 // Esto asegura que las variables globales de Firebase estén disponibles antes de usarlas.
@@ -27,6 +23,57 @@ async function getFirestoreInstances() {
         appId: window.currentAppId
     };
 }
+
+/**
+ * Obtiene la configuración de rubros y segmentos desde Firebase.
+ * @returns {Promise<object>} El mapa de rubros a segmentos.
+ */
+async function obtenerConfiguracionRubrosSegmentos() {
+    try {
+        const { db, appId } = await getFirestoreInstances();
+        // Las configuraciones pueden ser públicas o por usuario, dependiendo del caso de uso.
+        // Para este ejemplo, la guardaremos bajo el appId en una colección 'configuracion'.
+        const configDocRef = doc(db, `artifacts/${appId}/configuracion`, RUBRO_SEGMENTO_CONFIG_DOC_ID);
+        const configSnap = await getDoc(configDocRef);
+
+        if (configSnap.exists()) {
+            console.log('Configuración de rubros y segmentos obtenida:', configSnap.data().mapa);
+            return configSnap.data().mapa || {};
+        } else {
+            console.log('No se encontró configuración de rubros y segmentos. Usando mapa predeterminado.');
+            // Si no existe, inicializa con un mapa predeterminado o vacío
+            return {
+                "Cerveceria": ["Cerveza", "Malta"],
+                "P&M": ["PEP"],
+                "Alimentos": ["Harina", "Pasta"],
+                "P&G": ["Shampoo", "Jabon en polvo"]
+            };
+        }
+    } catch (error) {
+        console.error('Error al obtener configuración de rubros y segmentos:', error);
+        return {};
+    }
+}
+
+/**
+ * Guarda la configuración de rubros y segmentos en Firebase.
+ * @param {object} newMap - El nuevo mapa de rubros a segmentos a guardar.
+ * @returns {Promise<boolean>} True si se guardó con éxito, false en caso contrario.
+ */
+async function guardarConfiguracionRubrosSegmentos(newMap) {
+    try {
+        const { db, appId } = await getFirestoreInstances();
+        const configDocRef = doc(db, `artifacts/${appId}/configuracion`, RUBRO_SEGMENTO_CONFIG_DOC_ID);
+        await setDoc(configDocRef, { mapa: newMap }); // Usa setDoc para sobrescribir o crear
+        console.log('Configuración de rubros y segmentos guardada con éxito.');
+        rubroSegmentoMap = newMap; // Actualiza la variable global
+        return true;
+    } catch (error) {
+        console.error('Error al guardar configuración de rubros y segmentos:', error);
+        return false;
+    }
+}
+
 
 /**
  * Agrega un nuevo producto al inventario en Firestore.
@@ -158,8 +205,11 @@ export async function renderInventarioSection(container) {
                 <button id="btn-show-search-producto" class="bg-gray-600 text-white p-4 rounded-md font-semibold hover:bg-gray-700 transition duration-200">
                     Buscar Producto
                 </button>
-                <button id="btn-show-full-inventario" class="bg-purple-600 text-white p-4 rounded-md font-semibold hover:bg-purple-700 transition duration-200 col-span-full">
+                <button id="btn-show-full-inventario" class="bg-purple-600 text-white p-4 rounded-md font-semibold hover:bg-purple-700 transition duration-200">
                     Ver Inventario Completo
+                </button>
+                <button id="btn-show-manage-rubros-segmentos" class="bg-teal-600 text-white p-4 rounded-md font-semibold hover:bg-teal-700 transition duration-200 col-span-full">
+                    Gestionar Rubros y Segmentos
                 </button>
             </div>
 
@@ -181,6 +231,9 @@ export async function renderInventarioSection(container) {
     const inventarioMainButtonsContainer = container.querySelector('#inventario-main-buttons-container');
     const inventarioSubSection = container.querySelector('#inventario-sub-section');
     const closeInventarioModalBtn = container.querySelector('#close-inventario-modal');
+
+    // Cargar el mapa de rubros y segmentos al inicio de la sección de inventario
+    rubroSegmentoMap = await obtenerConfiguracionRubrosSegmentos();
 
     // Función para mostrar los botones principales y limpiar la sub-sección
     const showInventarioMainButtons = () => {
@@ -285,7 +338,7 @@ export async function renderInventarioSection(container) {
         inventarioSubSection.innerHTML = `
             <div class="p-6 bg-yellow-50 rounded-lg shadow-inner">
                 <h3 class="text-2xl font-semibold text-yellow-800 mb-4">Modificar o Eliminar Producto</h3>
-                <input type="hidden" id="mod-del-producto-id" value="${productData ? productData.id : ''}"> <!-- CAMBIO AQUÍ: type="hidden" -->
+                <input type="hidden" id="mod-del-producto-id" value="${productData ? productData.id : ''}">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <select id="mod-rubro" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
                         <option value="">Nuevo Rubro (opcional)</option>
@@ -492,6 +545,12 @@ export async function renderInventarioSection(container) {
         container.querySelector('#btn-back-full-inventario').addEventListener('click', showInventarioMainButtons);
     });
 
+    // Nueva lógica para mostrar la sección de gestionar rubros y segmentos
+    container.querySelector('#btn-show-manage-rubros-segmentos').addEventListener('click', async () => {
+        inventarioMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
+        await renderGestionarRubrosSegmentosForm(); // Llama a la nueva función para gestionar rubros/segmentos
+    });
+
     /**
      * Función auxiliar para renderizar la lista de productos.
      * @param {Array<object>} productos - Array de objetos de producto.
@@ -511,7 +570,7 @@ export async function renderInventarioSection(container) {
             li.className = 'py-2 flex flex-col sm:flex-row justify-between items-start sm:items-center';
             li.innerHTML = `
                 <div>
-                    <p class="font-semibold">${producto.Producto || 'N/A'} (${producto.Presentacion || 'N/A'}) - SKU: ${producto.Sku || 'N/A'}</p> <!-- CAMBIO AQUÍ: Eliminado (ID: ${producto.id || 'N/A'}) -->
+                    <p class="font-semibold">${producto.Producto || 'N/A'} (${producto.Presentacion || 'N/A'}) - SKU: ${producto.Sku || 'N/A'}</p>
                     <p class="text-sm text-gray-600">Rubro: ${producto.Rubro || 'N/A'} | Segmento: ${producto.Segmento || 'N/A'}</p>
                     <p class="text-sm text-gray-600">Cantidad: ${producto.Cantidad || 0} | Precio: $${(producto.Precio || 0).toFixed(2)}</p>
                 </div>
@@ -533,6 +592,251 @@ export async function renderInventarioSection(container) {
                 });
             });
         }
+    }
+
+    // --- Funciones para gestionar Rubros y Segmentos (Nuevas) ---
+
+    // Función principal para el menú de gestión de Rubros y Segmentos
+    async function renderGestionarRubrosSegmentosForm() {
+        inventarioSubSection.innerHTML = `
+            <div class="p-6 bg-teal-50 rounded-lg shadow-inner">
+                <h3 class="text-2xl font-semibold text-teal-800 mb-4">Gestionar Rubros y Segmentos</h3>
+
+                <div id="rubros-segmentos-management-buttons" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <button id="btn-add-rubro-segmento" class="bg-blue-600 text-white p-4 rounded-md font-semibold hover:bg-blue-700 transition duration-200">
+                        Añadir Rubro o Segmento
+                    </button>
+                    <button id="btn-modify-delete-rubro-segmento" class="bg-yellow-600 text-white p-4 rounded-md font-semibold hover:bg-yellow-700 transition duration-200">
+                        Modificar o Eliminar Rubro o Segmento
+                    </button>
+                </div>
+
+                <div id="rubros-segmentos-sub-section">
+                    <!-- El contenido de añadir o modificar/eliminar se cargará aquí -->
+                </div>
+
+                <button id="btn-back-from-rubros-segmentos-management" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
+                    Volver al Menú Principal de Inventario
+                </button>
+            </div>
+        `;
+
+        const rubrosSegmentosSubSection = inventarioSubSection.querySelector('#rubros-segmentos-sub-section');
+        const btnBack = inventarioSubSection.querySelector('#btn-back-from-rubros-segmentos-management');
+        const btnAdd = inventarioSubSection.querySelector('#btn-add-rubro-segmento');
+        const btnModifyDelete = inventarioSubSection.querySelector('#btn-modify-delete-rubro-segmento');
+
+        // Función para mostrar los botones principales de gestión de rubros/segmentos
+        const showRubrosSegmentosMainButtons = () => {
+            rubrosSegmentosSubSection.innerHTML = ''; // Limpiar el contenido de la sub-sección
+            inventarioSubSection.querySelector('#rubros-segmentos-management-buttons').classList.remove('hidden'); // Mostrar los botones principales
+        };
+
+        // Event Listeners para los botones del menú de gestión de rubros/segmentos
+        btnAdd.addEventListener('click', () => {
+            inventarioSubSection.querySelector('#rubros-segmentos-management-buttons').classList.add('hidden'); // Oculta los botones del menú
+            renderAddRubroSegmentoForm(rubrosSegmentosSubSection, showRubrosSegmentosMainButtons);
+        });
+        btnModifyDelete.addEventListener('click', () => {
+            inventarioSubSection.querySelector('#rubros-segmentos-management-buttons').classList.add('hidden'); // Oculta los botones del menú
+            renderModifyDeleteRubroSegmentoForm(rubrosSegmentosSubSection, showRubrosSegmentosMainButtons);
+        });
+        btnBack.addEventListener('click', showInventarioMainButtons); // Vuelve al menú principal de inventario
+    }
+
+    // Función para renderizar el formulario de añadir Rubro o Segmento
+    async function renderAddRubroSegmentoForm(parentContainer, backToMainMenuCallback) {
+        parentContainer.innerHTML = `
+            <div class="p-4 bg-blue-50 rounded-lg shadow-inner">
+                <h4 class="text-xl font-semibold text-blue-800 mb-3">Añadir Rubro o Segmento</h4>
+
+                <div class="mb-4">
+                    <label for="add-new-rubro-input" class="block text-sm font-medium text-gray-700 mb-1">Añadir Nuevo Rubro:</label>
+                    <input type="text" id="add-new-rubro-input" placeholder="Nombre del nuevo Rubro" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <button id="btn-add-new-rubro" class="mt-2 w-full bg-blue-600 text-white p-2 rounded-md font-semibold hover:bg-blue-700 transition duration-200">
+                        Añadir Rubro
+                    </button>
+                </div>
+
+                <div class="mb-4">
+                    <label for="select-rubro-for-segmento" class="block text-sm font-medium text-gray-700 mb-1">Seleccionar Rubro para Añadir Segmento:</label>
+                    <select id="select-rubro-for-segmento" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">-- Selecciona un Rubro --</option>
+                        ${Object.keys(rubroSegmentoMap).map(rubro => `<option value="${rubro}">${rubro}</option>`).join('')}
+                    </select>
+                    <input type="text" id="add-new-segmento-input" placeholder="Nombre del nuevo Segmento" class="mt-2 w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" disabled>
+                    <button id="btn-add-new-segmento" class="mt-2 w-full bg-blue-600 text-white p-2 rounded-md font-semibold hover:bg-blue-700 transition duration-200" disabled>
+                        Añadir Segmento
+                    </button>
+                </div>
+
+                <button id="btn-back-from-add-form" class="mt-4 w-full bg-gray-400 text-white p-2 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
+                    Volver
+                </button>
+            </div>
+        `;
+
+        const addNewRubroInput = parentContainer.querySelector('#add-new-rubro-input');
+        const btnAddNewRubro = parentContainer.querySelector('#btn-add-new-rubro');
+        const selectRubroForSegmento = parentContainer.querySelector('#select-rubro-for-segmento');
+        const addNewSegmentoInput = parentContainer.querySelector('#add-new-segmento-input');
+        const btnAddNewSegmento = parentContainer.querySelector('#btn-add-new-segmento');
+        const btnBack = parentContainer.querySelector('#btn-back-from-add-form');
+
+        // Lógica para añadir nuevo rubro
+        btnAddNewRubro.addEventListener('click', async () => {
+            const newRubro = addNewRubroInput.value.trim();
+            if (newRubro && !rubroSegmentoMap[newRubro]) {
+                rubroSegmentoMap[newRubro] = [];
+                if (await guardarConfiguracionRubrosSegmentos(rubroSegmentoMap)) {
+                    alert(`Rubro "${newRubro}" añadido.`);
+                    addNewRubroInput.value = '';
+                    // Re-poblar el select de rubros para segmentos
+                    selectRubroForSegmento.innerHTML = `<option value="">-- Selecciona un Rubro --</option>` + Object.keys(rubroSegmentoMap).map(rubro => `<option value="${rubro}">${rubro}</option>`).join('');
+                } else {
+                    alert('Fallo al añadir rubro.');
+                }
+            } else if (rubroSegmentoMap[newRubro]) {
+                alert(`El rubro "${newRubro}" ya existe.`);
+            } else {
+                alert('Por favor, ingresa un nombre para el nuevo rubro.');
+            }
+        });
+
+        // Habilitar/deshabilitar input de segmento basado en la selección de rubro
+        selectRubroForSegmento.addEventListener('change', () => {
+            const selectedRubro = selectRubroForSegmento.value;
+            if (selectedRubro) {
+                addNewSegmentoInput.disabled = false;
+                btnAddNewSegmento.disabled = false;
+            } else {
+                addNewSegmentoInput.disabled = true;
+                btnAddNewSegmento.disabled = true;
+            }
+        });
+
+        // Lógica para añadir nuevo segmento
+        btnAddNewSegmento.addEventListener('click', async () => {
+            const selectedRubro = selectRubroForSegmento.value;
+            const newSegmento = addNewSegmentoInput.value.trim();
+            if (selectedRubro && newSegmento && !rubroSegmentoMap[selectedRubro].includes(newSegmento)) {
+                rubroSegmentoMap[selectedRubro].push(newSegmento);
+                if (await guardarConfiguracionRubrosSegmentos(rubroSegmentoMap)) {
+                    alert(`Segmento "${newSegmento}" añadido a "${selectedRubro}".`);
+                    addNewSegmentoInput.value = '';
+                } else {
+                    alert('Fallo al añadir segmento.');
+                }
+            } else if (rubroSegmentoMap[selectedRubro].includes(newSegmento)) {
+                alert(`El segmento "${newSegmento}" ya existe en "${selectedRubro}".`);
+            } else {
+                alert('Por favor, selecciona un rubro e ingresa un nombre para el nuevo segmento.');
+            }
+        });
+
+        btnBack.addEventListener('click', backToMainMenuCallback);
+    }
+
+    // Función para renderizar el formulario de modificar/eliminar Rubro o Segmento
+    async function renderModifyDeleteRubroSegmentoForm(parentContainer, backToMainMenuCallback) {
+        parentContainer.innerHTML = `
+            <div class="p-4 bg-yellow-50 rounded-lg shadow-inner">
+                <h4 class="text-xl font-semibold text-yellow-800 mb-3">Modificar o Eliminar Rubro o Segmento</h4>
+
+                <input type="text" id="search-rubro-segmento-input" placeholder="Buscar Rubro o Segmento..." class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 mb-4">
+
+                <div id="rubro-segmento-list-container" class="max-h-60 overflow-y-auto bg-white p-3 rounded-md border border-gray-200">
+                    <!-- Rubros y segmentos se cargarán aquí -->
+                    <p class="text-gray-500">Cargando rubros y segmentos...</p>
+                </div>
+
+                <button id="btn-back-from-modify-delete-form" class="mt-4 w-full bg-gray-400 text-white p-2 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
+                    Volver
+                </button>
+            </div>
+        `;
+
+        const searchInput = parentContainer.querySelector('#search-rubro-segmento-input');
+        const listContainer = parentContainer.querySelector('#rubro-segmento-list-container');
+        const btnBack = parentContainer.querySelector('#btn-back-from-modify-delete-form');
+
+        // Función interna para renderizar la lista de rubros y segmentos con opciones de eliminar
+        const renderList = (filteredMap) => {
+            listContainer.innerHTML = '';
+            if (Object.keys(filteredMap).length === 0) {
+                listContainer.innerHTML = '<p class="text-gray-500">No hay resultados.</p>';
+                return;
+            }
+
+            for (const rubro in filteredMap) {
+                const rubroDiv = document.createElement('div');
+                rubroDiv.className = 'mb-4 p-3 border border-gray-300 rounded-md bg-gray-50';
+                rubroDiv.innerHTML = `
+                    <div class="flex justify-between items-center mb-2">
+                        <h5 class="font-bold text-lg text-gray-800">${rubro}</h5>
+                        <button class="bg-red-500 text-white px-3 py-1 rounded-md text-sm hover:bg-red-600 delete-rubro-btn" data-rubro="${rubro}">Eliminar Rubro</button>
+                    </div>
+                    <ul class="list-disc pl-5 text-gray-700">
+                        ${filteredMap[rubro].map(segmento => `
+                            <li class="flex justify-between items-center py-1">
+                                <span>${segmento}</span>
+                                <button class="bg-red-400 text-white px-2 py-0.5 rounded-md text-xs hover:bg-red-500 delete-segmento-btn" data-rubro="${rubro}" data-segmento="${segmento}">Eliminar</button>
+                            </li>
+                        `).join('')}
+                    </ul>
+                `;
+                listContainer.appendChild(rubroDiv);
+            }
+
+            // Añadir event listeners para eliminar rubros
+            listContainer.querySelectorAll('.delete-rubro-btn').forEach(button => {
+                button.addEventListener('click', async (event) => {
+                    const rubroToDelete = event.target.dataset.rubro;
+                    if (confirm(`¿Estás seguro de que quieres eliminar el rubro "${rubroToDelete}" y todos sus segmentos?`)) {
+                        delete rubroSegmentoMap[rubroToDelete];
+                        await guardarConfiguracionRubrosSegmentos(rubroSegmentoMap);
+                        renderList(rubroSegmentoMap); // Re-renderizar la lista con el mapa actualizado
+                        alert(`Rubro "${rubroToDelete}" eliminado.`);
+                    }
+                });
+            });
+
+            // Añadir event listeners para eliminar segmentos
+            listContainer.querySelectorAll('.delete-segmento-btn').forEach(button => {
+                button.addEventListener('click', async (event) => {
+                    const rubro = event.target.dataset.rubro;
+                    const segmentoToDelete = event.target.dataset.segmento;
+                    if (confirm(`¿Estás seguro de que quieres eliminar el segmento "${segmentoToDelete}" de "${rubro}"?`)) {
+                        rubroSegmentoMap[rubro] = rubroSegmentoMap[rubro].filter(s => s !== segmentoToDelete);
+                        await guardarConfiguracionRubrosSegmentos(rubroSegmentoMap);
+                        renderList(rubroSegmentoMap); // Re-renderizar la lista con el mapa actualizado
+                        alert(`Segmento "${segmentoToDelete}" eliminado de "${rubro}".`);
+                    }
+                });
+            });
+        };
+
+        // Renderizado inicial
+        renderList(rubroSegmentoMap);
+
+        // Funcionalidad de búsqueda
+        searchInput.addEventListener('input', () => {
+            const searchTerm = searchInput.value.toLowerCase();
+            const filteredMap = {};
+            for (const rubro in rubroSegmentoMap) {
+                if (rubro.toLowerCase().includes(searchTerm)) {
+                    filteredMap[rubro] = rubroSegmentoMap[rubro];
+                } else {
+                    const matchingSegmentos = rubroSegmentoMap[rubro].filter(segmento => segmento.toLowerCase().includes(searchTerm));
+                    if (matchingSegmentos.length > 0) {
+                        filteredMap[rubro] = matchingSegmentos;
+                    }
+                }
+            }
+            renderList(filteredMap);
+        });
+
+        btnBack.addEventListener('click', backToMainMenuCallback);
     }
 }
 
