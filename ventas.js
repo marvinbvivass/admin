@@ -121,10 +121,24 @@ export async function renderVentasSection(container) {
         await renderCierreVentaDiariaSection(ventasSubSection, showVentasMainButtons);
     });
 
-    // --- Funciones para Realizar Venta ---
+    // --- Funciones para Realizar Venta (Modificadas) ---
     async function renderRealizarVentaForm(parentContainer, backToMainMenuCallback) {
         let selectedClient = null;
-        let cart = []; // Array para almacenar productos en el carrito
+        let allClients = await obtenerTodosLosClientes();
+        let allProducts = await verInventarioCompleto();
+        let rubroSegmentoMap = {}; // Se cargará si es necesario para el filtro de rubro
+
+        // Obtener la configuración de rubros y segmentos (similar a inventario.js)
+        try {
+            const { db, appId } = await getFirestoreInstances();
+            const configDocRef = doc(db, `artifacts/${appId}/configuracion`, 'rubrosSegmentos');
+            const configSnap = await getDoc(configDocRef);
+            if (configSnap.exists()) {
+                rubroSegmentoMap = configSnap.data().mapa || {};
+            }
+        } catch (error) {
+            console.error('Error al obtener configuración de rubros y segmentos para ventas:', error);
+        }
 
         parentContainer.innerHTML = `
             <div class="p-6 bg-blue-50 rounded-lg shadow-inner">
@@ -140,44 +154,35 @@ export async function renderVentasSection(container) {
                     <p id="selected-client-display" class="font-medium text-gray-800">Cliente Seleccionado: Ninguno</p>
                 </div>
 
-                <!-- Añadir Productos a la Venta -->
-                <div class="mb-6 p-4 border border-blue-200 rounded-md">
-                    <h4 class="text-xl font-semibold text-blue-700 mb-3">2. Añadir Productos</h4>
-                    <input type="text" id="search-producto-venta-input" placeholder="Buscar producto por SKU o nombre" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3">
-                    <div id="productos-venta-list" class="bg-white p-3 rounded-md border border-gray-200 max-h-40 overflow-y-auto mb-3">
-                        <p class="text-gray-500">Busque un producto para añadirlo al carrito.</p>
+                <!-- Tabla de Productos para Venta -->
+                <div class="mb-6 p-4 border border-blue-200 rounded-md" id="productos-para-venta-section">
+                    <h4 class="text-xl font-semibold text-blue-700 mb-3">2. Productos Disponibles</h4>
+                    <div class="mb-3">
+                        <label for="filter-rubro-venta" class="block text-sm font-medium text-gray-700 mb-1">Filtrar por Rubro:</label>
+                        <select id="filter-rubro-venta" class="w-full p-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Todos los Rubros</option>
+                            ${Object.keys(rubroSegmentoMap).map(rubro => `<option value="${rubro}">${rubro}</option>`).join('')}
+                        </select>
                     </div>
-                    <div class="flex items-center gap-2 mt-3">
-                        <input type="number" id="cantidad-producto-input" placeholder="Cantidad" class="w-24 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <button id="btn-add-to-cart" class="bg-blue-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-600 transition duration-200" disabled>
-                            Añadir al Carrito
-                        </button>
+                    <div class="bg-white p-1 rounded-md border border-gray-200 max-h-96 overflow-y-auto shadow-md">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50 sticky top-0">
+                                <tr>
+                                    <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
+                                    <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Producto</th>
+                                    <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Presentación</th>
+                                    <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio ($)</th>
+                                    <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
+                                    <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad</th>
+                                    <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="productos-venta-table-body" class="bg-white divide-y divide-gray-200">
+                                <!-- Filas de productos se cargarán aquí -->
+                                <tr><td colspan="7" class="px-2 py-1 whitespace-nowrap text-xs text-gray-500 text-center">Seleccione un cliente para ver los productos.</td></tr>
+                            </tbody>
+                        </table>
                     </div>
-                </div>
-
-                <!-- Carrito de Compras -->
-                <div class="mb-6 p-4 border border-blue-200 rounded-md">
-                    <h4 class="text-xl font-semibold text-blue-700 mb-3">3. Carrito de Compras</h4>
-                    <div id="cart-items-list" class="bg-white p-3 rounded-md border border-gray-200 max-h-40 overflow-y-auto mb-3">
-                        <p class="text-gray-500">El carrito está vacío.</p>
-                    </div>
-                    <p class="text-lg font-bold text-gray-900">Total Venta: $<span id="total-venta-display">0.00</span></p>
-                </div>
-
-                <!-- Detalles Finales de la Venta -->
-                <div class="mb-6 p-4 border border-blue-200 rounded-md">
-                    <h4 class="text-xl font-semibold text-blue-700 mb-3">4. Detalles y Confirmación</h4>
-                    <select id="metodo-pago-select" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3">
-                        <option value="">-- Selecciona Método de Pago --</option>
-                        <option value="Efectivo">Efectivo</option>
-                        <option value="Transferencia">Transferencia</option>
-                        <option value="Punto de Venta">Punto de Venta</option>
-                        <option value="Credito">Crédito</option>
-                    </select>
-                    <textarea id="observaciones-venta-input" placeholder="Observaciones de la venta (opcional)" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"></textarea>
-                    <button id="btn-confirmar-venta" class="w-full bg-green-600 text-white p-3 rounded-md font-semibold hover:bg-green-700 transition duration-200" disabled>
-                        Confirmar Venta
-                    </button>
                 </div>
 
                 <button id="btn-back-from-realizar-venta" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
@@ -190,23 +195,13 @@ export async function renderVentasSection(container) {
         const searchClienteInput = parentContainer.querySelector('#search-cliente-venta-input');
         const clientesVentaListDiv = parentContainer.querySelector('#clientes-venta-list');
         const selectedClientDisplay = parentContainer.querySelector('#selected-client-display');
-
-        const searchProductoInput = parentContainer.querySelector('#search-producto-venta-input');
-        const productosVentaListDiv = parentContainer.querySelector('#productos-venta-list');
-        const cantidadProductoInput = parentContainer.querySelector('#cantidad-producto-input');
-        const btnAddToCart = parentContainer.querySelector('#btn-add-to-cart');
-
-        const cartItemsListDiv = parentContainer.querySelector('#cart-items-list');
-        const totalVentaDisplay = parentContainer.querySelector('#total-venta-display');
-
-        const metodoPagoSelect = parentContainer.querySelector('#metodo-pago-select');
-        const observacionesVentaInput = parentContainer.querySelector('#observaciones-venta-input');
-        const btnConfirmarVenta = parentContainer.querySelector('#btn-confirmar-venta');
+        const productosParaVentaSection = parentContainer.querySelector('#productos-para-venta-section');
+        const filterRubroVentaSelect = parentContainer.querySelector('#filter-rubro-venta');
+        const productosVentaTableBody = parentContainer.querySelector('#productos-venta-table-body');
         const btnBack = parentContainer.querySelector('#btn-back-from-realizar-venta');
 
-        let allClients = await obtenerTodosLosClientes();
-        let allProducts = await verInventarioCompleto();
-        let selectedProductForCart = null;
+        // Inicialmente ocultar la sección de productos
+        productosParaVentaSection.classList.add('hidden');
 
         // --- Lógica de Selección de Cliente ---
         const renderClientList = (clientsToRender) => {
@@ -224,7 +219,8 @@ export async function renderVentasSection(container) {
                     selectedClientDisplay.textContent = `Cliente Seleccionado: ${client.NombreComercial} (${client.NombrePersonal})`;
                     clientesVentaListDiv.innerHTML = ''; // Limpiar lista después de seleccionar
                     searchClienteInput.value = ''; // Limpiar input de búsqueda
-                    checkConfirmButtonStatus();
+                    productosParaVentaSection.classList.remove('hidden'); // Mostrar la sección de productos
+                    renderProductTable(allProducts); // Renderizar todos los productos inicialmente
                 });
                 clientesVentaListDiv.appendChild(clientDiv);
             });
@@ -240,209 +236,113 @@ export async function renderVentasSection(container) {
             renderClientList(filteredClients);
         });
 
-        // --- Lógica de Selección de Producto y Carrito ---
-        const renderProductList = (productsToRender) => {
-            productosVentaListDiv.innerHTML = '';
+        // --- Lógica de Tabla de Productos y Venta Individual ---
+        const renderProductTable = (productsToRender) => {
+            productosVentaTableBody.innerHTML = ''; // Limpiar tabla
+
             if (productsToRender.length === 0) {
-                productosVentaListDiv.innerHTML = '<p class="text-gray-500">No se encontraron productos.</p>';
+                productosVentaTableBody.innerHTML = `<tr><td colspan="7" class="px-2 py-1 whitespace-nowrap text-xs text-gray-500 text-center">No hay productos disponibles.</td></tr>`;
                 return;
             }
+
             productsToRender.forEach(product => {
-                const productDiv = document.createElement('div');
-                productDiv.className = 'p-2 hover:bg-blue-100 cursor-pointer rounded-md';
-                productDiv.textContent = `${product.Producto} (${product.Presentacion}) - SKU: ${product.Sku} - Precio: $${(product.Precio || 0).toFixed(2)} - Stock: ${product.Cantidad}`;
-                productDiv.addEventListener('click', () => {
-                    selectedProductForCart = product;
-                    searchProductoInput.value = `${product.Producto} - ${product.Sku}`; // Muestra el producto seleccionado
-                    btnAddToCart.disabled = false; // Habilitar añadir al carrito
-                });
-                productosVentaListDiv.appendChild(productDiv);
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-100';
+                row.innerHTML = `
+                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-900">${product.Sku || 'N/A'}</td>
+                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${product.Producto || 'N/A'}</td>
+                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${product.Presentacion || 'N/A'}</td>
+                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">$${(product.Precio || 0).toFixed(2)}</td>
+                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${product.Cantidad || 0}</td>
+                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">
+                        <input type="number" min="1" value="1" class="w-20 p-1 border border-gray-300 rounded-md text-center quantity-input" data-product-id="${product.id}">
+                    </td>
+                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">
+                        <button class="bg-blue-500 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-600 transition duration-200 sell-product-btn" data-product-id="${product.id}">Vender</button>
+                    </td>
+                `;
+                productosVentaTableBody.appendChild(row);
             });
-        };
 
-        searchProductoInput.addEventListener('input', () => {
-            const searchTerm = searchProductoInput.value.toLowerCase();
-            const filteredProducts = allProducts.filter(product =>
-                (product.Sku && product.Sku.toLowerCase().includes(searchTerm)) ||
-                (product.Producto && product.Producto.toLowerCase().includes(searchTerm))
-            );
-            renderProductList(filteredProducts);
-        });
+            // Añadir event listeners para los botones de venta
+            productosVentaTableBody.querySelectorAll('.sell-product-btn').forEach(button => {
+                button.addEventListener('click', async (event) => {
+                    const productId = event.target.dataset.productId;
+                    const quantityInput = productosVentaTableBody.querySelector(`.quantity-input[data-product-id="${productId}"]`);
+                    const cantidad = parseInt(quantityInput.value);
 
-        btnAddToCart.addEventListener('click', () => {
-            const cantidad = parseInt(cantidadProductoInput.value);
-            if (!selectedProductForCart) {
-                alert('Por favor, seleccione un producto.');
-                return;
-            }
-            if (isNaN(cantidad) || cantidad <= 0) {
-                alert('Por favor, ingrese una cantidad válida.');
-                return;
-            }
-            if (cantidad > selectedProductForCart.Cantidad) {
-                alert(`No hay suficiente stock. Disponible: ${selectedProductForCart.Cantidad}`);
-                return;
-            }
+                    const productToSell = allProducts.find(p => p.id === productId);
 
-            // Verificar si el producto ya está en el carrito
-            const existingItemIndex = cart.findIndex(item => item.productId === selectedProductForCart.id);
-
-            if (existingItemIndex > -1) {
-                // Si ya existe, actualizar la cantidad
-                cart[existingItemIndex].cantidad += cantidad;
-                cart[existingItemIndex].subtotal = cart[existingItemIndex].cantidad * cart[existingItemIndex].precioUnitario;
-            } else {
-                // Si no existe, añadirlo como nuevo
-                cart.push({
-                    productId: selectedProductForCart.id,
-                    nombre: selectedProductForCart.Producto,
-                    presentacion: selectedProductForCart.Presentacion,
-                    sku: selectedProductForCart.Sku,
-                    cantidad: cantidad,
-                    precioUnitario: selectedProductForCart.Precio,
-                    subtotal: cantidad * selectedProductForCart.Precio
-                });
-            }
-
-            // Restar del stock "virtual" para la venta actual (no se guarda aún)
-            selectedProductForCart.Cantidad -= cantidad;
-
-            renderCart();
-            cantidadProductoInput.value = ''; // Limpiar cantidad
-            searchProductoInput.value = ''; // Limpiar búsqueda de producto
-            selectedProductForCart = null; // Resetear producto seleccionado
-            btnAddToCart.disabled = true; // Deshabilitar añadir al carrito
-            checkConfirmButtonStatus();
-        });
-
-        const renderCart = () => {
-            cartItemsListDiv.innerHTML = '';
-            let totalVenta = 0;
-
-            if (cart.length === 0) {
-                cartItemsListDiv.innerHTML = '<p class="text-gray-500">El carrito está vacío.</p>';
-            } else {
-                cart.forEach((item, index) => {
-                    const itemDiv = document.createElement('div');
-                    itemDiv.className = 'flex justify-between items-center p-1 border-b border-gray-100';
-                    itemDiv.innerHTML = `
-                        <span>${item.nombre} (${item.presentacion}) - ${item.cantidad} x $${item.precioUnitario.toFixed(2)}</span>
-                        <button class="bg-red-400 text-white px-2 py-0.5 rounded-md text-xs hover:bg-red-500 remove-from-cart-btn" data-index="${index}">Eliminar</button>
-                    `;
-                    cartItemsListDiv.appendChild(itemDiv);
-                    totalVenta += item.subtotal;
-                });
-            }
-            totalVentaDisplay.textContent = totalVenta.toFixed(2);
-            checkConfirmButtonStatus();
-
-            // Añadir event listeners para eliminar del carrito
-            cartItemsListDiv.querySelectorAll('.remove-from-cart-btn').forEach(button => {
-                button.addEventListener('click', (event) => {
-                    const indexToRemove = parseInt(event.target.dataset.index);
-                    const removedItem = cart.splice(indexToRemove, 1)[0];
-
-                    // Devolver la cantidad al stock "virtual" del producto original
-                    const originalProduct = allProducts.find(p => p.id === removedItem.productId);
-                    if (originalProduct) {
-                        originalProduct.Cantidad += removedItem.cantidad;
+                    if (!selectedClient) {
+                        alert('Por favor, seleccione un cliente primero.');
+                        return;
                     }
-                    renderCart();
+                    if (!productToSell) {
+                        alert('Producto no encontrado.');
+                        return;
+                    }
+                    if (isNaN(cantidad) || cantidad <= 0) {
+                        alert('Por favor, ingrese una cantidad válida para vender.');
+                        return;
+                    }
+                    if (cantidad > productToSell.Cantidad) {
+                        alert(`No hay suficiente stock para ${productToSell.Producto}. Disponible: ${productToSell.Cantidad}`);
+                        return;
+                    }
+
+                    // Realizar la venta
+                    const newCantidad = productToSell.Cantidad - cantidad;
+                    const totalVentaProducto = cantidad * productToSell.Precio;
+
+                    const ventaData = {
+                        clienteId: selectedClient.id,
+                        nombreCliente: selectedClient.NombreComercial,
+                        fecha: new Date().toISOString(),
+                        productos: [{
+                            productId: productToSell.id,
+                            nombre: productToSell.Producto,
+                            presentacion: productToSell.Presentacion,
+                            sku: productToSell.Sku,
+                            cantidad: cantidad,
+                            precioUnitario: productToSell.Precio,
+                            subtotal: totalVentaProducto
+                        }],
+                        totalVenta: totalVentaProducto,
+                        // No hay método de pago explícito ni lógica de deuda automática aquí
+                        observaciones: `Venta de ${cantidad} unidades de ${productToSell.Producto}` // Observación automática
+                    };
+
+                    // Actualizar stock en Firebase
+                    const stockActualizado = await modificarProducto(productId, { Cantidad: newCantidad });
+
+                    // Registrar la venta en Firebase
+                    const ventaRegistrada = await agregarVenta(ventaData);
+
+                    if (stockActualizado && ventaRegistrada) {
+                        alert(`Venta de ${cantidad} unidades de ${productToSell.Producto} a ${selectedClient.NombreComercial} realizada con éxito.`);
+                        // Actualizar el stock en la lista local para reflejar el cambio sin recargar todo
+                        productToSell.Cantidad = newCantidad;
+                        renderProductTable(allProducts); // Re-renderizar la tabla para mostrar el stock actualizado
+                    } else {
+                        alert('Fallo al realizar la venta. Por favor, intente de nuevo.');
+                    }
                 });
             });
         };
 
-        // --- Lógica de Confirmación de Venta ---
-        const checkConfirmButtonStatus = () => {
-            const hasClient = selectedClient !== null;
-            const hasItemsInCart = cart.length > 0;
-            const isPaymentMethodSelected = metodoPagoSelect.value !== '';
-            btnConfirmarVenta.disabled = !(hasClient && hasItemsInCart && isPaymentMethodSelected);
-        };
-
-        metodoPagoSelect.addEventListener('change', checkConfirmButtonStatus);
-
-        btnConfirmarVenta.addEventListener('click', async () => {
-            if (!selectedClient) {
-                alert('Por favor, seleccione un cliente.');
-                return;
+        filterRubroVentaSelect.addEventListener('change', () => {
+            const selectedRubro = filterRubroVentaSelect.value;
+            let filteredProducts = allProducts;
+            if (selectedRubro) {
+                filteredProducts = allProducts.filter(p => p.Rubro === selectedRubro);
             }
-            if (cart.length === 0) {
-                alert('El carrito está vacío. Añada productos para realizar la venta.');
-                return;
-            }
-            const metodoPago = metodoPagoSelect.value;
-            if (!metodoPago) {
-                alert('Por favor, seleccione un método de pago.');
-                return;
-            }
-
-            const totalVenta = parseFloat(totalVentaDisplay.textContent);
-            const observaciones = observacionesVentaInput.value.trim();
-
-            const ventaData = {
-                clienteId: selectedClient.id,
-                nombreCliente: selectedClient.NombreComercial,
-                fecha: new Date().toISOString(), // Fecha y hora actual
-                productos: cart.map(item => ({
-                    productId: item.productId,
-                    nombre: item.nombre,
-                    presentacion: item.presentacion,
-                    sku: item.sku,
-                    cantidad: item.cantidad,
-                    precioUnitario: item.precioUnitario,
-                    subtotal: item.subtotal
-                })),
-                totalVenta: totalVenta,
-                metodoPago: metodoPago,
-                observaciones: observaciones
-            };
-
-            // 1. Actualizar el stock en inventario
-            for (const item of cart) {
-                const productInDb = allProducts.find(p => p.id === item.productId);
-                if (productInDb) {
-                    const newCantidad = productInDb.Cantidad - item.cantidad;
-                    await modificarProducto(item.productId, { Cantidad: newCantidad });
-                }
-            }
-
-            // 2. Actualizar la deuda del cliente si el método de pago es "Crédito"
-            if (metodoPago === 'Credito') {
-                const nuevaDeuda = (selectedClient.Deuda || 0) + totalVenta;
-                await updateDoc(doc(window.firebaseDb, `artifacts/${window.currentAppId}/users/${window.currentUserId}/datosClientes`, selectedClient.id), { Deuda: nuevaDeuda });
-                selectedClient.Deuda = nuevaDeuda; // Actualizar el objeto cliente en memoria
-            }
-
-            // 3. Registrar la venta
-            const ventaId = await agregarVenta(ventaData);
-
-            if (ventaId) {
-                alert('Venta realizada con éxito! ID: ' + ventaId);
-                // Resetear el formulario
-                selectedClient = null;
-                cart = [];
-                selectedClientDisplay.textContent = 'Cliente Seleccionado: Ninguno';
-                searchClienteInput.value = '';
-                searchProductoInput.value = '';
-                cantidadProductoInput.value = '';
-                metodoPagoSelect.value = '';
-                observacionesVentaInput.value = '';
-                renderCart(); // Limpiar el carrito visualmente
-                btnConfirmarVenta.disabled = true;
-                // Recargar todos los productos para reflejar el stock actualizado
-                allProducts = await verInventarioCompleto();
-                // Opcional: Recargar clientes si la deuda es visible en la lista de clientes
-                allClients = await obtenerTodosLosClientes();
-            } else {
-                alert('Fallo al realizar la venta.');
-            }
+            renderProductTable(filteredProducts);
         });
 
         btnBack.addEventListener('click', backToMainMenuCallback);
     }
 
-    // --- Funciones para Cierre de Venta Diaria ---
+    // --- Funciones para Cierre de Venta Diaria (Sin cambios) ---
     async function renderCierreVentaDiariaSection(parentContainer, backToMainMenuCallback) {
         parentContainer.innerHTML = `
             <div class="p-6 bg-green-50 rounded-lg shadow-inner">
@@ -503,15 +403,15 @@ export async function renderVentasSection(container) {
                 const querySnapshot = await getDocs(q);
 
                 let totalVentasDia = 0;
-                const ventasPorMetodoPago = {};
+                const ventasPorMetodoPago = {}; // Aunque no se usa en la venta, se mantiene para el cierre si hay datos históricos
                 const productosVendidos = {};
 
                 querySnapshot.forEach(docSnap => {
                     const venta = docSnap.data();
                     totalVentasDia += venta.totalVenta || 0;
 
-                    // Sumar por método de pago
-                    const metodo = venta.metodoPago || 'Desconocido';
+                    // Sumar por método de pago (si existe en datos históricos)
+                    const metodo = venta.metodoPago || 'No Especificado'; // Usar 'No Especificado' si no hay método
                     ventasPorMetodoPago[metodo] = (ventasPorMetodoPago[metodo] || 0) + venta.totalVenta;
 
                     // Sumar productos vendidos
@@ -528,8 +428,13 @@ export async function renderVentasSection(container) {
                     <h5 class="font-semibold text-gray-700 mb-2">Ventas por Método de Pago:</h5>
                     <ul class="list-disc pl-5 mb-3">
                 `;
-                for (const metodo in ventasPorMetodoPago) {
-                    resultadosHTML += `<li>${metodo}: $${ventasPorMetodoPago[metodo].toFixed(2)}</li>`;
+                // Mostrar solo si hay ventas por método de pago
+                if (Object.keys(ventasPorMetodoPago).length > 0) {
+                    for (const metodo in ventasPorMetodoPago) {
+                        resultadosHTML += `<li>${metodo}: $${ventasPorMetodoPago[metodo].toFixed(2)}</li>`;
+                    }
+                } else {
+                    resultadosHTML += `<li>No hay ventas registradas con método de pago para esta fecha.</li>`;
                 }
                 resultadosHTML += `</ul>`;
 
@@ -537,8 +442,12 @@ export async function renderVentasSection(container) {
                     <h5 class="font-semibold text-gray-700 mb-2">Productos Vendidos:</h5>
                     <ul class="list-disc pl-5">
                 `;
-                for (const producto in productosVendidos) {
-                    resultadosHTML += `<li>${producto}: ${productosVendidos[producto]} unidades</li>`;
+                if (Object.keys(productosVendidos).length > 0) {
+                    for (const producto in productosVendidos) {
+                        resultadosHTML += `<li>${producto}: ${productosVendidos[producto]} unidades</li>`;
+                    }
+                } else {
+                    resultadosHTML += `<li>No hay productos vendidos para esta fecha.</li>`;
                 }
                 resultadosHTML += `</ul>`;
 
