@@ -8,30 +8,28 @@ import { collection, addDoc, getDocs, doc, updateDoc, query, where, getDoc } fro
 import { obtenerTodosLosClientes } from './clientes.js';
 import { verInventarioCompleto, modificarProducto } from './inventario.js';
 
-// Función auxiliar para obtener la instancia de Firestore y el ID de usuario/appId
+// Función auxiliar para obtener la instancia de Firestore
 async function getFirestoreInstances() {
-    while (!window.firebaseDb || !window.currentAppId) { // Ya no necesitamos window.currentUserId aquí para rutas de datos compartidos
+    while (!window.firebaseDb) {
         console.log('Esperando inicialización de Firebase en ventas.js...');
         await new Promise(resolve => setTimeout(resolve, 100));
     }
     return {
         db: window.firebaseDb,
-        // userId: window.currentUserId, // Ya no se usa para rutas de datos compartidos
-        appId: window.currentAppId
     };
 }
 
 /**
  * Agrega una nueva venta a Firestore.
- * Los datos se guardarán en una colección compartida.
- * Ruta: /artifacts/{appId}/datosVentas
+ * Los datos se guardarán en una colección compartida en la raíz.
+ * Ruta: /datosVentas
  * @param {object} venta - Objeto con los datos de la venta.
  * @returns {Promise<string|null>} El ID del documento de la venta agregada o null si hubo un error.
  */
 export async function agregarVenta(venta) {
     try {
-        const { db, appId } = await getFirestoreInstances();
-        const ventasCollectionRef = collection(db, `artifacts/${appId}/datosVentas`); // Ruta modificada
+        const { db } = await getFirestoreInstances();
+        const ventasCollectionRef = collection(db, `datosVentas`); // Ruta modificada
         const docRef = await addDoc(ventasCollectionRef, venta);
         console.log('Venta agregada con ID:', docRef.id);
         return docRef.id;
@@ -42,13 +40,13 @@ export async function agregarVenta(venta) {
 }
 
 /**
- * Obtiene todas las ventas de Firestore para el usuario actual.
+ * Obtiene todas las ventas de Firestore.
  * @returns {Promise<Array<object>>} Un array de objetos de venta.
  */
 export async function obtenerTodasLasVentas() {
     try {
-        const { db, appId } = await getFirestoreInstances();
-        const ventasCollectionRef = collection(db, `artifacts/${appId}/datosVentas`); // Ruta modificada
+        const { db } = await getFirestoreInstances();
+        const ventasCollectionRef = collection(db, `datosVentas`); // Ruta modificada
         const querySnapshot = await getDocs(ventasCollectionRef);
         const ventas = [];
         querySnapshot.forEach((doc) => {
@@ -132,8 +130,8 @@ export async function renderVentasSection(container) {
 
         // Obtener la configuración de rubros y segmentos (similar a inventario.js)
         try {
-            const { db, appId } = await getFirestoreInstances();
-            const configDocRef = doc(db, `artifacts/${appId}/configuracion`, 'rubrosSegmentos');
+            const { db } = await getFirestoreInstances();
+            const configDocRef = doc(db, `configuracion`, 'rubrosSegmentos'); // Ruta modificada
             const configSnap = await getDoc(configDocRef);
             if (configSnap.exists()) {
                 rubroSegmentoMap = configSnap.data().mapa || {};
@@ -398,8 +396,8 @@ export async function renderVentasSection(container) {
 
             // 2. Actualizar la deuda del cliente si el método de pago es "Crédito"
             if (metodoPago === 'Credito') {
-                const { db, appId } = await getFirestoreInstances();
-                const clienteDocRef = doc(db, `artifacts/${appId}/datosClientes`, selectedClient.id); // Ruta modificada
+                const { db } = await getFirestoreInstances();
+                const clienteDocRef = doc(db, `datosClientes`, selectedClient.id); // Ruta modificada
                 const nuevaDeuda = (selectedClient.Deuda || 0) + totalVentaCalculado;
                 await updateDoc(clienteDocRef, { Deuda: nuevaDeuda });
                 selectedClient.Deuda = nuevaDeuda; // Actualizar el objeto cliente en memoria
@@ -474,8 +472,8 @@ export async function renderVentasSection(container) {
             cierreResultadosDiv.innerHTML = '<p class="text-gray-500">Generando cierre...</p>';
 
             try {
-                const { db, appId } = await getFirestoreInstances();
-                const ventasCollectionRef = collection(db, `artifacts/${appId}/datosVentas`); // Ruta modificada
+                const { db } = await getFirestoreInstances();
+                const ventasCollectionRef = collection(db, `datosVentas`); // Ruta modificada
 
                 // Rango de fechas para el día seleccionado
                 const startOfDay = new Date(selectedDate);
