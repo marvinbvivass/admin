@@ -25,16 +25,19 @@ async function getFirestoreInstances() {
  * Los datos se guardarán en una colección específica del usuario para mantenerlos privados.
  * Ruta: /artifacts/{appId}/users/{userId}/clientes
  * @param {object} cliente - Objeto con los datos del cliente a agregar.
- * @param {string} cliente.nombre - Nombre del cliente.
- * @param {string} cliente.apellido - Apellido del cliente.
- * @param {string} cliente.email - Correo electrónico del cliente.
- * @param {string} [cliente.telefono] - Número de teléfono del cliente (opcional).
+ * @param {string} cliente.ID - ID único del cliente (puede ser autogenerado por Firestore si no se especifica).
+ * @param {string} cliente.CEP - Código de Enrutamiento Postal.
+ * @param {string} cliente.NombreComercial - Nombre comercial del cliente.
+ * @param {string} cliente.NombrePersonal - Nombre personal del contacto.
+ * @param {string} cliente.Zona - Zona geográfica del cliente.
+ * @param {string} cliente.Sector - Sector de actividad del cliente.
+ * @param {string} cliente.Tlf - Número de teléfono.
+ * @param {string} [cliente.Observaciones] - Observaciones adicionales (opcional).
  * @returns {Promise<string|null>} El ID del documento del cliente agregado o null si hubo un error.
  */
 export async function agregarCliente(cliente) {
     try {
         const { db, userId, appId } = await getFirestoreInstances();
-        // Construye la ruta de la colección para datos privados del usuario
         const clientesCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/clientes`);
         const docRef = await addDoc(clientesCollectionRef, cliente);
         console.log('Cliente agregado con ID:', docRef.id);
@@ -54,7 +57,6 @@ export async function agregarCliente(cliente) {
 export async function modificarCliente(idCliente, nuevosDatos) {
     try {
         const { db, userId, appId } = await getFirestoreInstances();
-        // Construye la ruta del documento específico del cliente
         const clienteDocRef = doc(db, `artifacts/${appId}/users/${userId}/clientes`, idCliente);
         await updateDoc(clienteDocRef, nuevosDatos);
         console.log('Cliente modificado con éxito. ID:', idCliente);
@@ -73,7 +75,6 @@ export async function modificarCliente(idCliente, nuevosDatos) {
 export async function eliminarCliente(idCliente) {
     try {
         const { db, userId, appId } = await getFirestoreInstances();
-        // Construye la ruta del documento específico del cliente
         const clienteDocRef = doc(db, `artifacts/${appId}/users/${userId}/clientes`, idCliente);
         await deleteDoc(clienteDocRef);
         console.log('Cliente eliminado con éxito. ID:', idCliente);
@@ -138,7 +139,7 @@ export async function renderClientesSection(container) {
         <div class="modal-content">
             <h2 class="text-4xl font-bold text-gray-900 mb-6 text-center">Gestión de Clientes</h2>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
                 <button id="btn-show-add-cliente" class="bg-blue-600 text-white p-4 rounded-md font-semibold hover:bg-blue-700 transition duration-200">
                     Agregar Cliente
                 </button>
@@ -180,10 +181,13 @@ export async function renderClientesSection(container) {
             <div class="p-6 bg-blue-50 rounded-lg shadow-inner">
                 <h3 class="text-2xl font-semibold text-blue-800 mb-4">Agregar Nuevo Cliente</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input type="text" id="add-nombre" placeholder="Nombre" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <input type="text" id="add-apellido" placeholder="Apellido" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <input type="email" id="add-email" placeholder="Email" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <input type="tel" id="add-telefono" placeholder="Teléfono (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="text" id="add-cep" placeholder="CEP" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="text" id="add-nombre-comercial" placeholder="Nombre Comercial" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="text" id="add-nombre-personal" placeholder="Nombre Personal" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="text" id="add-zona" placeholder="Zona" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="text" id="add-sector" placeholder="Sector" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="tel" id="add-tlf" placeholder="Teléfono" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <textarea id="add-observaciones" placeholder="Observaciones (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 col-span-full"></textarea>
                 </div>
                 <button id="btn-submit-add-cliente" class="mt-6 w-full bg-blue-600 text-white p-3 rounded-md font-semibold hover:bg-blue-700 transition duration-200">
                     Confirmar Agregar Cliente
@@ -192,20 +196,33 @@ export async function renderClientesSection(container) {
         `;
         // Conectar el botón de agregar cliente
         container.querySelector('#btn-submit-add-cliente').addEventListener('click', async () => {
-            const nombre = container.querySelector('#add-nombre').value;
-            const apellido = container.querySelector('#add-apellido').value;
-            const email = container.querySelector('#add-email').value;
-            const telefono = container.querySelector('#add-telefono').value;
-            const nuevoCliente = { nombre, apellido, email, telefono };
-            const id = await agregarCliente(nuevoCliente);
+            const cliente = {
+                CEP: container.querySelector('#add-cep').value,
+                NombreComercial: container.querySelector('#add-nombre-comercial').value,
+                NombrePersonal: container.querySelector('#add-nombre-personal').value,
+                Zona: container.querySelector('#add-zona').value,
+                Sector: container.querySelector('#add-sector').value,
+                Tlf: container.querySelector('#add-tlf').value,
+                Observaciones: container.querySelector('#add-observaciones').value
+            };
+
+            // Validación básica
+            if (!cliente.CEP || !cliente.NombreComercial || !cliente.NombrePersonal || !cliente.Zona || !cliente.Sector || !cliente.Tlf) {
+                alert('Por favor, completa todos los campos obligatorios (CEP, Nombre Comercial, Nombre Personal, Zona, Sector, Teléfono).');
+                return;
+            }
+
+            const id = await agregarCliente(cliente);
             if (id) {
                 alert('Cliente agregado con éxito, ID: ' + id);
                 // Limpiar campos
-                container.querySelector('#add-nombre').value = '';
-                container.querySelector('#add-apellido').value = '';
-                container.querySelector('#add-email').value = '';
-                container.querySelector('#add-telefono').value = '';
-                // Opcional: Recargar la lista de clientes si estás en la vista de lista
+                container.querySelector('#add-cep').value = '';
+                container.querySelector('#add-nombre-comercial').value = '';
+                container.querySelector('#add-nombre-personal').value = '';
+                container.querySelector('#add-zona').value = '';
+                container.querySelector('#add-sector').value = '';
+                container.querySelector('#add-tlf').value = '';
+                container.querySelector('#add-observaciones').value = '';
             } else {
                 alert('Fallo al agregar cliente.');
             }
@@ -219,10 +236,13 @@ export async function renderClientesSection(container) {
                 <h3 class="text-2xl font-semibold text-yellow-800 mb-4">Modificar o Eliminar Cliente</h3>
                 <input type="text" id="mod-del-cliente-id" placeholder="ID del Cliente" class="mb-4 w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input type="text" id="mod-nombre" placeholder="Nuevo Nombre (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
-                    <input type="text" id="mod-apellido" placeholder="Nuevo Apellido (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
-                    <input type="email" id="mod-email" placeholder="Nuevo Email (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
-                    <input type="tel" id="mod-telefono" placeholder="Nuevo Teléfono (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                    <input type="text" id="mod-cep" placeholder="Nuevo CEP (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                    <input type="text" id="mod-nombre-comercial" placeholder="Nuevo Nombre Comercial (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                    <input type="text" id="mod-nombre-personal" placeholder="Nuevo Nombre Personal (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                    <input type="text" id="mod-zona" placeholder="Nueva Zona (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                    <input type="text" id="mod-sector" placeholder="Nuevo Sector (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                    <input type="tel" id="mod-tlf" placeholder="Nuevo Teléfono (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                    <textarea id="mod-observaciones" placeholder="Nuevas Observaciones (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 col-span-full"></textarea>
                 </div>
                 <div class="flex flex-col md:flex-row gap-4 mt-6">
                     <button id="btn-submit-modify-cliente" class="flex-1 bg-yellow-600 text-white p-3 rounded-md font-semibold hover:bg-yellow-700 transition duration-200">
@@ -238,10 +258,14 @@ export async function renderClientesSection(container) {
         container.querySelector('#btn-submit-modify-cliente').addEventListener('click', async () => {
             const id = container.querySelector('#mod-del-cliente-id').value;
             const nuevosDatos = {};
-            if (container.querySelector('#mod-nombre').value) nuevosDatos.nombre = container.querySelector('#mod-nombre').value;
-            if (container.querySelector('#mod-apellido').value) nuevosDatos.apellido = container.querySelector('#mod-apellido').value;
-            if (container.querySelector('#mod-email').value) nuevosDatos.email = container.querySelector('#mod-email').value;
-            if (container.querySelector('#mod-telefono').value) nuevosDatos.telefono = container.querySelector('#mod-telefono').value;
+            if (container.querySelector('#mod-cep').value) nuevosDatos.CEP = container.querySelector('#mod-cep').value;
+            if (container.querySelector('#mod-nombre-comercial').value) nuevosDatos.NombreComercial = container.querySelector('#mod-nombre-comercial').value;
+            if (container.querySelector('#mod-nombre-personal').value) nuevosDatos.NombrePersonal = container.querySelector('#mod-nombre-personal').value;
+            if (container.querySelector('#mod-zona').value) nuevosDatos.Zona = container.querySelector('#mod-zona').value;
+            if (container.querySelector('#mod-sector').value) nuevosDatos.Sector = container.querySelector('#mod-sector').value;
+            if (container.querySelector('#mod-tlf').value) nuevosDatos.Tlf = container.querySelector('#mod-tlf').value;
+            if (container.querySelector('#mod-observaciones').value) nuevosDatos.Observaciones = container.querySelector('#mod-observaciones').value;
+
 
             if (id && Object.keys(nuevosDatos).length > 0) {
                 const modificado = await modificarCliente(id, nuevosDatos);
@@ -249,10 +273,13 @@ export async function renderClientesSection(container) {
                     alert('Cliente modificado con éxito.');
                     // Limpiar campos
                     container.querySelector('#mod-del-cliente-id').value = '';
-                    container.querySelector('#mod-nombre').value = '';
-                    container.querySelector('#mod-apellido').value = '';
-                    container.querySelector('#mod-email').value = '';
-                    container.querySelector('#mod-telefono').value = '';
+                    container.querySelector('#mod-cep').value = '';
+                    container.querySelector('#mod-nombre-comercial').value = '';
+                    container.querySelector('#mod-nombre-personal').value = '';
+                    container.querySelector('#mod-zona').value = '';
+                    container.querySelector('#mod-sector').value = '';
+                    container.querySelector('#mod-tlf').value = '';
+                    container.querySelector('#mod-observaciones').value = '';
                 } else {
                     alert('Fallo al modificar cliente.');
                 }
@@ -305,12 +332,15 @@ export async function renderClientesSection(container) {
             const li = document.createElement('li');
             li.className = 'py-2';
             li.innerHTML = `
-                <p class="font-semibold">${cliente.nombre} ${cliente.apellido} (ID: ${cliente.id})</p>
-                <p class="text-sm text-gray-600">Email: ${cliente.email || 'N/A'}</p>
-                <p class="text-sm text-gray-600">Teléfono: ${cliente.telefono || 'N/A'}</p>
+                <p class="font-semibold">${cliente.NombreComercial} (${cliente.NombrePersonal})</p>
+                <p class="text-sm text-gray-600">ID: ${cliente.id || 'N/A'} | CEP: ${cliente.CEP || 'N/A'}</p>
+                <p class="text-sm text-gray-600">Zona: ${cliente.Zona || 'N/A'} | Sector: ${cliente.Sector || 'N/A'}</p>
+                <p class="text-sm text-gray-600">Teléfono: ${cliente.Tlf || 'N/A'}</p>
+                <p class="text-sm text-gray-600">Observaciones: ${cliente.Observaciones || 'N/A'}</p>
             `;
             ul.appendChild(li);
         });
         listContainer.appendChild(ul);
     }
 }
+
