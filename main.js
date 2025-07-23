@@ -1,67 +1,204 @@
 // main.js
-// Este archivo centraliza la lógica principal de la aplicación,
-// incluyendo la inicialización de Firebase y la gestión de la carga de módulos de sección.
+// Este archivo maneja la inicialización de Firebase y la navegación principal de la aplicación.
 
-// Importa las funciones de los módulos de sección (las rutas deben ser relativas al subdirectorio del repositorio)
-// Asegúrate de que estas rutas coincidan con la ubicación de tus archivos en GitHub.
-import { renderClientesSection } from '/admin/clientes.js';
-import { renderInventarioSection } from '/admin/inventario.js';
-import { renderPreciosSection } from '/admin/precios.js'; // Nueva importación para Precios
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('main.js: DOMContentLoaded - Iniciando lógica principal.');
+// Importa las funciones de renderizado de cada sección
+import { renderClientesSection } from './clientes.js';
+import { renderInventarioSection } from './inventario.js';
+import { renderPreciosSection } from './precios.js';
+import { renderVentasSection } from './ventas.js';
+// Importa módulos para futuras secciones (descomentar cuando los archivos existan)
+// import { renderArchivosSection } from './archivos.js';
+// import { renderCargaVehiculosSection } from './carga-vehiculos.js';
 
-    // --- Lógica para mostrar/ocultar el modal de Clientes ---
-    const clientesCard = document.getElementById('clientes-card');
-    const clientesModalContainer = document.getElementById('clientes-modal-container');
 
-    if (clientesCard && clientesModalContainer) {
-        clientesCard.addEventListener('click', async () => {
-            console.log('main.js: Clic en tarjeta de Clientes.');
-            await renderClientesSection(clientesModalContainer);
-            clientesModalContainer.classList.remove('hidden');
+// Variables globales para Firebase (accesibles desde otros módulos a través de window)
+window.firebaseApp = null;
+window.firebaseDb = null;
+window.firebaseAuth = null;
+window.currentUserId = null;
+window.currentAppId = null; // Definir appId globalmente
+
+// Configuración de Firebase (solo para desarrollo local o GitHub Pages si no se usa Canvas)
+// EN UN ENTORNO DE PRODUCCIÓN REAL (NO CANVAS), ESTAS CREDENCIALES DEBERÍAN SER GESTIONADAS
+// DE FORMA MÁS SEGURA (EJ. VARIABLES DE ENTORNO EN UN BACKEND) Y NO DIRECTAMENTE EN EL CÓDIGO DEL CLIENTE.
+const firebaseConfigLocal = {
+    apiKey: "AIzaSyBags4wEqc_v8GGsHoLBwStPf0FIJgT6hE", // REEMPLAZA CON TU API KEY REAL
+    authDomain: "admin-804f6.firebaseapp.com", // REEMPLAZA CON TU AUTH DOMAIN REAL
+    projectId: "admin-804f6", // REEMPLAZA CON TU PROJECT ID REAL
+    storageBucket: "admin-804f6.firebasestorage.app", // REEMPLAZA CON TU STORAGE BUCKET REAL
+    messagingSenderId: "641744033630", // REEMPLAZA CON TU MESSAGING SENDER ID REAL
+    appId: "1:641744033630:web:7e61b41752b1882a6461cf", // REEMPLAZA CON TU APP ID REAL
+    measurementId: "G-DFL37S2NVX" // REEMPLAZA CON TU MEASUREMENT ID REAL
+};
+
+// USER ID DE PRUEBA (SOLO PARA DESARROLLO LOCAL/GITHUB PAGES SI NO HAY AUTENTICACIÓN REAL)
+// EN UN ENTORNO DE PRODUCCIÓN, EL userId DEBE PROVENIR DEL USUARIO AUTENTICADO POR FIREBASE.
+const TEST_USER_ID = "hiKJDsYSD2U4gj71q8GQStr2Rhb2"; // <--- REEMPLAZA CON UN USER ID VÁLIDO DE TU FIREBASE SI LO NECESITAS PARA PRUEBAS
+
+// Función de inicialización de Firebase
+async function initializeFirebase() {
+    try {
+        // Usar la configuración de Canvas si está disponible, de lo contrario, la local
+        const firebaseConfig = typeof __firebase_config !== 'undefined' && Object.keys(JSON.parse(__firebase_config)).length > 0
+            ? JSON.parse(__firebase_config)
+            : firebaseConfigLocal;
+
+        window.firebaseApp = initializeApp(firebaseConfig);
+        window.firebaseDb = getFirestore(window.firebaseApp);
+        window.firebaseAuth = getAuth(window.firebaseApp);
+        window.currentAppId = typeof __app_id !== 'undefined' && __app_id !== 'default-app-id'
+            ? __app_id
+            : firebaseConfig.projectId; // Usar el projectId de la config local si no viene de Canvas
+
+        // Autenticación: Usar token personalizado si está disponible (Canvas), de lo contrario, anónima
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token !== '') {
+            await signInWithCustomToken(window.firebaseAuth, __initial_auth_token);
+            console.log('Firebase: Autenticado con token personalizado (Entorno Canvas).');
+        } else {
+            await signInAnonymously(window.firebaseAuth);
+            console.log('Firebase: Autenticado anónimamente (GitHub Pages o desarrollo local).');
+            // Si la autenticación anónima genera un nuevo UID, lo usamos.
+            // Si necesitas un UID fijo para pruebas fuera de Canvas, puedes forzarlo aquí:
+            // window.currentUserId = TEST_USER_ID;
+            // console.warn('ADVERTENCIA: Usando un USER ID de prueba fijo para depuración. ¡Remueve esto en producción!');
+        }
+
+        // Observar cambios en el estado de autenticación para obtener el UID
+        onAuthStateChanged(window.firebaseAuth, (user) => {
+            if (user) {
+                window.currentUserId = user.uid;
+                console.log('Firebase: User ID activo:', window.currentUserId);
+            } else {
+                window.currentUserId = null;
+                console.log('Firebase: No user is signed in.');
+            }
         });
-    } else {
-        console.error("main.js: Elementos de la tarjeta o contenedor del modal de clientes no encontrados.");
+
+        console.log('Firebase inicializado con éxito.');
+    } catch (error) {
+        console.error('Error al inicializar Firebase:', error);
     }
+}
 
-    // --- Lógica para mostrar/ocultar el modal de Inventario ---
-    const inventarioCard = document.getElementById('inventario-card');
-    const inventarioModalContainer = document.getElementById('inventario-modal-container');
+// Función principal para renderizar la aplicación
+async function renderApp() {
+    await initializeFirebase(); // Asegurarse de que Firebase esté inicializado y autenticado
 
-    if (inventarioCard && inventarioModalContainer) {
-        inventarioCard.addEventListener('click', async () => {
-            console.log('main.js: Clic en tarjeta de Inventario.');
-            await renderInventarioSection(inventarioModalContainer);
-            inventarioModalContainer.classList.remove('hidden');
-        });
-    } else {
-        console.error("main.js: Elementos de la tarjeta o contenedor del modal de inventario no encontrados.");
-    }
+    const appContainer = document.getElementById('app-container');
+    appContainer.innerHTML = `
+        <header class="text-center mb-10">
+            <h1 class="text-5xl font-extrabold text-gray-900 mb-4">
+                Bienvenido al Sistema de Gestión
+            </h1>
+            <p class="text-xl text-gray-600">
+                Tu plataforma integral para administrar tu negocio.
+            </p>
+        </header>
 
-    // --- Lógica para mostrar/ocultar el modal de Precios ---
-    const preciosCard = document.getElementById('precios-card');
-    const preciosModalContainer = document.getElementById('precios-modal-container');
+        <!-- Sección de botones/tarjetas para las diferentes áreas de gestión -->
+        <main class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+            <!-- Tarjeta para la sección de Clientes -->
+            <div id="btn-clientes" class="section-button bg-gradient-to-r from-blue-700 to-blue-800 text-white p-6 rounded-lg shadow-md flex flex-col items-center justify-center cursor-pointer transform hover:scale-105">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.3.356-1.857m0 0A5.002 5.002 0 0112 10a5.002 5.002 0 015.644 3.143m0 0L17 20m-2-9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v4m3 2h6m-6 4h6" />
+                </svg>
+                <h2 class="text-3xl font-bold">Clientes</h2>
+                <p class="text-lg text-center mt-2 opacity-90">Gestión de la base de datos de clientes.</p>
+            </div>
 
-    if (preciosCard && preciosModalContainer) {
-        preciosCard.addEventListener('click', async () => {
-            console.log('main.js: Clic en tarjeta de Precios.');
-            await renderPreciosSection(preciosModalContainer);
-            preciosModalContainer.classList.remove('hidden');
-        });
-    } else {
-        console.error("main.js: Elementos de la tarjeta o contenedor del modal de precios no encontrados.");
-    }
+            <!-- Tarjeta para la sección de Ventas - Verde más profundo -->
+            <div id="btn-ventas" class="section-button bg-gradient-to-r from-green-600 to-green-700 text-white p-6 rounded-lg shadow-md flex flex-col items-center justify-center cursor-pointer transform hover:scale-105">
+                <!-- Icono representativo para Ventas (ej. un carrito de compras) -->
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                <h2 class="text-3xl font-bold">Ventas</h2>
+                <p class="text-lg text-center mt-2 opacity-90">Registro y seguimiento de transacciones de venta.</p>
+            </div>
 
-    // Nota: Los botones de cierre de los modales se gestionarán dentro de cada módulo de sección (clientes.js, inventario.js, precios.js)
-    // ya que ellos son los que renderizan el contenido del modal y sus botones.
-});
+            <!-- Tarjeta para la sección de Inventario -->
+            <div id="btn-inventario" class="section-button bg-gradient-to-r from-indigo-600 to-indigo-700 text-white p-6 rounded-lg shadow-md flex flex-col items-center justify-center cursor-pointer transform hover:scale-105">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+                <h2 class="text-3xl font-bold">Inventario</h2>
+                <p class="text-lg text-center mt-2 opacity-90">Control de productos y existencias en almacén.</p>
+            </div>
 
-// Puedes añadir aquí cualquier otra lógica global que necesite tu aplicación
-// Por ejemplo, un listener para el estado de autenticación de Firebase si es necesario para toda la app.
-/*
-window.addEventListener('firebaseInitialized', () => {
-    console.log('main.js: Firebase ha sido inicializado.');
-    // Aquí podrías hacer cosas que dependen de que Firebase esté listo
-});
-*/
+            <!-- Tarjeta para la sección de Precios - Rojo más vibrante -->
+            <div id="btn-precios" class="section-button bg-gradient-to-r from-red-700 to-red-800 text-white p-6 rounded-lg shadow-md flex flex-col items-center justify-center cursor-pointer transform hover:scale-105">
+                <!-- Icono representativo para Precios (ej. una etiqueta de precio) -->
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                </svg>
+                <h2 class="text-3xl font-bold">Precios</h2>
+                <p class="text-lg text-center mt-2 opacity-90">Configuración y actualización de precios de productos.</p>
+            </div>
+
+            <!-- Nueva Tarjeta para la sección de Archivos - Amarillo/Dorado -->
+            <div id="btn-archivos" class="section-button bg-gradient-to-r from-yellow-500 to-yellow-600 text-white p-6 rounded-lg shadow-md flex flex-col items-center justify-center cursor-pointer transform hover:scale-105">
+                <!-- Icono representativo para Archivos (ej. una carpeta de documentos) -->
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                </svg>
+                <h2 class="text-3xl font-bold">Archivos</h2>
+                <p class="text-lg text-center mt-2 opacity-90">Gestión de documentos y archivos.</p>
+            </div>
+
+            <!-- Nueva Tarjeta para la sección de Carga & Vehículos - Naranja/Ámbar -->
+            <div id="btn-carga-vehiculos" class="section-button bg-gradient-to-r from-orange-600 to-orange-700 text-white p-6 rounded-lg shadow-md flex flex-col items-center justify-center cursor-pointer transform hover:scale-105">
+                <!-- Icono representativo para Carga & Vehículos (ej. un camión o vehículo de carga) -->
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 10H7a2 2 0 00-2 2v2a2 2 0 002 2h2v.01M15 10h2a2 2 0 012 2v2a2 2 0 01-2 2h-2m-4 0h.01M12 16v.01" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 14V8m0 0l-3 3m3-3l3 3" />
+                </svg>
+                <h2 class="text-3xl font-bold">Carga & Vehículos</h2>
+                <p class="text-lg text-center mt-2 opacity-90">Administración de carga y flota de vehículos.</p>
+            </div>
+        </main>
+    `;
+
+    const modalContainer = document.getElementById('modal-container');
+
+    // Event Listeners para los botones del menú principal
+    document.getElementById('btn-clientes').addEventListener('click', async () => {
+        modalContainer.classList.remove('hidden');
+        await renderClientesSection(modalContainer);
+    });
+
+    document.getElementById('btn-inventario').addEventListener('click', async () => {
+        modalContainer.classList.remove('hidden');
+        await renderInventarioSection(modalContainer);
+    });
+
+    document.getElementById('btn-precios').addEventListener('click', async () => {
+        modalContainer.classList.remove('hidden');
+        await renderPreciosSection(modalContainer);
+    });
+
+    document.getElementById('btn-ventas').addEventListener('click', async () => {
+        modalContainer.classList.remove('hidden');
+        await renderVentasSection(modalContainer);
+    });
+
+    // Placeholders para futuras secciones
+    document.getElementById('btn-archivos').addEventListener('click', () => {
+        alert('Sección de Archivos en construcción.');
+        // modalContainer.classList.remove('hidden');
+        // await renderArchivosSection(modalContainer);
+    });
+
+    document.getElementById('btn-carga-vehiculos').addEventListener('click', () => {
+        alert('Sección de Carga & Vehículos en construcción.');
+        // modalContainer.classList.remove('hidden');
+        // await renderCargaVehiculosSection(modalContainer);
+    });
+}
+
+// Iniciar la aplicación cuando el DOM esté completamente cargado
+document.addEventListener('DOMContentLoaded', renderApp);
