@@ -134,7 +134,7 @@ export async function renderVentasSection(container) {
         try {
             const { db, appId } = await getFirestoreInstances();
             const configDocRef = doc(db, `artifacts/${appId}/configuracion`, 'rubrosSegmentos');
-            const configSnap = await getDoc(configDocRef);
+            const configSnap = await getDoc(configDocRef); // Aquí se usa getDoc
             if (configSnap.exists()) {
                 rubroSegmentoMap = configSnap.data().mapa || {};
             }
@@ -614,4 +614,3 @@ export async function renderVentasSection(container) {
         btnBack.addEventListener('click', backToMainMenuCallback);
     }
 }
-
