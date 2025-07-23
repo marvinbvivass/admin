@@ -40,6 +40,53 @@ async function obtenerTodosLosProductosInventario() {
 }
 
 /**
+ * Intenta obtener el valor de BS de la página del BCV.
+ * NOTA: La extracción directa de datos de sitios web puede ser inestable
+ * debido a bloqueos de CORS, contenido dinámico o cambios en la estructura del sitio.
+ * La solución ideal sería una API oficial o de terceros.
+ * @returns {Promise<number|null>} El valor de BS o null si falla.
+ */
+async function fetchBsValueFromWeb() {
+    try {
+        // Intentar obtener el contenido de la página del BCV
+        const response = await fetch('https://www.bcv.org.ve/');
+
+        // Verificar si la respuesta es exitosa
+        if (!response.ok) {
+            console.error(`Error HTTP: ${response.status} al intentar obtener el valor BS del BCV.`);
+            return null;
+        }
+
+        const text = await response.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text, 'text/html');
+
+        // Selector basado en el HTML proporcionado: <div class="col-sm-6 col-xs-6 centrado"><strong> 120,42390000 </strong> </div>
+        // Buscamos el elemento <strong> dentro de un div con la clase 'centrado'
+        const usdElement = doc.querySelector('div.centrado strong');
+
+        if (usdElement) {
+            // Extraer el texto, reemplazar la coma por punto y convertir a número flotante
+            const value = parseFloat(usdElement.textContent.replace(',', '.'));
+            if (!isNaN(value)) {
+                console.log('Valor BS obtenido del BCV:', value);
+                return value;
+            } else {
+                console.warn('El valor extraído no es un número válido:', usdElement.textContent);
+                return null;
+            }
+        } else {
+            console.warn('No se encontró el elemento del valor BS con el selector "div.centrado strong" en la página del BCV.');
+            return null;
+        }
+    } catch (error) {
+        console.error('Error al intentar obtener el valor BS del BCV (posiblemente CORS o red):', error);
+        return null;
+    }
+}
+
+
+/**
  * Renderiza la interfaz de usuario de la sección de precios dentro del contenedor dado.
  * @param {HTMLElement} container - El elemento DOM donde se renderizará el modal de precios.
  */
@@ -70,7 +117,8 @@ export async function renderPreciosSection(container) {
                 </div>
                 <div>
                     <label for="input-bs" class="block text-sm font-medium text-gray-700 mb-0.5">Valor BS:</label>
-                    <input type="number" step="0.01" id="input-bs" placeholder="Ej: 36" class="w-full p-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+                    <input type="number" step="0.01" id="input-bs" placeholder="Cargando..." class="w-full p-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+                    <p id="bs-status" class="text-xs text-gray-500 mt-1">Intentando obtener valor del BCV...</p>
                 </div>
             </div>
 
@@ -109,6 +157,7 @@ export async function renderPreciosSection(container) {
     const filterSegmentoSelect = container.querySelector('#filter-segmento');
     const inputCop = container.querySelector('#input-cop');
     const inputBs = container.querySelector('#input-bs');
+    const bsStatusText = container.querySelector('#bs-status'); // Nuevo elemento para el estado
     const preciosTableBody = container.querySelector('#precios-table-body');
 
     let allProducts = []; // Almacenará todos los productos del inventario
@@ -136,6 +185,19 @@ export async function renderPreciosSection(container) {
             option.textContent = segmento;
             filterSegmentoSelect.appendChild(option);
         });
+
+        // Intentar obtener el valor de BS al cargar la sección
+        bsStatusText.textContent = 'Obteniendo valor BS...';
+        const fetchedBs = await fetchBsValueFromWeb();
+        if (fetchedBs !== null) {
+            currentBsValue = fetchedBs;
+            inputBs.value = fetchedBs;
+            bsStatusText.textContent = 'Valor BS obtenido.';
+        } else {
+            bsStatusText.textContent = 'No se pudo obtener valor BS. Ingrese manualmente.';
+            inputBs.placeholder = 'Ej: 36'; // Restaura el placeholder si falla la carga
+        }
+        applyFiltersAndRender(); // Re-renderiza con el valor de BS obtenido (o el predeterminado)
     };
 
     // Función para aplicar filtros y actualizar la tabla
