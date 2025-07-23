@@ -51,7 +51,6 @@ self.addEventListener('activate', (event) => {
 // Evento 'fetch': Se ejecuta cada vez que el navegador intenta cargar un recurso.
 // Aquí interceptamos las solicitudes y servimos desde la caché si es posible.
 self.addEventListener('fetch', (event) => {
-    // Para todas las solicitudes, intenta servir desde la caché, luego desde la red.
     event.respondWith(
         caches.match(event.request).then((response) => {
             // Si el recurso está en caché, lo devolvemos.
@@ -60,12 +59,16 @@ self.addEventListener('fetch', (event) => {
             }
             // Si no está en caché, intentamos obtenerlo de la red.
             return fetch(event.request).then((networkResponse) => {
-                // Clonamos la respuesta porque un stream de respuesta solo puede ser consumido una vez.
-                // Una copia va a la caché y la original se devuelve al navegador.
-                return caches.open(CACHE_NAME).then((cache) => {
-                    cache.put(event.request, networkResponse.clone());
-                    return networkResponse;
-                });
+                // IMPORTANTE: Solo cachear solicitudes GET para evitar el error "Request method 'POST' is unsupported"
+                if (event.request.method === 'GET') {
+                    // Clonamos la respuesta porque un stream de respuesta solo puede ser consumido una vez.
+                    // Una copia va a la caché y la original se devuelve al navegador.
+                    return caches.open(CACHE_NAME).then((cache) => {
+                        cache.put(event.request, networkResponse.clone());
+                        return networkResponse;
+                    });
+                }
+                return networkResponse; // Si no es GET, simplemente devuelve la respuesta de la red sin cachear
             }).catch(() => {
                 // Esto se ejecuta si la red falla y el recurso no está en caché.
                 console.warn('Service Worker: Fallo al cargar recurso desde la red o caché:', event.request.url);
@@ -75,4 +78,3 @@ self.addEventListener('fetch', (event) => {
         })
     );
 });
-
