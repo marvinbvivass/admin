@@ -9,7 +9,7 @@ import { collection, addDoc, doc, updateDoc, deleteDoc, getDoc, getDocs } from "
 const zonaSectorMap = {
     "Santa Teresa": ["Barrio Bolivar", "Principal Santa Teresa", "Los Teques", "Calle 4", "La Villa"],
     "Foraneo": ["No Aplica"],
-    "Zona Industrial": ["Zona Industrial"], // Corregido el typo "Indutrial"
+    "Zona Industrial": ["Zona Industrial"],
     "Machiri": ["Parte Alta", "Parte Baja", "Barrio el Lago"],
     "Palo Gordo": ["Gallardin", "Gallardin Parte Baja", "Gallardin Parte Alta", "Principal Palo Gordo", "Calle Tachira", "Calle del Medio", "Toica", "Nazareno", "La Trinidad", "Calle del Hambre", "Puente/Cancha"]
 };
@@ -155,14 +155,14 @@ export async function renderClientesSection(container) {
                 <button id="btn-show-modify-delete-cliente" class="bg-yellow-600 text-white p-4 rounded-md font-semibold hover:bg-yellow-700 transition duration-200">
                     Modificar/Eliminar Cliente
                 </button>
-                <button id="btn-show-list-clientes" class="bg-green-600 text-white p-4 rounded-md font-semibold hover:bg-green-700 transition duration-200 col-span-full">
-                    Ver Clientes
+                <button id="btn-show-search-cliente" class="bg-green-600 text-white p-4 rounded-md font-semibold hover:bg-green-700 transition duration-200 col-span-full">
+                    Buscar Cliente
                 </button>
             </div>
 
             <!-- Contenedor para las sub-secciones dinámicas -->
             <div id="clientes-sub-section" class="mt-8">
-                <!-- El contenido de agregar, modificar/eliminar o listar se cargará aquí -->
+                <!-- El contenido de agregar, modificar/eliminar o buscar/listar se cargará aquí -->
             </div>
 
             <!-- Botón para cerrar el modal -->
@@ -238,9 +238,6 @@ export async function renderClientesSection(container) {
                 Tlf: container.querySelector('#add-tlf').value,
                 Observaciones: container.querySelector('#add-observaciones').value
             };
-
-            // No se realiza validación estricta aquí para permitir campos vacíos.
-            // Los campos vacíos se guardarán como cadenas vacías.
 
             const id = await agregarCliente(cliente);
             if (id) {
@@ -360,19 +357,41 @@ export async function renderClientesSection(container) {
         });
     });
 
-    // Lógica para mostrar la sección de listar clientes
-    container.querySelector('#btn-show-list-clientes').addEventListener('click', async () => {
+    // Lógica para mostrar la sección de buscar cliente (anteriormente listar)
+    container.querySelector('#btn-show-search-cliente').addEventListener('click', async () => {
         clientesSubSection.innerHTML = `
             <div class="p-6 bg-green-50 rounded-lg shadow-inner">
-                <h3 class="text-2xl font-semibold text-green-800 mb-4">Listado de Clientes</h3>
+                <h3 class="text-2xl font-semibold text-green-800 mb-4">Buscar Cliente</h3>
+                <input type="text" id="search-cliente-input" placeholder="Buscar por Nombre, CEP, Zona, etc." class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 mb-4">
                 <div id="clientes-list" class="bg-white p-4 rounded-md border border-gray-200 max-h-60 overflow-y-auto">
                     <!-- Los clientes se mostrarán aquí -->
                     <p class="text-gray-500">Cargando clientes...</p>
                 </div>
             </div>
         `;
-        const clientes = await obtenerTodosLosClientes();
-        renderClientesList(clientes, container.querySelector('#clientes-list'));
+        const clientesListDiv = container.querySelector('#clientes-list');
+        const searchInput = container.querySelector('#search-cliente-input');
+        let allClients = []; // Para almacenar todos los clientes y filtrar sobre ellos
+
+        // Cargar todos los clientes al abrir la sección
+        allClients = await obtenerTodosLosClientes();
+        renderClientesList(allClients, clientesListDiv);
+
+        // Lógica de filtrado en tiempo real
+        searchInput.addEventListener('input', () => {
+            const searchTerm = searchInput.value.toLowerCase();
+            const filteredClients = allClients.filter(cliente => {
+                // Busca en todos los campos relevantes
+                return (cliente.NombreComercial && cliente.NombreComercial.toLowerCase().includes(searchTerm)) ||
+                       (cliente.NombrePersonal && cliente.NombrePersonal.toLowerCase().includes(searchTerm)) ||
+                       (cliente.CEP && cliente.CEP.toLowerCase().includes(searchTerm)) ||
+                       (cliente.Zona && cliente.Zona.toLowerCase().includes(searchTerm)) ||
+                       (cliente.Sector && cliente.Sector.toLowerCase().includes(searchTerm)) ||
+                       (cliente.Tlf && cliente.Tlf.toLowerCase().includes(searchTerm)) ||
+                       (cliente.Observaciones && cliente.Observaciones.toLowerCase().includes(searchTerm));
+            });
+            renderClientesList(filteredClients, clientesListDiv);
+        });
     });
 
     // Función auxiliar para renderizar la lista de clientes
@@ -388,7 +407,7 @@ export async function renderClientesSection(container) {
             const li = document.createElement('li');
             li.className = 'py-2';
             li.innerHTML = `
-                <p class="font-semibold">${cliente.NombreComercial} (${cliente.NombrePersonal})</p>
+                <p class="font-semibold">${cliente.NombreComercial || 'N/A'} (${cliente.NombrePersonal || 'N/A'})</p>
                 <p class="text-sm text-gray-600">ID: ${cliente.id || 'N/A'} | CEP: ${cliente.CEP || 'N/A'}</p>
                 <p class="text-sm text-gray-600">Zona: ${cliente.Zona || 'N/A'} | Sector: ${cliente.Sector || 'N/A'}</p>
                 <p class="text-sm text-gray-600">Teléfono: ${cliente.Tlf || 'N/A'}</p>
