@@ -185,9 +185,24 @@ export async function renderInventarioSection(container) {
             <div class="p-6 bg-indigo-50 rounded-lg shadow-inner">
                 <h3 class="text-2xl font-semibold text-indigo-800 mb-4">Agregar Nuevo Producto</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input type="text" id="add-rubro" placeholder="Rubro" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <select id="add-rubro" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="">Selecciona Rubro</option>
+                        <option value="Cerveceria">Cerveceria</option>
+                        <option value="P&M">P&M</option>
+                        <option value="Alimentos">Alimentos</option>
+                        <option value="P&G">P&G</option>
+                    </select>
                     <input type="text" id="add-sku" placeholder="SKU" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <input type="text" id="add-segmento" placeholder="Segmento" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <select id="add-segmento" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="">Selecciona Segmento</option>
+                        <option value="Cerveza">Cerveza</option>
+                        <option value="Malta">Malta</option>
+                        <option value="PEP">PEP</option>
+                        <option value="Harina">Harina</option>
+                        <option value="Pasta">Pasta</option>
+                        <option value="Shampoo">Shampoo</option>
+                        <option value="Jabon en polvo">Jabon en polvo</option>
+                    </select>
                     <input type="text" id="add-producto-nombre" placeholder="Producto" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     <input type="text" id="add-presentacion" placeholder="Presentación" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     <input type="number" id="add-cantidad" placeholder="Cantidad" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
@@ -240,9 +255,24 @@ export async function renderInventarioSection(container) {
                 <h3 class="text-2xl font-semibold text-yellow-800 mb-4">Modificar o Eliminar Producto</h3>
                 <input type="text" id="mod-del-producto-id" placeholder="ID del Producto" class="mb-4 w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input type="text" id="mod-rubro" placeholder="Nuevo Rubro (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                    <select id="mod-rubro" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                        <option value="">Nuevo Rubro (opcional)</option>
+                        <option value="Cerveceria">Cerveceria</option>
+                        <option value="P&M">P&M</option>
+                        <option value="Alimentos">Alimentos</option>
+                        <option value="P&G">P&G</option>
+                    </select>
                     <input type="text" id="mod-sku" placeholder="Nuevo SKU (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
-                    <input type="text" id="mod-segmento" placeholder="Nuevo Segmento (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                    <select id="mod-segmento" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                        <option value="">Nuevo Segmento (opcional)</option>
+                        <option value="Cerveza">Cerveza</option>
+                        <option value="Malta">Malta</option>
+                        <option value="PEP">PEP</option>
+                        <option value="Harina">Harina</option>
+                        <option value="Pasta">Pasta</option>
+                        <option value="Shampoo">Shampoo</option>
+                        <option value="Jabon en polvo">Jabon en polvo</option>
+                    </select>
                     <input type="text" id="mod-producto-nombre" placeholder="Nuevo Producto (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
                     <input type="text" id="mod-presentacion" placeholder="Nueva Presentación (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
                     <input type="number" id="mod-cantidad" placeholder="Nueva Cantidad (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
