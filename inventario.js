@@ -45,7 +45,7 @@ async function getFirestoreInstances() {
 export async function agregarProducto(producto) {
     try {
         const { db, userId, appId } = await getFirestoreInstances();
-        const inventarioCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/datosInventario`); // CAMBIO AQUÍ
+        const inventarioCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/datosInventario`);
         const docRef = await addDoc(inventarioCollectionRef, producto);
         console.log('Producto agregado con ID:', docRef.id);
         return docRef.id;
@@ -62,7 +62,7 @@ export async function agregarProducto(producto) {
 export async function verInventarioCompleto() {
     try {
         const { db, userId, appId } = await getFirestoreInstances();
-        const inventarioCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/datosInventario`); // CAMBIO AQUÍ
+        const inventarioCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/datosInventario`);
         const querySnapshot = await getDocs(inventarioCollectionRef);
         const inventario = [];
         querySnapshot.forEach((doc) => {
@@ -85,7 +85,7 @@ export async function verInventarioCompleto() {
 export async function buscarProducto(campo, valor) {
     try {
         const { db, userId, appId } = await getFirestoreInstances();
-        const inventarioCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/datosInventario`); // CAMBIO AQUÍ
+        const inventarioCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/datosInventario`);
         // Nota: Firestore requiere índices para consultas de igualdad en campos no ID.
         // Si no tienes un índice para el campo 'campo', esta consulta podría fallar.
         const q = query(inventarioCollectionRef, where(campo, '==', valor));
@@ -111,7 +111,7 @@ export async function buscarProducto(campo, valor) {
 export async function modificarProducto(idProducto, nuevosDatos) {
     try {
         const { db, userId, appId } = await getFirestoreInstances();
-        const productoDocRef = doc(db, `artifacts/${appId}/users/${userId}/datosInventario`, idProducto); // CAMBIO AQUÍ
+        const productoDocRef = doc(db, `artifacts/${appId}/users/${userId}/datosInventario`, idProducto);
         await updateDoc(productoDocRef, nuevosDatos);
         console.log('Producto modificado con éxito. ID:', idProducto);
         return true;
@@ -129,7 +129,7 @@ export async function modificarProducto(idProducto, nuevosDatos) {
 export async function eliminarProducto(idProducto) {
     try {
         const { db, userId, appId } = await getFirestoreInstances();
-        const productoDocRef = doc(db, `artifacts/${appId}/users/${userId}/datosInventario`, idProducto); // CAMBIO AQUÍ
+        const productoDocRef = doc(db, `artifacts/${appId}/users/${userId}/datosInventario`, idProducto);
         await deleteDoc(productoDocRef);
         console.log('Producto eliminado con éxito. ID:', idProducto);
         return true;
@@ -285,7 +285,7 @@ export async function renderInventarioSection(container) {
         inventarioSubSection.innerHTML = `
             <div class="p-6 bg-yellow-50 rounded-lg shadow-inner">
                 <h3 class="text-2xl font-semibold text-yellow-800 mb-4">Modificar o Eliminar Producto</h3>
-                <input type="text" id="mod-del-producto-id" placeholder="ID del Producto" class="mb-4 w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" ${productData ? 'value="' + productData.id + '" readonly' : ''}>
+                <input type="hidden" id="mod-del-producto-id" value="${productData ? productData.id : ''}"> <!-- CAMBIO AQUÍ: type="hidden" -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <select id="mod-rubro" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
                         <option value="">Nuevo Rubro (opcional)</option>
@@ -316,7 +316,7 @@ export async function renderInventarioSection(container) {
         `;
         // Lógica para actualizar el select de Segmento cuando cambia el Rubro en modificar
         const modRubroSelect = container.querySelector('#mod-rubro');
-        const modSegmentoSelect = container.querySelector('#mod-sector');
+        const modSegmentoSelect = container.querySelector('#mod-segmento');
         modRubroSelect.addEventListener('change', () => {
             const selectedRubro = modRubroSelect.value;
             modSegmentoSelect.innerHTML = '<option value="">Nuevo Segmento (opcional)</option>'; // Limpiar opciones anteriores
@@ -511,7 +511,7 @@ export async function renderInventarioSection(container) {
             li.className = 'py-2 flex flex-col sm:flex-row justify-between items-start sm:items-center';
             li.innerHTML = `
                 <div>
-                    <p class="font-semibold">${producto.Producto || 'N/A'} (${producto.Presentacion || 'N/A'}) - SKU: ${producto.Sku || 'N/A'} (ID: ${producto.id || 'N/A'})</p>
+                    <p class="font-semibold">${producto.Producto || 'N/A'} (${producto.Presentacion || 'N/A'}) - SKU: ${producto.Sku || 'N/A'}</p> <!-- CAMBIO AQUÍ: Eliminado (ID: ${producto.id || 'N/A'}) -->
                     <p class="text-sm text-gray-600">Rubro: ${producto.Rubro || 'N/A'} | Segmento: ${producto.Segmento || 'N/A'}</p>
                     <p class="text-sm text-gray-600">Cantidad: ${producto.Cantidad || 0} | Precio: $${(producto.Precio || 0).toFixed(2)}</p>
                 </div>
@@ -535,3 +535,4 @@ export async function renderInventarioSection(container) {
         }
     }
 }
+
