@@ -10,26 +10,28 @@ import { verInventarioCompleto, modificarProducto } from './inventario.js';
 
 // Función auxiliar para obtener la instancia de Firestore y el ID de usuario/appId
 async function getFirestoreInstances() {
-    while (!window.firebaseDb || !window.currentUserId || !window.currentAppId) {
+    while (!window.firebaseDb || !window.currentAppId) { // Ya no necesitamos window.currentUserId aquí para rutas de datos compartidos
         console.log('Esperando inicialización de Firebase en ventas.js...');
         await new Promise(resolve => setTimeout(resolve, 100));
     }
     return {
         db: window.firebaseDb,
-        userId: window.currentUserId,
+        // userId: window.currentUserId, // Ya no se usa para rutas de datos compartidos
         appId: window.currentAppId
     };
 }
 
 /**
  * Agrega una nueva venta a Firestore.
+ * Los datos se guardarán en una colección compartida.
+ * Ruta: /artifacts/{appId}/datosVentas
  * @param {object} venta - Objeto con los datos de la venta.
  * @returns {Promise<string|null>} El ID del documento de la venta agregada o null si hubo un error.
  */
 export async function agregarVenta(venta) {
     try {
-        const { db, userId, appId } = await getFirestoreInstances();
-        const ventasCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/datosVentas`);
+        const { db, appId } = await getFirestoreInstances();
+        const ventasCollectionRef = collection(db, `artifacts/${appId}/datosVentas`); // Ruta modificada
         const docRef = await addDoc(ventasCollectionRef, venta);
         console.log('Venta agregada con ID:', docRef.id);
         return docRef.id;
@@ -45,8 +47,8 @@ export async function agregarVenta(venta) {
  */
 export async function obtenerTodasLasVentas() {
     try {
-        const { db, userId, appId } = await getFirestoreInstances();
-        const ventasCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/datosVentas`);
+        const { db, appId } = await getFirestoreInstances();
+        const ventasCollectionRef = collection(db, `artifacts/${appId}/datosVentas`); // Ruta modificada
         const querySnapshot = await getDocs(ventasCollectionRef);
         const ventas = [];
         querySnapshot.forEach((doc) => {
@@ -333,6 +335,11 @@ export async function renderVentasSection(container) {
                         validationError = true;
                         return;
                     }
+                    if (isNaN(cantidad) || cantidad <= 0) {
+                        alert(`Error: Cantidad inválida para ${productData.Producto}.`);
+                        validationError = true;
+                        return;
+                    }
                     if (cantidad > availableStock) {
                         alert(`Error: Cantidad de ${productData.Producto} (${cantidad}) excede el stock disponible (${availableStock}).`);
                         validationError = true;
@@ -391,8 +398,8 @@ export async function renderVentasSection(container) {
 
             // 2. Actualizar la deuda del cliente si el método de pago es "Crédito"
             if (metodoPago === 'Credito') {
-                const { db, userId, appId } = await getFirestoreInstances();
-                const clienteDocRef = doc(db, `artifacts/${appId}/users/${userId}/datosClientes`, selectedClient.id);
+                const { db, appId } = await getFirestoreInstances();
+                const clienteDocRef = doc(db, `artifacts/${appId}/datosClientes`, selectedClient.id); // Ruta modificada
                 const nuevaDeuda = (selectedClient.Deuda || 0) + totalVentaCalculado;
                 await updateDoc(clienteDocRef, { Deuda: nuevaDeuda });
                 selectedClient.Deuda = nuevaDeuda; // Actualizar el objeto cliente en memoria
@@ -467,8 +474,8 @@ export async function renderVentasSection(container) {
             cierreResultadosDiv.innerHTML = '<p class="text-gray-500">Generando cierre...</p>';
 
             try {
-                const { db, userId, appId } = await getFirestoreInstances();
-                const ventasCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/datosVentas`);
+                const { db, appId } = await getFirestoreInstances();
+                const ventasCollectionRef = collection(db, `artifacts/${appId}/datosVentas`); // Ruta modificada
 
                 // Rango de fechas para el día seleccionado
                 const startOfDay = new Date(selectedDate);
@@ -485,15 +492,15 @@ export async function renderVentasSection(container) {
                 const querySnapshot = await getDocs(q);
 
                 let totalVentasDia = 0;
-                const ventasPorMetodoPago = {}; // Aunque no se usa en la venta, se mantiene para el cierre si hay datos históricos
+                const ventasPorMetodoPago = {};
                 const productosVendidos = {};
 
                 querySnapshot.forEach(docSnap => {
                     const venta = docSnap.data();
                     totalVentasDia += venta.totalVenta || 0;
 
-                    // Sumar por método de pago (si existe en datos históricos)
-                    const metodo = venta.metodoPago || 'No Especificado'; // Usar 'No Especificado' si no hay método
+                    // Sumar por método de pago
+                    const metodo = venta.metodoPago || 'No Especificado';
                     ventasPorMetodoPago[metodo] = (ventasPorMetodoPago[metodo] || 0) + venta.totalVenta;
 
                     // Sumar productos vendidos
@@ -510,7 +517,6 @@ export async function renderVentasSection(container) {
                     <h5 class="font-semibold text-gray-700 mb-2">Ventas por Método de Pago:</h5>
                     <ul class="list-disc pl-5 mb-3">
                 `;
-                // Mostrar solo si hay ventas por método de pago
                 if (Object.keys(ventasPorMetodoPago).length > 0) {
                     for (const metodo in ventasPorMetodoPago) {
                         resultadosHTML += `<li>${metodo}: $${ventasPorMetodoPago[metodo].toFixed(2)}</li>`;
