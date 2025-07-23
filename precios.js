@@ -189,21 +189,32 @@ export async function renderPreciosSection(container) {
                 <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">COP ${precioCop}</td>
                 <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">BS ${precioBs}</td>
             `;
-            ul.appendChild(li);
+            // Asegúrate de que 'ul' y 'li' se estén usando correctamente aquí,
+            // ya que en el código anterior había un 'ul.appendChild(li)'
+            // que no corresponde a la estructura de una tabla.
+            // Para una tabla, las filas se añaden directamente al tbody.
+            preciosTableBody.appendChild(row); // Corregido para añadir la fila al tbody
         });
-        listContainer.appendChild(ul);
+    };
 
-        // Adjuntar event listeners a los botones "Seleccionar" si existen
-        if (actionCallback) {
-            listContainer.querySelectorAll('.select-product-btn').forEach(button => {
-                button.addEventListener('click', async (event) => {
-                    const productId = event.target.dataset.productId;
-                    const selectedProduct = productos.find(p => p.id === productId);
-                    if (selectedProduct) {
-                        actionCallback(selectedProduct);
-                    }
-                });
-            });
-        }
-    }
+    // Event Listeners
+    closePreciosModalBtn.addEventListener('click', () => {
+        container.classList.add('hidden'); // Oculta el modal
+    });
+
+    filterRubroSelect.addEventListener('change', applyFiltersAndRender);
+    filterSegmentoSelect.addEventListener('change', applyFiltersAndRender);
+
+    inputCop.addEventListener('input', () => {
+        currentCopValue = parseFloat(inputCop.value) || 1; // Usa 1 si el valor no es un número válido
+        applyFiltersAndRender(); // Re-renderiza para actualizar los precios
+    });
+
+    inputBs.addEventListener('input', () => {
+        currentBsValue = parseFloat(inputBs.value) || 1; // Usa 1 si el valor no es un número válido
+        applyFiltersAndRender(); // Re-renderiza para actualizar los precios
+    });
+
+    // Cargar productos y filtros al inicializar la sección
+    loadProductsAndFilters();
 }
