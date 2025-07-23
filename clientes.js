@@ -32,7 +32,7 @@ async function getFirestoreInstances() {
 /**
  * Agrega un nuevo cliente al sistema en Firestore.
  * Los datos se guardarán en una colección específica del usuario para mantenerlos privados.
- * Ruta: /artifacts/{appId}/users/{userId}/clientes
+ * Ruta: /artifacts/{appId}/users/{userId}/datosClientes
  * @param {object} cliente - Objeto con los datos del cliente a agregar.
  * @param {string} cliente.ID - ID único del cliente (puede ser autogenerado por Firestore si no se especifica).
  * @param {string} cliente.CEP - Código de Enrutamiento Postal.
@@ -47,7 +47,7 @@ async function getFirestoreInstances() {
 export async function agregarCliente(cliente) {
     try {
         const { db, userId, appId } = await getFirestoreInstances();
-        const clientesCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/clientes`);
+        const clientesCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/datosClientes`); // CAMBIO AQUÍ
         const docRef = await addDoc(clientesCollectionRef, cliente);
         console.log('Cliente agregado con ID:', docRef.id);
         return docRef.id;
@@ -66,7 +66,7 @@ export async function agregarCliente(cliente) {
 export async function modificarCliente(idCliente, nuevosDatos) {
     try {
         const { db, userId, appId } = await getFirestoreInstances();
-        const clienteDocRef = doc(db, `artifacts/${appId}/users/${userId}/clientes`, idCliente);
+        const clienteDocRef = doc(db, `artifacts/${appId}/users/${userId}/datosClientes`, idCliente); // CAMBIO AQUÍ
         await updateDoc(clienteDocRef, nuevosDatos);
         console.log('Cliente modificado con éxito. ID:', idCliente);
         return true;
@@ -84,7 +84,7 @@ export async function modificarCliente(idCliente, nuevosDatos) {
 export async function eliminarCliente(idCliente) {
     try {
         const { db, userId, appId } = await getFirestoreInstances();
-        const clienteDocRef = doc(db, `artifacts/${appId}/users/${userId}/clientes`, idCliente);
+        const clienteDocRef = doc(db, `artifacts/${appId}/users/${userId}/datosClientes`, idCliente); // CAMBIO AQUÍ
         await deleteDoc(clienteDocRef);
         console.log('Cliente eliminado con éxito. ID:', idCliente);
         return true;
@@ -102,7 +102,7 @@ export async function eliminarCliente(idCliente) {
 export async function obtenerCliente(idCliente) {
     try {
         const { db, userId, appId } = await getFirestoreInstances();
-        const clienteDocRef = doc(db, `artifacts/${appId}/users/${userId}/clientes`, idCliente);
+        const clienteDocRef = doc(db, `artifacts/${appId}/users/${userId}/datosClientes`, idCliente); // CAMBIO AQUÍ
         const clienteSnap = await getDoc(clienteDocRef);
 
         if (clienteSnap.exists()) {
@@ -125,7 +125,7 @@ export async function obtenerCliente(idCliente) {
 export async function obtenerTodosLosClientes() {
     try {
         const { db, userId, appId } = await getFirestoreInstances();
-        const clientesCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/clientes`);
+        const clientesCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/datosClientes`); // CAMBIO AQUÍ
         const querySnapshot = await getDocs(clientesCollectionRef);
         const clientes = [];
         querySnapshot.forEach((doc) => {
@@ -252,8 +252,8 @@ export async function renderClientesSection(container) {
             if (container.querySelector('#mod-cep').value !== (clientData?.CEP || '')) nuevosDatos.CEP = container.querySelector('#mod-cep').value;
             if (container.querySelector('#mod-nombre-comercial').value !== (clientData?.NombreComercial || '')) nuevosDatos.NombreComercial = container.querySelector('#mod-nombre-comercial').value;
             if (container.querySelector('#mod-nombre-personal').value !== (clientData?.NombrePersonal || '')) nuevosDatos.NombrePersonal = container.querySelector('#mod-nombre-personal').value;
-            if (container.querySelector('#mod-zona').value !== (clientData?.Zona || '')) nuevosDatos.Zona = container.querySelector('#mod-zona').value;
-            if (container.querySelector('#mod-sector').value !== (clientData?.Sector || '')) nuevosDatos.Sector = container.querySelector('#mod-sector').value;
+            if (container.querySelector('#mod-zona').value) nuevosDatos.Zona = container.querySelector('#mod-zona').value; // Siempre toma el valor del select
+            if (container.querySelector('#mod-sector').value) nuevosDatos.Sector = container.querySelector('#mod-sector').value; // Siempre toma el valor del select
             if (container.querySelector('#mod-tlf').value !== (clientData?.Tlf || '')) nuevosDatos.Tlf = container.querySelector('#mod-tlf').value;
             if (container.querySelector('#mod-observaciones').value !== (clientData?.Observaciones || '')) nuevosDatos.Observaciones = container.querySelector('#mod-observaciones').value;
 
@@ -314,7 +314,7 @@ export async function renderClientesSection(container) {
         let allClients = [];
 
         allClients = await obtenerTodosLosClientes();
-        renderClientsList(allClients, clientListDiv, (selectedClient) => {
+        renderClientesList(allClients, clientListDiv, (selectedClient) => {
             renderModifyDeleteForm(selectedClient); // Pasa el cliente seleccionado al formulario de modificar/eliminar
         });
 
@@ -329,7 +329,7 @@ export async function renderClientesSection(container) {
                        (cliente.Tlf && cliente.Tlf.toLowerCase().includes(searchTerm)) ||
                        (cliente.Observaciones && cliente.Observaciones.toLowerCase().includes(searchTerm));
             });
-            renderClientsList(filteredClients, clientListDiv, (selectedClient) => {
+            renderClientesList(filteredClients, clientListDiv, (selectedClient) => {
                 renderModifyDeleteForm(selectedClient);
             });
         });
@@ -511,4 +511,3 @@ export async function renderClientesSection(container) {
         }
     }
 }
-
