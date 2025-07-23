@@ -20,7 +20,7 @@ window.firebaseApp = null;
 window.firebaseDb = null;
 window.firebaseAuth = null;
 window.currentUserId = null;
-window.currentAppId = null;
+// window.currentAppId = null; // Ya no es necesario como parte de la ruta de la colección
 
 // Configuración de Firebase (solo para desarrollo local o GitHub Pages si no se usa Canvas)
 // En un entorno de producción real, estas credenciales deberían ser gestionadas de forma más segura.
@@ -45,9 +45,7 @@ async function initializeFirebase() {
         window.firebaseApp = initializeApp(firebaseConfig);
         window.firebaseDb = getFirestore(window.firebaseApp);
         window.firebaseAuth = getAuth(window.firebaseApp);
-        window.currentAppId = typeof __app_id !== 'undefined' && __app_id !== 'default-app-id'
-            ? __app_id
-            : firebaseConfig.projectId;
+        // window.currentAppId ya no es necesario para la ruta de la colección en Firestore
 
         // Observar cambios en el estado de autenticación
         onAuthStateChanged(window.firebaseAuth, (user) => {
@@ -286,4 +284,3 @@ function renderMainAppScreen() {
 
 // Iniciar la aplicación cuando el DOM esté completamente cargado
 document.addEventListener('DOMContentLoaded', initializeFirebase);
-
