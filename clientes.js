@@ -148,7 +148,7 @@ export async function renderClientesSection(container) {
         <div class="modal-content">
             <h2 class="text-4xl font-bold text-gray-900 mb-6 text-center">Gestión de Clientes</h2>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+            <div id="clientes-main-buttons-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
                 <button id="btn-show-add-cliente" class="bg-blue-600 text-white p-4 rounded-md font-semibold hover:bg-blue-700 transition duration-200">
                     Agregar Cliente
                 </button>
@@ -175,17 +175,25 @@ export async function renderClientesSection(container) {
     `;
 
     // Obtener referencias a los elementos del DOM después de que se hayan renderizado
+    const clientesMainButtonsContainer = container.querySelector('#clientes-main-buttons-container');
     const clientesSubSection = container.querySelector('#clientes-sub-section');
     const closeClientesModalBtn = container.querySelector('#close-clientes-modal');
+
+    // Función para mostrar los botones principales y limpiar la sub-sección
+    const showClientesMainButtons = () => {
+        clientesSubSection.innerHTML = ''; // Limpia el contenido de la sub-sección
+        clientesMainButtonsContainer.classList.remove('hidden'); // Muestra los botones principales
+    };
 
     // Lógica para cerrar el modal
     closeClientesModalBtn.addEventListener('click', () => {
         container.classList.add('hidden'); // Oculta el modal
-        clientesSubSection.innerHTML = ''; // Limpia el contenido de la sub-sección
+        showClientesMainButtons(); // Vuelve a la vista de botones principales al cerrar
     });
 
     // Lógica para mostrar la sección de agregar cliente
     container.querySelector('#btn-show-add-cliente').addEventListener('click', () => {
+        clientesMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
         clientesSubSection.innerHTML = `
             <div class="p-6 bg-blue-50 rounded-lg shadow-inner">
                 <h3 class="text-2xl font-semibold text-blue-800 mb-4">Agregar Nuevo Cliente</h3>
@@ -205,6 +213,9 @@ export async function renderClientesSection(container) {
                 </div>
                 <button id="btn-submit-add-cliente" class="mt-6 w-full bg-blue-600 text-white p-3 rounded-md font-semibold hover:bg-blue-700 transition duration-200">
                     Confirmar Agregar Cliente
+                </button>
+                <button id="btn-back-add-cliente" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
+                    Volver
                 </button>
             </div>
         `;
@@ -255,10 +266,14 @@ export async function renderClientesSection(container) {
                 alert('Fallo al agregar cliente.');
             }
         });
+
+        // Conectar el botón Volver
+        container.querySelector('#btn-back-add-cliente').addEventListener('click', showClientesMainButtons);
     });
 
     // Lógica para mostrar la sección de modificar/eliminar cliente
     container.querySelector('#btn-show-modify-delete-cliente').addEventListener('click', () => {
+        clientesMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
         clientesSubSection.innerHTML = `
             <div class="p-6 bg-yellow-50 rounded-lg shadow-inner">
                 <h3 class="text-2xl font-semibold text-yellow-800 mb-4">Modificar o Eliminar Cliente</h3>
@@ -285,6 +300,9 @@ export async function renderClientesSection(container) {
                         Confirmar Eliminar
                     </button>
                 </div>
+                <button id="btn-back-modify-delete-cliente" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
+                    Volver
+                </button>
             </div>
         `;
         // Lógica para actualizar el select de Sector cuando cambia la Zona en modificar
@@ -355,10 +373,14 @@ export async function renderClientesSection(container) {
                 alert('Por favor, ingresa el ID del cliente a eliminar.');
             }
         });
+
+        // Conectar el botón Volver
+        container.querySelector('#btn-back-modify-delete-cliente').addEventListener('click', showClientesMainButtons);
     });
 
     // Lógica para mostrar la sección de buscar cliente (anteriormente listar)
     container.querySelector('#btn-show-search-cliente').addEventListener('click', async () => {
+        clientesMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
         clientesSubSection.innerHTML = `
             <div class="p-6 bg-green-50 rounded-lg shadow-inner">
                 <h3 class="text-2xl font-semibold text-green-800 mb-4">Buscar Cliente</h3>
@@ -367,6 +389,9 @@ export async function renderClientesSection(container) {
                     <!-- Los clientes se mostrarán aquí -->
                     <p class="text-gray-500">Cargando clientes...</p>
                 </div>
+                <button id="btn-back-search-cliente" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
+                    Volver
+                </button>
             </div>
         `;
         const clientesListDiv = container.querySelector('#clientes-list');
@@ -392,6 +417,9 @@ export async function renderClientesSection(container) {
             });
             renderClientesList(filteredClients, clientesListDiv);
         });
+
+        // Conectar el botón Volver
+        container.querySelector('#btn-back-search-cliente').addEventListener('click', showClientesMainButtons);
     });
 
     // Función auxiliar para renderizar la lista de clientes
