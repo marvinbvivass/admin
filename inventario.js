@@ -1,25 +1,23 @@
 // inventario.js
-// Este archivo gestiona las operaciones CRUD (Crear, Leer, Actualizar, Eliminar) para los productos del inventario
-// utilizando Firebase Firestore, y también se encarga de renderizar su interfaz de usuario.
+// Este archivo gestiona las operaciones CRUD para el inventario de productos
+// y también se encarga de renderizar su interfaz de usuario.
 
 // Importa las funciones necesarias de Firebase Firestore.
-import { collection, addDoc, doc, updateDoc, deleteDoc, getDoc, getDocs, query, where, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { collection, addDoc, doc, updateDoc, deleteDoc, getDoc, setDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // Variable para almacenar el mapa de rubros a segmentos, cargado desde Firebase
 let rubroSegmentoMap = {};
 const RUBRO_SEGMENTO_CONFIG_DOC_ID = 'rubrosSegmentos'; // ID fijo para el documento de configuración
 
 // Función auxiliar para obtener la instancia de Firestore y el ID de usuario/appId
-// Esto asegura que las variables globales de Firebase estén disponibles antes de usarlas.
 async function getFirestoreInstances() {
-    // Espera hasta que window.firebaseDb y window.currentUserId estén definidos
-    while (!window.firebaseDb || !window.currentUserId || !window.currentAppId) {
+    while (!window.firebaseDb || !window.currentAppId) { // Ya no necesitamos window.currentUserId aquí para rutas de datos compartidos
         console.log('Esperando inicialización de Firebase en inventario.js...');
-        await new Promise(resolve => setTimeout(resolve, 100)); // Espera 100ms antes de reintentar
+        await new Promise(resolve => setTimeout(resolve, 100));
     }
     return {
         db: window.firebaseDb,
-        userId: window.currentUserId,
+        // userId: window.currentUserId, // Ya no se usa para rutas de datos compartidos
         appId: window.currentAppId
     };
 }
@@ -31,8 +29,7 @@ async function getFirestoreInstances() {
 async function obtenerConfiguracionRubrosSegmentos() {
     try {
         const { db, appId } = await getFirestoreInstances();
-        // Las configuraciones pueden ser públicas o por usuario, dependiendo del caso de uso.
-        // Para este ejemplo, la guardaremos bajo el appId en una colección 'configuracion'.
+        // Las configuraciones son globales por appId
         const configDocRef = doc(db, `artifacts/${appId}/configuracion`, RUBRO_SEGMENTO_CONFIG_DOC_ID);
         const configSnap = await getDoc(configDocRef);
 
@@ -43,14 +40,16 @@ async function obtenerConfiguracionRubrosSegmentos() {
             console.log('No se encontró configuración de rubros y segmentos. Usando mapa predeterminado.');
             // Si no existe, inicializa con un mapa predeterminado o vacío
             return {
-                "Cerveceria": ["Cerveza", "Malta"],
-                "P&M": ["PEP"],
-                "Alimentos": ["Harina", "Pasta"],
-                "P&G": ["Shampoo", "Jabon en polvo"]
+                "Cerveza": ["Nacional", "Importada", "Artesanal"],
+                "Gaseosa": ["Cola", "Limón", "Naranja"],
+                "Agua": ["Mineral", "Con Gas", "Saborizada"],
+                "Snacks": ["Salado", "Dulce"],
+                "Licores": ["Ron", "Whisky", "Vodka"]
             };
         }
     } catch (error) {
         console.error('Error al obtener configuración de rubros y segmentos:', error);
+        // En caso de error, devuelve un mapa vacío para evitar que la app falle.
         return {};
     }
 }
@@ -74,25 +73,17 @@ async function guardarConfiguracionRubrosSegmentos(newMap) {
     }
 }
 
-
 /**
  * Agrega un nuevo producto al inventario en Firestore.
- * Los datos se guardarán en una colección específica del usuario para mantenerlos privados.
- * Ruta: /artifacts/{appId}/users/{userId}/datosInventario
+ * Los datos se guardarán en una colección compartida.
+ * Ruta: /artifacts/{appId}/datosInventario
  * @param {object} producto - Objeto con los datos del producto a agregar.
- * @param {string} producto.Rubro - Categoría del producto.
- * @param {string} producto.Sku - Código de identificación único del producto.
- * @param {string} producto.Segmento - Segmento al que pertenece el producto.
- * @param {string} producto.Producto - Nombre del producto.
- * @param {string} producto.Presentacion - Formato o presentación del producto.
- * @param {number} producto.Cantidad - Cantidad actual en inventario.
- * @param {number} producto.Precio - Precio unitario del producto.
  * @returns {Promise<string|null>} El ID del documento del producto agregado o null si hubo un error.
  */
 export async function agregarProducto(producto) {
     try {
-        const { db, userId, appId } = await getFirestoreInstances();
-        const inventarioCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/datosInventario`);
+        const { db, appId } = await getFirestoreInstances();
+        const inventarioCollectionRef = collection(db, `artifacts/${appId}/datosInventario`); // Ruta modificada
         const docRef = await addDoc(inventarioCollectionRef, producto);
         console.log('Producto agregado con ID:', docRef.id);
         return docRef.id;
@@ -103,62 +94,15 @@ export async function agregarProducto(producto) {
 }
 
 /**
- * Obtiene el inventario completo del sistema de Firestore para el usuario actual.
- * @returns {Promise<Array<object>>} Un array de objetos de producto.
- */
-export async function verInventarioCompleto() {
-    try {
-        const { db, userId, appId } = await getFirestoreInstances();
-        const inventarioCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/datosInventario`);
-        const querySnapshot = await getDocs(inventarioCollectionRef);
-        const inventario = [];
-        querySnapshot.forEach((doc) => {
-            inventario.push({ id: doc.id, ...doc.data() });
-        });
-        console.log('Inventario completo obtenido:', inventario);
-        return inventario;
-    } catch (error) {
-        console.error('Error al obtener el inventario completo:', error);
-        return [];
-    }
-}
-
-/**
- * Busca productos en el inventario por un campo y valor específicos.
- * @param {string} campo - El nombre del campo por el cual buscar (ej. 'Sku', 'Producto', 'Rubro').
- * @param {any} valor - El valor a buscar en el campo especificado.
- * @returns {Promise<Array<object>>} Un array de objetos de producto que coinciden con la búsqueda.
- */
-export async function buscarProducto(campo, valor) {
-    try {
-        const { db, userId, appId } = await getFirestoreInstances();
-        const inventarioCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/datosInventario`);
-        // Nota: Firestore requiere índices para consultas de igualdad en campos no ID.
-        // Si no tienes un índice para el campo 'campo', esta consulta podría fallar.
-        const q = query(inventarioCollectionRef, where(campo, '==', valor));
-        const querySnapshot = await getDocs(q);
-        const resultados = [];
-        querySnapshot.forEach((doc) => {
-            resultados.push({ id: doc.id, ...doc.data() });
-        });
-        console.log(`Productos encontrados por ${campo} = ${valor}:`, resultados);
-        return resultados;
-    } catch (error) {
-        console.error(`Error al buscar producto por ${campo}:`, error);
-        return [];
-    }
-}
-
-/**
- * Modifica los datos de un producto existente en Firestore.
+ * Modifica los datos de un producto existente en el inventario de Firestore.
  * @param {string} idProducto - ID único del documento del producto a modificar.
  * @param {object} nuevosDatos - Objeto con los nuevos datos del producto.
  * @returns {Promise<boolean>} True si la modificación fue exitosa, false en caso contrario.
  */
 export async function modificarProducto(idProducto, nuevosDatos) {
     try {
-        const { db, userId, appId } = await getFirestoreInstances();
-        const productoDocRef = doc(db, `artifacts/${appId}/users/${userId}/datosInventario`, idProducto);
+        const { db, appId } = await getFirestoreInstances();
+        const productoDocRef = doc(db, `artifacts/${appId}/datosInventario`, idProducto); // Ruta modificada
         await updateDoc(productoDocRef, nuevosDatos);
         console.log('Producto modificado con éxito. ID:', idProducto);
         return true;
@@ -175,14 +119,59 @@ export async function modificarProducto(idProducto, nuevosDatos) {
  */
 export async function eliminarProducto(idProducto) {
     try {
-        const { db, userId, appId } = await getFirestoreInstances();
-        const productoDocRef = doc(db, `artifacts/${appId}/users/${userId}/datosInventario`, idProducto);
+        const { db, appId } = await getFirestoreInstances();
+        const productoDocRef = doc(db, `artifacts/${appId}/datosInventario`, idProducto); // Ruta modificada
         await deleteDoc(productoDocRef);
         console.log('Producto eliminado con éxito. ID:', idProducto);
         return true;
     } catch (error) {
         console.error('Error al eliminar producto:', error);
         return false;
+    }
+}
+
+/**
+ * Obtiene los datos de un producto específico del inventario de Firestore.
+ * @param {string} idProducto - ID único del documento del producto a obtener.
+ * @returns {Promise<object|null>} Los datos del producto o null si no se encuentra o hay un error.
+ */
+export async function obtenerProducto(idProducto) {
+    try {
+        const { db, appId } = await getFirestoreInstances();
+        const productoDocRef = doc(db, `artifacts/${appId}/datosInventario`, idProducto); // Ruta modificada
+        const productoSnap = await getDoc(productoDocRef);
+
+        if (productoSnap.exists()) {
+            console.log('Producto obtenido:', productoSnap.data());
+            return { id: productoSnap.id, ...productoSnap.data() };
+        } else {
+            console.log('No se encontró el producto con ID:', idProducto);
+            return null;
+        }
+    } catch (error) {
+        console.error('Error al obtener producto:', error);
+        return null;
+    }
+}
+
+/**
+ * Obtiene todos los productos del inventario de Firestore.
+ * @returns {Promise<Array<object>>} Un array de objetos de producto.
+ */
+export async function verInventarioCompleto() {
+    try {
+        const { db, appId } = await getFirestoreInstances();
+        const inventarioCollectionRef = collection(db, `artifacts/${appId}/datosInventario`); // Ruta modificada
+        const querySnapshot = await getDocs(inventarioCollectionRef);
+        const productos = [];
+        querySnapshot.forEach((doc) => {
+            productos.push({ id: doc.id, ...doc.data() });
+        });
+        console.log('Inventario completo obtenido:', productos);
+        return productos;
+    } catch (error) {
+        console.error('Error al obtener el inventario completo:', error);
+        return [];
     }
 }
 
@@ -196,26 +185,23 @@ export async function renderInventarioSection(container) {
             <h2 class="text-4xl font-bold text-gray-900 mb-6 text-center">Gestión de Inventario</h2>
 
             <div id="inventario-main-buttons-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-                <button id="btn-show-add-producto" class="bg-indigo-600 text-white p-4 rounded-md font-semibold hover:bg-indigo-700 transition duration-200">
+                <button id="btn-show-add-producto" class="bg-blue-600 text-white p-4 rounded-md font-semibold hover:bg-blue-700 transition duration-200">
                     Agregar Producto
                 </button>
                 <button id="btn-show-modify-delete-producto" class="bg-yellow-600 text-white p-4 rounded-md font-semibold hover:bg-yellow-700 transition duration-200">
                     Modificar/Eliminar Producto
                 </button>
-                <button id="btn-show-search-producto" class="bg-gray-600 text-white p-4 rounded-md font-semibold hover:bg-gray-700 transition duration-200">
-                    Buscar Producto
+                <button id="btn-show-ver-inventario" class="bg-green-600 text-white p-4 rounded-md font-semibold hover:bg-green-700 transition duration-200">
+                    Ver Inventario
                 </button>
-                <button id="btn-show-full-inventario" class="bg-purple-600 text-white p-4 rounded-md font-semibold hover:bg-purple-700 transition duration-200">
-                    Ver Inventario Completo
-                </button>
-                <button id="btn-show-manage-rubros-segmentos" class="bg-teal-600 text-white p-4 rounded-md font-semibold hover:bg-teal-700 transition duration-200 col-span-full">
+                <button id="btn-show-manage-rubros-segmentos" class="bg-purple-600 text-white p-4 rounded-md font-semibold hover:bg-purple-700 transition duration-200 col-span-full">
                     Gestionar Rubros y Segmentos
                 </button>
             </div>
 
             <!-- Contenedor para las sub-secciones dinámicas -->
             <div id="inventario-sub-section" class="mt-8">
-                <!-- El contenido de agregar, modificar/eliminar, buscar o listar se cargará aquí -->
+                <!-- El contenido de agregar, modificar/eliminar o ver inventario se cargará aquí -->
             </div>
 
             <!-- Botón para cerrar el modal -->
@@ -247,92 +233,6 @@ export async function renderInventarioSection(container) {
         showInventarioMainButtons(); // Vuelve a la vista de botones principales al cerrar
     });
 
-    // Lógica para mostrar la sección de agregar producto
-    container.querySelector('#btn-show-add-producto').addEventListener('click', () => {
-        inventarioMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
-        inventarioSubSection.innerHTML = `
-            <div class="p-6 bg-indigo-50 rounded-lg shadow-inner">
-                <h3 class="text-2xl font-semibold text-indigo-800 mb-4">Agregar Nuevo Producto</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <select id="add-rubro" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                        <option value="">Selecciona Rubro</option>
-                        ${Object.keys(rubroSegmentoMap).map(rubro => `<option value="${rubro}">${rubro}</option>`).join('')}
-                    </select>
-                    <input type="text" id="add-sku" placeholder="SKU" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <select id="add-segmento" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" disabled>
-                        <option value="">Selecciona Segmento</option>
-                    </select>
-                    <input type="text" id="add-producto-nombre" placeholder="Producto" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <input type="text" id="add-presentacion" placeholder="Presentación" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <input type="number" id="add-cantidad" placeholder="Cantidad" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <input type="number" step="0.01" id="add-precio" placeholder="Precio" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                </div>
-                <button id="btn-submit-add-producto" class="mt-6 w-full bg-indigo-600 text-white p-3 rounded-md font-semibold hover:bg-indigo-700 transition duration-200">
-                    Confirmar Agregar Producto
-                </button>
-                <button id="btn-back-add-producto" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
-                    Volver
-                </button>
-            </div>
-        `;
-        // Lógica para actualizar el select de Segmento cuando cambia el Rubro
-        const addRubroSelect = container.querySelector('#add-rubro');
-        const addSegmentoSelect = container.querySelector('#add-segmento');
-        addRubroSelect.addEventListener('change', () => {
-            const selectedRubro = addRubroSelect.value;
-            addSegmentoSelect.innerHTML = '<option value="">Selecciona Segmento</option>'; // Limpiar opciones anteriores
-            if (selectedRubro && rubroSegmentoMap[selectedRubro]) {
-                rubroSegmentoMap[selectedRubro].forEach(segmento => {
-                    const option = document.createElement('option');
-                    option.value = segmento;
-                    option.textContent = segmento;
-                    addSegmentoSelect.appendChild(option);
-                });
-                addSegmentoSelect.disabled = false; // Habilitar el select de Segmento
-            } else {
-                addSegmentoSelect.disabled = true; // Deshabilitar si no hay rubro seleccionado
-            }
-        });
-
-        // Conectar el botón de agregar producto
-        container.querySelector('#btn-submit-add-producto').addEventListener('click', async () => {
-            const producto = {
-                Rubro: container.querySelector('#add-rubro').value,
-                Sku: container.querySelector('#add-sku').value,
-                Segmento: container.querySelector('#add-segmento').value,
-                Producto: container.querySelector('#add-producto-nombre').value,
-                Presentacion: container.querySelector('#add-presentacion').value,
-                Cantidad: parseFloat(container.querySelector('#add-cantidad').value),
-                Precio: parseFloat(container.querySelector('#add-precio').value)
-            };
-
-            // Validación básica
-            if (!producto.Rubro || !producto.Sku || !producto.Producto || isNaN(producto.Cantidad) || isNaN(producto.Precio)) {
-                alert('Por favor, completa todos los campos obligatorios (Rubro, SKU, Producto, Cantidad, Precio).');
-                return;
-            }
-
-            const id = await agregarProducto(producto);
-            if (id) {
-                alert('Producto agregado con éxito, ID: ' + id);
-                // Limpiar campos
-                container.querySelector('#add-rubro').value = '';
-                container.querySelector('#add-sku').value = '';
-                container.querySelector('#add-segmento').innerHTML = '<option value="">Selecciona Segmento</option>'; // Limpiar y resetear segmento
-                container.querySelector('#add-segmento').disabled = true;
-                container.querySelector('#add-producto-nombre').value = '';
-                container.querySelector('#add-presentacion').value = '';
-                container.querySelector('#add-cantidad').value = '';
-                container.querySelector('#add-precio').value = '';
-            } else {
-                alert('Fallo al agregar producto.');
-            }
-        });
-
-        // Conectar el botón Volver
-        container.querySelector('#btn-back-add-producto').addEventListener('click', showInventarioMainButtons);
-    });
-
     // Función para renderizar el formulario de modificar/eliminar
     const renderModifyDeleteForm = (productData = null) => {
         inventarioSubSection.innerHTML = `
@@ -340,19 +240,20 @@ export async function renderInventarioSection(container) {
                 <h3 class="text-2xl font-semibold text-yellow-800 mb-4">Modificar o Eliminar Producto</h3>
                 <input type="hidden" id="mod-del-producto-id" value="${productData ? productData.id : ''}">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="text" id="mod-sku" placeholder="Nuevo SKU (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${productData?.Sku || ''}">
+                    <input type="text" id="mod-producto" placeholder="Nuevo Nombre Producto (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${productData?.Producto || ''}">
+                    <input type="text" id="mod-presentacion" placeholder="Nueva Presentación (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${productData?.Presentacion || ''}">
                     <select id="mod-rubro" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
                         <option value="">Nuevo Rubro (opcional)</option>
                         ${Object.keys(rubroSegmentoMap).map(rubro => `<option value="${rubro}" ${productData?.Rubro === rubro ? 'selected' : ''}>${rubro}</option>`).join('')}
                     </select>
-                    <input type="text" id="mod-sku" placeholder="Nuevo SKU (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${productData?.Sku || ''}">
                     <select id="mod-segmento" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" ${productData?.Rubro ? '' : 'disabled'}>
                         <option value="">Nuevo Segmento (opcional)</option>
                         ${productData?.Rubro && rubroSegmentoMap[productData.Rubro] ? rubroSegmentoMap[productData.Rubro].map(segmento => `<option value="${segmento}" ${productData?.Segmento === segmento ? 'selected' : ''}>${segmento}</option>`).join('') : ''}
                     </select>
-                    <input type="text" id="mod-producto-nombre" placeholder="Nuevo Producto (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${productData?.Producto || ''}">
-                    <input type="text" id="mod-presentacion" placeholder="Nueva Presentación (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${productData?.Presentacion || ''}">
-                    <input type="number" id="mod-cantidad" placeholder="Nueva Cantidad (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${productData?.Cantidad || ''}">
                     <input type="number" step="0.01" id="mod-precio" placeholder="Nuevo Precio (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${productData?.Precio || ''}">
+                    <input type="number" step="1" id="mod-cantidad" placeholder="Nueva Cantidad (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${productData?.Cantidad || ''}">
+                    <textarea id="mod-observaciones" placeholder="Nuevas Observaciones (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 col-span-full">${productData?.Observaciones || ''}</textarea>
                 </div>
                 <div class="flex flex-col md:flex-row gap-4 mt-6">
                     <button id="btn-submit-modify-producto" class="flex-1 bg-yellow-600 text-white p-3 rounded-md font-semibold hover:bg-yellow-700 transition duration-200">
@@ -367,6 +268,7 @@ export async function renderInventarioSection(container) {
                 </button>
             </div>
         `;
+
         // Lógica para actualizar el select de Segmento cuando cambia el Rubro en modificar
         const modRubroSelect = container.querySelector('#mod-rubro');
         const modSegmentoSelect = container.querySelector('#mod-segmento');
@@ -390,13 +292,14 @@ export async function renderInventarioSection(container) {
         container.querySelector('#btn-submit-modify-producto').addEventListener('click', async () => {
             const id = container.querySelector('#mod-del-producto-id').value;
             const nuevosDatos = {};
-            if (container.querySelector('#mod-rubro').value !== (productData?.Rubro || '')) nuevosDatos.Rubro = container.querySelector('#mod-rubro').value;
             if (container.querySelector('#mod-sku').value !== (productData?.Sku || '')) nuevosDatos.Sku = container.querySelector('#mod-sku').value;
-            if (container.querySelector('#mod-segmento').value !== (productData?.Segmento || '')) nuevosDatos.Segmento = container.querySelector('#mod-segmento').value;
-            if (container.querySelector('#mod-producto-nombre').value !== (productData?.Producto || '')) nuevosDatos.Producto = container.querySelector('#mod-producto-nombre').value;
+            if (container.querySelector('#mod-producto').value !== (productData?.Producto || '')) nuevosDatos.Producto = container.querySelector('#mod-producto').value;
             if (container.querySelector('#mod-presentacion').value !== (productData?.Presentacion || '')) nuevosDatos.Presentacion = container.querySelector('#mod-presentacion').value;
-            if (container.querySelector('#mod-cantidad').value !== (productData?.Cantidad || '')) nuevosDatos.Cantidad = parseFloat(container.querySelector('#mod-cantidad').value);
+            if (container.querySelector('#mod-rubro').value) nuevosDatos.Rubro = container.querySelector('#mod-rubro').value;
+            if (container.querySelector('#mod-segmento').value) nuevosDatos.Segmento = container.querySelector('#mod-segmento').value;
             if (container.querySelector('#mod-precio').value !== (productData?.Precio || '')) nuevosDatos.Precio = parseFloat(container.querySelector('#mod-precio').value);
+            if (container.querySelector('#mod-cantidad').value !== (productData?.Cantidad || '')) nuevosDatos.Cantidad = parseInt(container.querySelector('#mod-cantidad').value);
+            if (container.querySelector('#mod-observaciones').value !== (productData?.Observaciones || '')) nuevosDatos.Observaciones = container.querySelector('#mod-observaciones').value;
 
             if (id && Object.keys(nuevosDatos).length > 0) {
                 const modificado = await modificarProducto(id, nuevosDatos);
@@ -438,7 +341,7 @@ export async function renderInventarioSection(container) {
         inventarioSubSection.innerHTML = `
             <div class="p-6 bg-yellow-50 rounded-lg shadow-inner">
                 <h3 class="text-2xl font-semibold text-yellow-800 mb-4">Buscar Producto para Modificar/Eliminar</h3>
-                <input type="text" id="search-modify-delete-input" placeholder="Buscar por SKU, Nombre, Rubro, etc." class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 mb-4">
+                <input type="text" id="search-modify-delete-input" placeholder="Buscar por SKU, Producto, Rubro, etc." class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 mb-4">
                 <div id="modify-delete-product-list" class="bg-white p-4 rounded-md border border-gray-200 max-h-60 overflow-y-auto">
                     <!-- Los productos se mostrarán aquí -->
                     <p class="text-gray-500">Cargando productos...</p>
@@ -454,20 +357,21 @@ export async function renderInventarioSection(container) {
         let allProducts = [];
 
         allProducts = await verInventarioCompleto();
-        renderInventarioList(allProducts, productListDiv, (selectedProduct) => {
+        renderProductsList(allProducts, productListDiv, (selectedProduct) => {
             renderModifyDeleteForm(selectedProduct); // Pasa el producto seleccionado al formulario de modificar/eliminar
         });
 
         searchInput.addEventListener('input', () => {
             const searchTerm = searchInput.value.toLowerCase();
-            const filteredProducts = allProducts.filter(product => {
-                return (product.Sku && product.Sku.toLowerCase().includes(searchTerm)) ||
-                       (product.Producto && product.Producto.toLowerCase().includes(searchTerm)) ||
-                       (product.Rubro && product.Rubro.toLowerCase().includes(searchTerm)) ||
-                       (product.Segmento && product.Segmento.toLowerCase().includes(searchTerm)) ||
-                       (product.Presentacion && product.Presentacion.toLowerCase().includes(searchTerm));
+            const filteredProducts = allProducts.filter(producto => {
+                return (producto.Sku && producto.Sku.toLowerCase().includes(searchTerm)) ||
+                       (producto.Producto && producto.Producto.toLowerCase().includes(searchTerm)) ||
+                       (producto.Presentacion && producto.Presentacion.toLowerCase().includes(searchTerm)) ||
+                       (producto.Rubro && producto.Rubro.toLowerCase().includes(searchTerm)) ||
+                       (producto.Segmento && producto.Segmento.toLowerCase().includes(searchTerm)) ||
+                       (producto.Observaciones && producto.Observaciones.toLowerCase().includes(searchTerm));
             });
-            renderInventarioList(filteredProducts, productListDiv, (selectedProduct) => {
+            renderProductsList(filteredProducts, productListDiv, (selectedProduct) => {
                 renderModifyDeleteForm(selectedProduct);
             });
         });
@@ -476,76 +380,136 @@ export async function renderInventarioSection(container) {
     };
 
 
-    // Lógica para mostrar la sección de modificar/eliminar producto
+    // Lógica para mostrar la sección de agregar producto
+    container.querySelector('#btn-show-add-producto').addEventListener('click', () => {
+        inventarioMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
+        inventarioSubSection.innerHTML = `
+            <div class="p-6 bg-blue-50 rounded-lg shadow-inner">
+                <h3 class="text-2xl font-semibold text-blue-800 mb-4">Agregar Nuevo Producto</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="text" id="add-sku" placeholder="SKU" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="text" id="add-producto" placeholder="Nombre Producto" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="text" id="add-presentacion" placeholder="Presentación" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <select id="add-rubro" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">Selecciona Rubro</option>
+                        ${Object.keys(rubroSegmentoMap).map(rubro => `<option value="${rubro}">${rubro}</option>`).join('')}
+                    </select>
+                    <select id="add-segmento" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" disabled>
+                        <option value="">Selecciona Segmento</option>
+                    </select>
+                    <input type="number" step="0.01" id="add-precio" placeholder="Precio" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="number" step="1" id="add-cantidad" placeholder="Cantidad" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <textarea id="add-observaciones" placeholder="Observaciones (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 col-span-full"></textarea>
+                </div>
+                <button id="btn-submit-add-producto" class="mt-6 w-full bg-blue-600 text-white p-3 rounded-md font-semibold hover:bg-blue-700 transition duration-200">
+                    Confirmar Agregar Producto
+                </button>
+                <button id="btn-back-add-producto" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
+                    Volver
+                </button>
+            </div>
+        `;
+        // Lógica para actualizar el select de Segmento cuando cambia el Rubro
+        const addRubroSelect = container.querySelector('#add-rubro');
+        const addSegmentoSelect = container.querySelector('#add-segmento');
+        addRubroSelect.addEventListener('change', () => {
+            const selectedRubro = addRubroSelect.value;
+            addSegmentoSelect.innerHTML = '<option value="">Selecciona Segmento</option>'; // Limpiar opciones anteriores
+            if (selectedRubro && rubroSegmentoMap[selectedRubro]) {
+                rubroSegmentoMap[selectedRubro].forEach(segmento => {
+                    const option = document.createElement('option');
+                    option.value = segmento;
+                    option.textContent = segmento;
+                    addSegmentoSelect.appendChild(option);
+                });
+                addSegmentoSelect.disabled = false; // Habilitar el select de Segmento
+            } else {
+                addSegmentoSelect.disabled = true; // Deshabilitar si no hay rubro seleccionado
+            }
+        });
+
+        // Conectar el botón de agregar producto
+        container.querySelector('#btn-submit-add-producto').addEventListener('click', async () => {
+            const producto = {
+                Sku: container.querySelector('#add-sku').value,
+                Producto: container.querySelector('#add-producto').value,
+                Presentacion: container.querySelector('#add-presentacion').value,
+                Rubro: container.querySelector('#add-rubro').value,
+                Segmento: container.querySelector('#add-segmento').value,
+                Precio: parseFloat(container.querySelector('#add-precio').value) || 0,
+                Cantidad: parseInt(container.querySelector('#add-cantidad').value) || 0,
+                Observaciones: container.querySelector('#add-observaciones').value
+            };
+
+            const id = await agregarProducto(producto);
+            if (id) {
+                alert('Producto agregado con éxito, ID: ' + id);
+                // Limpiar campos
+                container.querySelector('#add-sku').value = '';
+                container.querySelector('#add-producto').value = '';
+                container.querySelector('#add-presentacion').value = '';
+                container.querySelector('#add-rubro').value = '';
+                container.querySelector('#add-segmento').innerHTML = '<option value="">Selecciona Segmento</option>'; // Limpiar y resetear segmento
+                container.querySelector('#add-segmento').disabled = true;
+                container.querySelector('#add-precio').value = '';
+                container.querySelector('#add-cantidad').value = '';
+                container.querySelector('#add-observaciones').value = '';
+            } else {
+                alert('Fallo al agregar producto.');
+            }
+        });
+
+        // Conectar el botón Volver
+        container.querySelector('#btn-back-add-producto').addEventListener('click', showInventarioMainButtons);
+    });
+
+    // Lógica para mostrar la sección de modificar/eliminar producto (ahora con búsqueda previa)
     container.querySelector('#btn-show-modify-delete-producto').addEventListener('click', showModifyDeleteSearch);
 
 
-    // Lógica para mostrar la sección de buscar producto
-    container.querySelector('#btn-show-search-producto').addEventListener('click', () => {
+    // Lógica para mostrar la sección de ver inventario (anteriormente listar)
+    container.querySelector('#btn-show-ver-inventario').addEventListener('click', async () => {
         inventarioMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
         inventarioSubSection.innerHTML = `
-            <div class="p-6 bg-gray-50 rounded-lg shadow-inner">
-                <h3 class="text-2xl font-semibold text-gray-800 mb-4">Buscar Producto</h3>
-                <input type="text" id="search-field" placeholder="Buscar por SKU, Nombre, Rubro, etc." class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 mb-4">
-                <div id="search-results-list" class="bg-white p-4 rounded-md border border-gray-200 max-h-60 overflow-y-auto">
-                    <!-- Los resultados de la búsqueda se mostrarán aquí -->
-                    <p class="text-gray-500">Los resultados aparecerán aquí.</p>
-                </div>
-                <button id="btn-back-search-producto" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
-                    Volver
-                </button>
-            </div>
-        `;
-        // Conectar el botón de búsqueda
-        const searchInput = container.querySelector('#search-field');
-        const searchResultsListDiv = container.querySelector('#search-results-list');
-        let allProductsForSearch = []; // Para almacenar todos los productos para la búsqueda
-
-        // Cargar todos los productos al abrir la sección de búsqueda
-        verInventarioCompleto().then(products => {
-            allProductsForSearch = products;
-            renderInventarioList(allProductsForSearch, searchResultsListDiv);
-        });
-
-        searchInput.addEventListener('input', () => {
-            const searchTerm = searchInput.value.toLowerCase();
-            const filteredProducts = allProductsForSearch.filter(product => {
-                return (product.Sku && product.Sku.toLowerCase().includes(searchTerm)) ||
-                       (product.Producto && product.Producto.toLowerCase().includes(searchTerm)) ||
-                       (product.Rubro && product.Rubro.toLowerCase().includes(searchTerm)) ||
-                       (product.Segmento && product.Segmento.toLowerCase().includes(searchTerm)) ||
-                       (product.Presentacion && product.Presentacion.toLowerCase().includes(searchTerm));
-            });
-            renderInventarioList(filteredProducts, searchResultsListDiv);
-        });
-
-        // Conectar el botón Volver
-        container.querySelector('#btn-back-search-producto').addEventListener('click', showInventarioMainButtons);
-    });
-
-    // Lógica para mostrar la sección de ver inventario completo
-    container.querySelector('#btn-show-full-inventario').addEventListener('click', async () => {
-        inventarioMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
-        inventarioSubSection.innerHTML = `
-            <div class="p-6 bg-purple-50 rounded-lg shadow-inner">
-                <h3 class="text-2xl font-semibold text-purple-800 mb-4">Inventario Completo</h3>
-                <div id="full-inventario-list" class="bg-white p-4 rounded-md border border-gray-200 max-h-60 overflow-y-auto">
+            <div class="p-6 bg-green-50 rounded-lg shadow-inner">
+                <h3 class="text-2xl font-semibold text-green-800 mb-4">Ver Inventario Completo</h3>
+                <input type="text" id="search-inventario-input" placeholder="Buscar por SKU, Producto, Rubro, etc." class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 mb-4">
+                <div id="inventario-list" class="bg-white p-4 rounded-md border border-gray-200 max-h-96 overflow-y-auto">
                     <!-- Los productos se mostrarán aquí -->
                     <p class="text-gray-500">Cargando inventario...</p>
                 </div>
-                <button id="btn-back-full-inventario" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
+                <button id="btn-back-ver-inventario" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
                     Volver
                 </button>
             </div>
         `;
-        const inventario = await verInventarioCompleto();
-        renderInventarioList(inventario, container.querySelector('#full-inventario-list'));
+        const inventarioListDiv = container.querySelector('#inventario-list');
+        const searchInput = container.querySelector('#search-inventario-input');
+        let allProducts = []; // Para almacenar todos los productos y filtrar sobre ellos
+
+        // Cargar todos los productos al abrir la sección
+        allProducts = await verInventarioCompleto();
+        renderProductsList(allProducts, inventarioListDiv); // No se pasa callback para "Seleccionar" aquí
+
+        // Lógica de filtrado en tiempo real
+        searchInput.addEventListener('input', () => {
+            const searchTerm = searchInput.value.toLowerCase();
+            const filteredProducts = allProducts.filter(producto => {
+                return (producto.Sku && producto.Sku.toLowerCase().includes(searchTerm)) ||
+                       (producto.Producto && producto.Producto.toLowerCase().includes(searchTerm)) ||
+                       (producto.Presentacion && producto.Presentacion.toLowerCase().includes(searchTerm)) ||
+                       (producto.Rubro && producto.Rubro.toLowerCase().includes(searchTerm)) ||
+                       (producto.Segmento && producto.Segmento.toLowerCase().includes(searchTerm)) ||
+                       (producto.Observaciones && producto.Observaciones.toLowerCase().includes(searchTerm));
+            });
+            renderProductsList(filteredProducts, inventarioListDiv);
+        });
 
         // Conectar el botón Volver
-        container.querySelector('#btn-back-full-inventario').addEventListener('click', showInventarioMainButtons);
+        container.querySelector('#btn-back-ver-inventario').addEventListener('click', showInventarioMainButtons);
     });
 
-    // Nueva lógica para mostrar la sección de gestionar rubros y segmentos
+    // Lógica para mostrar la sección de gestionar rubros y segmentos
     container.querySelector('#btn-show-manage-rubros-segmentos').addEventListener('click', async () => {
         inventarioMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
         await renderGestionarRubrosSegmentosForm(); // Llama a la nueva función para gestionar rubros/segmentos
@@ -557,7 +521,7 @@ export async function renderInventarioSection(container) {
      * @param {HTMLElement} listContainer - El elemento DOM donde se renderizará la lista.
      * @param {function(object): void} [actionCallback] - Función a ejecutar cuando se selecciona un producto.
      */
-    function renderInventarioList(productos, listContainer, actionCallback = null) {
+    function renderProductsList(productos, listContainer, actionCallback = null) {
         listContainer.innerHTML = ''; // Limpiar lista
         if (productos.length === 0) {
             listContainer.innerHTML = '<p class="text-gray-500">No hay productos para mostrar aún.</p>';
@@ -570,9 +534,10 @@ export async function renderInventarioSection(container) {
             li.className = 'py-2 flex flex-col sm:flex-row justify-between items-start sm:items-center';
             li.innerHTML = `
                 <div>
-                    <p class="font-semibold">${producto.Producto || 'N/A'} (${producto.Presentacion || 'N/A'}) - SKU: ${producto.Sku || 'N/A'}</p>
+                    <p class="font-semibold">${producto.Producto || 'N/A'} (${producto.Presentacion || 'N/A'})</p>
+                    <p class="text-sm text-gray-600">SKU: ${producto.Sku || 'N/A'} | Precio: $${(producto.Precio || 0).toFixed(2)} | Cantidad: ${producto.Cantidad || 0}</p>
                     <p class="text-sm text-gray-600">Rubro: ${producto.Rubro || 'N/A'} | Segmento: ${producto.Segmento || 'N/A'}</p>
-                    <p class="text-sm text-gray-600">Cantidad: ${producto.Cantidad || 0} | Precio: $${(producto.Precio || 0).toFixed(2)}</p>
+                    <p class="text-sm text-gray-600">Observaciones: ${producto.Observaciones || 'N/A'}</p>
                 </div>
                 ${actionCallback ? `<button class="mt-2 sm:mt-0 sm:ml-4 bg-blue-500 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-600 transition duration-200 select-product-btn" data-product-id="${producto.id}">Seleccionar</button>` : ''}
             `;
@@ -594,13 +559,13 @@ export async function renderInventarioSection(container) {
         }
     }
 
-    // --- Funciones para gestionar Rubros y Segmentos (Nuevas) ---
+    // --- Funciones para gestionar Rubros y Segmentos (Refactorizadas) ---
 
     // Función principal para el menú de gestión de Rubros y Segmentos
     async function renderGestionarRubrosSegmentosForm() {
         inventarioSubSection.innerHTML = `
-            <div class="p-6 bg-teal-50 rounded-lg shadow-inner">
-                <h3 class="text-2xl font-semibold text-teal-800 mb-4">Gestionar Rubros y Segmentos</h3>
+            <div class="p-6 bg-purple-50 rounded-lg shadow-inner">
+                <h3 class="text-2xl font-semibold text-purple-800 mb-4">Gestionar Rubros y Segmentos</h3>
 
                 <div id="rubros-segmentos-management-buttons" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     <button id="btn-add-rubro-segmento" class="bg-blue-600 text-white p-4 rounded-md font-semibold hover:bg-blue-700 transition duration-200">
@@ -687,7 +652,7 @@ export async function renderInventarioSection(container) {
         btnAddNewRubro.addEventListener('click', async () => {
             const newRubro = addNewRubroInput.value.trim();
             if (newRubro && !rubroSegmentoMap[newRubro]) {
-                rubroSegmentoMap[newRubro] = [];
+                rubroSegmentoMap[newRubro] = []; // Inicializa el nuevo rubro con un array vacío de segmentos
                 if (await guardarConfiguracionRubrosSegmentos(rubroSegmentoMap)) {
                     alert(`Rubro "${newRubro}" añadido.`);
                     addNewRubroInput.value = '';
@@ -746,7 +711,7 @@ export async function renderInventarioSection(container) {
                 <input type="text" id="search-rubro-segmento-input" placeholder="Buscar Rubro o Segmento..." class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 mb-4">
 
                 <div id="rubro-segmento-list-container" class="max-h-60 overflow-y-auto bg-white p-3 rounded-md border border-gray-200">
-                    <!-- Rubros y segmentos se cargarán aquí -->
+                    <!-- Los rubros y segmentos se cargarán aquí -->
                     <p class="text-gray-500">Cargando rubros y segmentos...</p>
                 </div>
 
@@ -827,9 +792,9 @@ export async function renderInventarioSection(container) {
                 if (rubro.toLowerCase().includes(searchTerm)) {
                     filteredMap[rubro] = rubroSegmentoMap[rubro];
                 } else {
-                    const matchingSegmentos = rubroSegmentoMap[rubro].filter(segmento => segmento.toLowerCase().includes(searchTerm));
-                    if (matchingSegmentos.length > 0) {
-                        filteredMap[rubro] = matchingSegmentos;
+                    const matchingSegments = rubroSegmentoMap[rubro].filter(segmento => segmento.toLowerCase().includes(searchTerm));
+                    if (matchingSegments.length > 0) {
+                        filteredMap[rubro] = matchingSegments;
                     }
                 }
             }
@@ -839,4 +804,3 @@ export async function renderInventarioSection(container) {
         btnBack.addEventListener('click', backToMainMenuCallback);
     }
 }
-
