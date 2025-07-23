@@ -205,16 +205,26 @@
                 db = getFirestore(app);
                 auth = getAuth(app);
 
-                if (typeof __initial_auth_token !== 'undefined') {
+                // --- INICIO DE LA MODIFICACIÓN TEMPORAL PARA PRUEBAS ---
+                // Pega aquí el USER ID exacto de Firebase donde están tus datos.
+                // Lo puedes encontrar en la ruta de tu base de datos:
+                // /artifacts/admin-804f6/users/AQUI_VA_TU_USER_ID/datosClientes
+                const TEST_USER_ID = "hiKJDsYSD2U4gj71q8GQStr2Rhb2"; // <--- PEGA TU USER ID AQUÍ
+
+                if (typeof __initial_auth_token !== 'undefined') { // Esto solo funciona en Canvas
                     await signInWithCustomToken(auth, __initial_auth_token);
                     console.log('Firebase: Autenticado con token personalizado (Entorno Canvas).');
-                } else {
+                    userId = auth.currentUser?.uid; // Usa el UID del token si estás en Canvas
+                } else { // Esto es lo que se ejecutará en GitHub Pages o desarrollo local
+                    // Intenta autenticar anónimamente, pero luego fuerza el userId de prueba
                     await signInAnonymously(auth);
                     console.log('Firebase: Autenticado anónimamente (GitHub Pages o desarrollo local).');
+                    userId = TEST_USER_ID; // <--- FORZAMOS EL USER ID DE PRUEBA AQUÍ
+                    console.warn('ADVERTENCIA: Usando un USER ID de prueba fijo para depuración. ¡Remueve esto en producción!');
                 }
+                // --- FIN DE LA MODIFICACIÓN TEMPORAL ---
 
-                userId = auth.currentUser?.uid || crypto.randomUUID();
-                console.log('Firebase: User ID:', userId);
+                console.log('Firebase: User ID activo:', userId);
 
                 window.firebaseApp = app;
                 window.firebaseDb = db;
