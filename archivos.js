@@ -1,47 +1,78 @@
 // archivos.js
-// Este archivo gestiona la visualización y descarga de archivos generados.
+// Este archivo gestiona la visualización y posible gestión de metadatos de archivos
+// utilizando Firebase Firestore.
 
-// Importa las funciones necesarias de Firebase Storage.
-import { getStorage, ref, listAll, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
+// Importa las funciones necesarias de Firebase Firestore.
+import { collection, getDocs, doc, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-// Función auxiliar para obtener la instancia de Firebase Storage y el ID de usuario/appId
-async function getStorageInstances() {
-    while (!window.firebaseApp || !window.currentUserId || !window.currentAppId) {
+// Función auxiliar para obtener la instancia de Firestore
+async function getFirestoreInstances() {
+    while (!window.firebaseDb) {
         console.log('Esperando inicialización de Firebase en archivos.js...');
         await new Promise(resolve => setTimeout(resolve, 100));
     }
     return {
-        storage: getStorage(window.firebaseApp),
-        userId: window.currentUserId,
-        appId: window.currentAppId
+        db: window.firebaseDb,
     };
 }
 
 /**
- * Lista los archivos en una ruta específica de Firebase Storage.
- * @param {string} path - La ruta dentro del bucket (ej. 'clientes/', 'inventario_diario/2023-07-23/').
- * @returns {Promise<Array<object>>} Un array de objetos con nombre y URL de descarga de los archivos.
+ * Agrega un nuevo registro de metadatos de archivo a Firestore.
+ * Ruta: /archivosMetadata
+ * @param {object} fileMetadata - Objeto con los metadatos del archivo (ej. nombre, tipo, URL si aplica).
+ * @returns {Promise<string|null>} El ID del documento agregado o null si hubo un error.
  */
-export async function listarArchivos(path) {
+export async function addFileMetadata(fileMetadata) {
     try {
-        const { storage, userId, appId } = await getStorageInstances();
-        // Construye la ruta completa en Storage
-        const storagePath = `files/${appId}/users/${userId}/${path}`;
-        const listRef = ref(storage, storagePath);
-        const res = await listAll(listRef);
+        const { db } = await getFirestoreInstances();
+        const filesCollectionRef = collection(db, `archivosMetadata`); // Ruta modificada
+        const docRef = await addDoc(filesCollectionRef, fileMetadata);
+        console.log('Metadatos de archivo agregados con ID:', docRef.id);
+        return docRef.id;
+    } catch (error) {
+        console.error('Error al agregar metadatos de archivo:', error);
+        return null;
+    }
+}
 
+/**
+ * Obtiene todos los metadatos de archivos de Firestore.
+ * Ruta: /archivosMetadata
+ * @returns {Promise<Array<object>>} Un array de objetos de metadatos de archivo.
+ */
+export async function getAllFileMetadata() {
+    try {
+        const { db } = await getFirestoreInstances();
+        const filesCollectionRef = collection(db, `archivosMetadata`); // Ruta modificada
+        const querySnapshot = await getDocs(filesCollectionRef);
         const files = [];
-        for (const itemRef of res.items) {
-            // itemRef.name es el nombre del archivo (ej. 'clientes.csv')
-            // itemRef.fullPath es la ruta completa (ej. 'files/appId/users/userId/clientes/clientes.csv')
-            const downloadURL = await getDownloadURL(itemRef);
-            files.push({ name: itemRef.name, url: downloadURL, fullPath: itemRef.fullPath });
-        }
-        console.log(`Archivos listados en ${storagePath}:`, files);
+        querySnapshot.forEach((doc) => {
+            files.push({ id: doc.id, ...doc.data() });
+        });
+        console.log('Todos los metadatos de archivos obtenidos:', files);
         return files;
     } catch (error) {
-        console.error(`Error al listar archivos en ${path}:`, error);
+        console.error('Error al obtener metadatos de archivos:', error);
         return [];
+    }
+}
+
+/**
+ * Elimina un registro de metadatos de archivo de Firestore.
+ * Ruta: /archivosMetadata
+ * @param {string} fileId - ID del documento de metadatos a eliminar.
+ * @returns {Promise<boolean>} True si la eliminación fue exitosa, false en caso contrario.
+ */
+export async function deleteFileMetadata(fileId) {
+    try {
+        const { db } = await getFirestoreInstances();
+        const fileDocRef = doc(db, `archivosMetadata`, fileId); // Ruta modificada
+        await deleteDoc(fileDocRef);
+        console.log('Metadatos de archivo eliminados con éxito. ID:', fileId);
+        return true;
+    } catch (error) {
+        console.error('Error al eliminar metadatos de archivo:', error);
+        return false;
     }
 }
 
@@ -54,30 +85,26 @@ export async function renderArchivosSection(container) {
         <div class="modal-content">
             <h2 class="text-4xl font-bold text-gray-900 mb-6 text-center">Gestión de Archivos</h2>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                <button id="btn-show-clientes-files" class="bg-blue-600 text-white p-4 rounded-md font-semibold hover:bg-blue-700 transition duration-200">
-                    Archivos de Clientes
-                </button>
-                <button id="btn-show-inventario-files" class="bg-indigo-600 text-white p-4 rounded-md font-semibold hover:bg-indigo-700 transition duration-200">
-                    Archivos de Inventario
-                </button>
-                <button id="btn-show-inventario-diario-files" class="bg-purple-600 text-white p-4 rounded-md font-semibold hover:bg-purple-700 transition duration-200">
-                    Inventario Diario
-                </button>
-                <button id="btn-show-ventas-cierre-files" class="bg-green-600 text-white p-4 rounded-md font-semibold hover:bg-green-700 transition duration-200">
-                    Cierre de Ventas Diario
-                </button>
-                <button id="btn-show-ventas-consolidadas-files" class="bg-teal-600 text-white p-4 rounded-md font-semibold hover:bg-teal-700 transition duration-200">
-                    Ventas Consolidadas
-                </button>
-                <button id="btn-show-ventas-por-cliente-files" class="bg-orange-600 text-white p-4 rounded-md font-semibold hover:bg-orange-700 transition duration-200">
-                    Ventas por Cliente
-                </button>
-            </div>
+            <div class="p-6 bg-yellow-50 rounded-lg shadow-inner">
+                <h3 class="text-2xl font-semibold text-yellow-800 mb-4">Listado de Archivos (Metadatos en Firestore)</h3>
 
-            <!-- Contenedor para la lista de archivos de la sub-sección seleccionada -->
-            <div id="files-list-container" class="mt-8 bg-white p-4 rounded-lg shadow-inner max-h-96 overflow-y-auto">
-                <p class="text-gray-500 text-center">Selecciona una categoría para ver los archivos.</p>
+                <div class="mb-4">
+                    <input type="text" id="file-name-input" placeholder="Nombre del archivo (ej. Informe Mensual)" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 mb-2">
+                    <input type="text" id="file-url-input" placeholder="URL del archivo (opcional)" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 mb-2">
+                    <textarea id="file-description-input" placeholder="Descripción (opcional)" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 mb-2"></textarea>
+                    <button id="btn-add-file-metadata" class="w-full bg-blue-600 text-white p-3 rounded-md font-semibold hover:bg-blue-700 transition duration-200">
+                        Añadir Metadatos de Archivo
+                    </button>
+                </div>
+
+                <div id="archivos-list" class="bg-white p-4 rounded-md border border-gray-200 max-h-96 overflow-y-auto shadow-md mt-6">
+                    <!-- Los archivos se mostrarán aquí -->
+                    <p class="text-gray-500">Cargando metadatos de archivos...</p>
+                </div>
+
+                <button id="btn-back-archivos" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
+                    Volver
+                </button>
             </div>
 
             <!-- Botón para cerrar el modal -->
@@ -89,68 +116,110 @@ export async function renderArchivosSection(container) {
         </div>
     `;
 
-    const filesListContainer = container.querySelector('#files-list-container');
+    const archivosListDiv = container.querySelector('#archivos-list');
+    const fileNameInput = container.querySelector('#file-name-input');
+    const fileUrlInput = container.querySelector('#file-url-input');
+    const fileDescriptionInput = container.querySelector('#file-description-input');
+    const btnAddFileMetadata = container.querySelector('#btn-add-file-metadata');
+    const btnBack = container.querySelector('#btn-back-archivos');
     const closeArchivosModalBtn = container.querySelector('#close-archivos-modal');
 
-    // Función para renderizar la lista de archivos en el contenedor
-    const renderFilesList = (files, title) => {
-        filesListContainer.innerHTML = `
-            <h3 class="text-2xl font-semibold text-gray-800 mb-4">${title}</h3>
-            <ul class="divide-y divide-gray-200"></ul>
-        `;
-        const ul = filesListContainer.querySelector('ul');
-        if (files.length === 0) {
-            ul.innerHTML = '<li class="py-2 text-gray-500">No hay archivos disponibles en esta categoría.</li>';
+    let currentFiles = []; // Para almacenar los metadatos de archivos actuales
+
+    // Función para renderizar la lista de metadatos de archivos
+    const renderFilesList = (filesToRender) => {
+        archivosListDiv.innerHTML = ''; // Limpiar lista
+        if (filesToRender.length === 0) {
+            archivosListDiv.innerHTML = '<p class="text-gray-500">No hay metadatos de archivos para mostrar aún.</p>';
             return;
         }
 
-        files.forEach(file => {
+        const ul = document.createElement('ul');
+        ul.className = 'divide-y divide-gray-200';
+        filesToRender.forEach(file => {
             const li = document.createElement('li');
-            li.className = 'py-2 flex justify-between items-center';
+            li.className = 'py-2 flex flex-col sm:flex-row justify-between items-start sm:items-center';
             li.innerHTML = `
-                <span class="text-gray-700">${file.name}</span>
-                <a href="${file.url}" download="${file.name}" class="bg-green-500 text-white px-3 py-1 rounded-md text-sm hover:bg-green-600 transition duration-200">Descargar</a>
+                <div>
+                    <p class="font-semibold">${file.name || 'Sin Nombre'}</p>
+                    <p class="text-sm text-gray-600">Descripción: ${file.description || 'N/A'}</p>
+                    ${file.url ? `<p class="text-sm text-blue-600 hover:underline"><a href="${file.url}" target="_blank" rel="noopener noreferrer">Ver Archivo</a></p>` : ''}
+                </div>
+                <button class="mt-2 sm:mt-0 sm:ml-4 bg-red-500 text-white px-3 py-1 rounded-md text-sm hover:bg-red-600 transition duration-200 delete-file-btn" data-file-id="${file.id}">Eliminar</button>
             `;
             ul.appendChild(li);
         });
+        archivosListDiv.appendChild(ul);
+
+        // Añadir event listeners a los botones de eliminar
+        archivosListDiv.querySelectorAll('.delete-file-btn').forEach(button => {
+            button.addEventListener('click', async (event) => {
+                const fileId = event.target.dataset.fileId;
+                if (confirm('¿Estás seguro de que quieres eliminar este registro de archivo?')) {
+                    const deleted = await deleteFileMetadata(fileId);
+                    if (deleted) {
+                        alert('Registro de archivo eliminado con éxito.');
+                        await loadFiles(); // Recargar la lista
+                    } else {
+                        alert('Fallo al eliminar el registro de archivo.');
+                    }
+                }
+            });
+        });
     };
 
-    // Event Listeners para los botones de categoría de archivos
-    container.querySelector('#btn-show-clientes-files').addEventListener('click', async () => {
-        const files = await listarArchivos('clientes');
-        renderFilesList(files, 'Archivos de Clientes');
-    });
+    // Función para cargar y renderizar los archivos
+    const loadFiles = async () => {
+        archivosListDiv.innerHTML = '<p class="text-gray-500">Cargando metadatos de archivos...</p>';
+        try {
+            currentFiles = await getAllFileMetadata();
+            renderFilesList(currentFiles);
+        } catch (error) {
+            console.error('Error al cargar metadatos de archivos:', error);
+            archivosListDiv.innerHTML = '<p class="text-red-600">Error al cargar metadatos de archivos. Verifique los permisos.</p>';
+        }
+    };
 
-    container.querySelector('#btn-show-inventario-files').addEventListener('click', async () => {
-        const files = await listarArchivos('inventario');
-        renderFilesList(files, 'Archivos de Inventario (Actual)');
-    });
+    // Cargar archivos al abrir la sección
+    loadFiles();
 
-    container.querySelector('#btn-show-inventario-diario-files').addEventListener('click', async () => {
-        // Para inventario diario, podríamos añadir un selector de fecha o listar subcarpetas
-        // Por ahora, listaremos todos los archivos directamente bajo 'inventario_diario'
-        const files = await listarArchivos('inventario_diario');
-        renderFilesList(files, 'Registros de Inventario Diario');
-    });
+    // Lógica para añadir metadatos de archivo
+    btnAddFileMetadata.addEventListener('click', async () => {
+        const name = fileNameInput.value.trim();
+        const url = fileUrlInput.value.trim();
+        const description = fileDescriptionInput.value.trim();
 
-    container.querySelector('#btn-show-ventas-cierre-files').addEventListener('click', async () => {
-        const files = await listarArchivos('ventas_cierre');
-        renderFilesList(files, 'Cierre de Ventas Diario');
-    });
+        if (!name) {
+            alert('Por favor, ingresa un nombre para el archivo.');
+            return;
+        }
 
-    container.querySelector('#btn-show-ventas-consolidadas-files').addEventListener('click', async () => {
-        const files = await listarArchivos('ventas_consolidadas');
-        renderFilesList(files, 'Ventas Consolidadas');
-    });
+        const newFile = {
+            name: name,
+            url: url,
+            description: description,
+            createdAt: new Date().toISOString()
+        };
 
-    container.querySelector('#btn-show-ventas-por-cliente-files').addEventListener('click', async () => {
-        const files = await listarArchivos('ventas_por_cliente');
-        renderFilesList(files, 'Ventas por Cliente');
+        const id = await addFileMetadata(newFile);
+        if (id) {
+            alert('Metadatos de archivo añadidos con éxito, ID: ' + id);
+            fileNameInput.value = '';
+            fileUrlInput.value = '';
+            fileDescriptionInput.value = '';
+            await loadFiles(); // Recargar la lista para mostrar el nuevo archivo
+        } else {
+            alert('Fallo al añadir metadatos de archivo.');
+        }
     });
-
 
     // Lógica para cerrar el modal
     closeArchivosModalBtn.addEventListener('click', () => {
+        container.classList.add('hidden'); // Oculta el modal
+    });
+
+    // Lógica para el botón "Volver"
+    btnBack.addEventListener('click', () => {
         container.classList.add('hidden'); // Oculta el modal
     });
 }
