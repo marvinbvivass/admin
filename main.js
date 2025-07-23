@@ -10,8 +10,8 @@ import { renderClientesSection } from './clientes.js';
 import { renderInventarioSection } from './inventario.js';
 import { renderPreciosSection } from './precios.js';
 import { renderVentasSection } from './ventas.js';
+import { renderArchivosSection } from './archivos.js'; // Importa la nueva sección de archivos
 // Importa módulos para futuras secciones (descomentar cuando los archivos existan)
-// import { renderArchivosSection } from './archivos.js';
 // import { renderCargaVehiculosSection } from './carga-vehiculos.js';
 
 
@@ -193,13 +193,13 @@ async function renderApp() {
         await renderVentasSection(modalContainer);
     });
 
-    // Placeholders para futuras secciones
-    document.getElementById('btn-archivos').addEventListener('click', () => {
-        alert('Sección de Archivos en construcción.');
-        // modalContainer.classList.remove('hidden');
-        // await renderArchivosSection(modalContainer);
+    // Habilitar el botón de Archivos
+    document.getElementById('btn-archivos').addEventListener('click', async () => {
+        modalContainer.classList.remove('hidden');
+        await renderArchivosSection(modalContainer);
     });
 
+    // Placeholders para futuras secciones
     document.getElementById('btn-carga-vehiculos').addEventListener('click', () => {
         alert('Sección de Carga & Vehículos en construcción.');
         // modalContainer.classList.remove('hidden');
@@ -209,4 +209,3 @@ async function renderApp() {
 
 // Iniciar la aplicación cuando el DOM esté completamente cargado
 document.addEventListener('DOMContentLoaded', renderApp);
-
