@@ -1,18 +1,14 @@
 // clientes.js
 // Este archivo gestiona las operaciones CRUD (Crear, Leer, Actualizar, Eliminar) para los clientes
-// utilizando Firebase Firestore.
+// utilizando Firebase Firestore, y también se encarga de renderizar su interfaz de usuario.
 
 // Importa las funciones necesarias de Firebase Firestore.
-// Estas funciones se obtendrán de la instancia de Firebase que se inicializa en index.html
-// y se expone globalmente a través de window.firebaseDb.
-// Es importante que el index.html se cargue y Firebase se inicialice antes de que este módulo intente usar 'db'.
-import { collection, addDoc, doc, updateDoc, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { collection, addDoc, doc, updateDoc, deleteDoc, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // Función auxiliar para obtener la instancia de Firestore y el ID de usuario/appId
 // Esto asegura que las variables globales de Firebase estén disponibles antes de usarlas.
 async function getFirestoreInstances() {
     // Espera hasta que window.firebaseDb y window.currentUserId estén definidos
-    // Esto es crucial porque la inicialización de Firebase es asíncrona en index.html
     while (!window.firebaseDb || !window.currentUserId || !window.currentAppId) {
         console.log('Esperando inicialización de Firebase en clientes.js...');
         await new Promise(resolve => setTimeout(resolve, 100)); // Espera 100ms antes de reintentar
@@ -133,58 +129,188 @@ export async function obtenerTodosLosClientes() {
     }
 }
 
-// Ejemplo de cómo se usarían estas funciones (esto se ejecutaría en un entorno de módulo ES6)
-/*
-// Para usar estas funciones en otro archivo JavaScript (ej. main.js o un script type="module" en HTML)
-// Asegúrate de que Firebase ya se haya inicializado en index.html antes de llamar a estas funciones.
-import { agregarCliente, modificarCliente, eliminarCliente, obtenerCliente, obtenerTodosLosClientes } from './clientes.js';
+/**
+ * Renderiza la interfaz de usuario de la sección de clientes dentro del contenedor dado.
+ * @param {HTMLElement} container - El elemento DOM donde se renderizará el modal de clientes.
+ */
+export async function renderClientesSection(container) {
+    container.innerHTML = `
+        <div class="modal-content">
+            <h2 class="text-4xl font-bold text-gray-900 mb-6 text-center">Gestión de Clientes</h2>
 
-async function testClientes() {
-    console.log("--- Probando funciones de Clientes ---");
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                <button id="btn-show-add-cliente" class="bg-blue-600 text-white p-4 rounded-md font-semibold hover:bg-blue-700 transition duration-200">
+                    Agregar Cliente
+                </button>
+                <button id="btn-show-modify-delete-cliente" class="bg-yellow-600 text-white p-4 rounded-md font-semibold hover:bg-yellow-700 transition duration-200">
+                    Modificar/Eliminar Cliente
+                </button>
+                <button id="btn-show-list-clientes" class="bg-green-600 text-white p-4 rounded-md font-semibold hover:bg-green-700 transition duration-200 col-span-full">
+                    Ver Clientes
+                </button>
+            </div>
 
-    // 1. Agregar un cliente
-    const nuevoClienteId = await agregarCliente({
-        nombre: 'Ana',
-        apellido: 'García',
-        email: 'ana.garcia@example.com',
-        telefono: '111-222-3333'
+            <!-- Contenedor para las sub-secciones dinámicas -->
+            <div id="clientes-sub-section" class="mt-8">
+                <!-- El contenido de agregar, modificar/eliminar o listar se cargará aquí -->
+            </div>
+
+            <!-- Botón para cerrar el modal -->
+            <button id="close-clientes-modal" class="absolute top-4 right-4 bg-gray-200 text-gray-700 p-2 rounded-full hover:bg-gray-300 transition duration-200">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+    `;
+
+    // Obtener referencias a los elementos del DOM después de que se hayan renderizado
+    const clientesSubSection = container.querySelector('#clientes-sub-section');
+    const closeClientesModalBtn = container.querySelector('#close-clientes-modal');
+
+    // Lógica para cerrar el modal
+    closeClientesModalBtn.addEventListener('click', () => {
+        container.classList.add('hidden'); // Oculta el modal
+        clientesSubSection.innerHTML = ''; // Limpia el contenido de la sub-sección
     });
-    if (nuevoClienteId) {
-        console.log(`Cliente 'Ana García' agregado con ID: ${nuevoClienteId}`);
-    }
 
-    // 2. Obtener un cliente por su ID
-    if (nuevoClienteId) {
-        const clienteObtenido = await obtenerCliente(nuevoClienteId);
-        if (clienteObtenido) {
-            console.log('Cliente obtenido:', clienteObtenido);
+    // Lógica para mostrar la sección de agregar cliente
+    container.querySelector('#btn-show-add-cliente').addEventListener('click', () => {
+        clientesSubSection.innerHTML = `
+            <div class="p-6 bg-blue-50 rounded-lg shadow-inner">
+                <h3 class="text-2xl font-semibold text-blue-800 mb-4">Agregar Nuevo Cliente</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="text" id="add-nombre" placeholder="Nombre" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="text" id="add-apellido" placeholder="Apellido" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="email" id="add-email" placeholder="Email" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="tel" id="add-telefono" placeholder="Teléfono (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <button id="btn-submit-add-cliente" class="mt-6 w-full bg-blue-600 text-white p-3 rounded-md font-semibold hover:bg-blue-700 transition duration-200">
+                    Confirmar Agregar Cliente
+                </button>
+            </div>
+        `;
+        // Conectar el botón de agregar cliente
+        container.querySelector('#btn-submit-add-cliente').addEventListener('click', async () => {
+            const nombre = container.querySelector('#add-nombre').value;
+            const apellido = container.querySelector('#add-apellido').value;
+            const email = container.querySelector('#add-email').value;
+            const telefono = container.querySelector('#add-telefono').value;
+            const nuevoCliente = { nombre, apellido, email, telefono };
+            const id = await agregarCliente(nuevoCliente);
+            if (id) {
+                alert('Cliente agregado con éxito, ID: ' + id);
+                // Limpiar campos
+                container.querySelector('#add-nombre').value = '';
+                container.querySelector('#add-apellido').value = '';
+                container.querySelector('#add-email').value = '';
+                container.querySelector('#add-telefono').value = '';
+                // Opcional: Recargar la lista de clientes si estás en la vista de lista
+            } else {
+                alert('Fallo al agregar cliente.');
+            }
+        });
+    });
+
+    // Lógica para mostrar la sección de modificar/eliminar cliente
+    container.querySelector('#btn-show-modify-delete-cliente').addEventListener('click', () => {
+        clientesSubSection.innerHTML = `
+            <div class="p-6 bg-yellow-50 rounded-lg shadow-inner">
+                <h3 class="text-2xl font-semibold text-yellow-800 mb-4">Modificar o Eliminar Cliente</h3>
+                <input type="text" id="mod-del-cliente-id" placeholder="ID del Cliente" class="mb-4 w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="text" id="mod-nombre" placeholder="Nuevo Nombre (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                    <input type="text" id="mod-apellido" placeholder="Nuevo Apellido (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                    <input type="email" id="mod-email" placeholder="Nuevo Email (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                    <input type="tel" id="mod-telefono" placeholder="Nuevo Teléfono (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                </div>
+                <div class="flex flex-col md:flex-row gap-4 mt-6">
+                    <button id="btn-submit-modify-cliente" class="flex-1 bg-yellow-600 text-white p-3 rounded-md font-semibold hover:bg-yellow-700 transition duration-200">
+                        Confirmar Modificar
+                    </button>
+                    <button id="btn-submit-delete-cliente" class="flex-1 bg-red-600 text-white p-3 rounded-md font-semibold hover:bg-red-700 transition duration-200">
+                        Confirmar Eliminar
+                    </button>
+                </div>
+            </div>
+        `;
+        // Conectar los botones de modificar/eliminar cliente
+        container.querySelector('#btn-submit-modify-cliente').addEventListener('click', async () => {
+            const id = container.querySelector('#mod-del-cliente-id').value;
+            const nuevosDatos = {};
+            if (container.querySelector('#mod-nombre').value) nuevosDatos.nombre = container.querySelector('#mod-nombre').value;
+            if (container.querySelector('#mod-apellido').value) nuevosDatos.apellido = container.querySelector('#mod-apellido').value;
+            if (container.querySelector('#mod-email').value) nuevosDatos.email = container.querySelector('#mod-email').value;
+            if (container.querySelector('#mod-telefono').value) nuevosDatos.telefono = container.querySelector('#mod-telefono').value;
+
+            if (id && Object.keys(nuevosDatos).length > 0) {
+                const modificado = await modificarCliente(id, nuevosDatos);
+                if (modificado) {
+                    alert('Cliente modificado con éxito.');
+                    // Limpiar campos
+                    container.querySelector('#mod-del-cliente-id').value = '';
+                    container.querySelector('#mod-nombre').value = '';
+                    container.querySelector('#mod-apellido').value = '';
+                    container.querySelector('#mod-email').value = '';
+                    container.querySelector('#mod-telefono').value = '';
+                } else {
+                    alert('Fallo al modificar cliente.');
+                }
+            } else {
+                alert('Por favor, ingresa el ID del cliente y al menos un campo para modificar.');
+            }
+        });
+
+        container.querySelector('#btn-submit-delete-cliente').addEventListener('click', async () => {
+            const id = container.querySelector('#mod-del-cliente-id').value;
+            if (id) {
+                const eliminado = await eliminarCliente(id);
+                if (eliminado) {
+                    alert('Cliente eliminado con éxito.');
+                    container.querySelector('#mod-del-cliente-id').value = '';
+                } else {
+                    alert('Fallo al eliminar cliente.');
+                }
+            } else {
+                alert('Por favor, ingresa el ID del cliente a eliminar.');
+            }
+        });
+    });
+
+    // Lógica para mostrar la sección de listar clientes
+    container.querySelector('#btn-show-list-clientes').addEventListener('click', async () => {
+        clientesSubSection.innerHTML = `
+            <div class="p-6 bg-green-50 rounded-lg shadow-inner">
+                <h3 class="text-2xl font-semibold text-green-800 mb-4">Listado de Clientes</h3>
+                <div id="clientes-list" class="bg-white p-4 rounded-md border border-gray-200 max-h-60 overflow-y-auto">
+                    <!-- Los clientes se mostrarán aquí -->
+                    <p class="text-gray-500">Cargando clientes...</p>
+                </div>
+            </div>
+        `;
+        const clientes = await obtenerTodosLosClientes();
+        renderClientesList(clientes, container.querySelector('#clientes-list'));
+    });
+
+    // Función auxiliar para renderizar la lista de clientes
+    function renderClientesList(clientes, listContainer) {
+        listContainer.innerHTML = ''; // Limpiar lista
+        if (clientes.length === 0) {
+            listContainer.innerHTML = '<p class="text-gray-500">No hay clientes para mostrar aún.</p>';
+            return;
         }
+        const ul = document.createElement('ul');
+        ul.className = 'divide-y divide-gray-200';
+        clientes.forEach(cliente => {
+            const li = document.createElement('li');
+            li.className = 'py-2';
+            li.innerHTML = `
+                <p class="font-semibold">${cliente.nombre} ${cliente.apellido} (ID: ${cliente.id})</p>
+                <p class="text-sm text-gray-600">Email: ${cliente.email || 'N/A'}</p>
+                <p class="text-sm text-gray-600">Teléfono: ${cliente.telefono || 'N/A'}</p>
+            `;
+            ul.appendChild(li);
+        });
+        listContainer.appendChild(ul);
     }
-
-    // 3. Modificar un cliente
-    if (nuevoClienteId) {
-        const modificado = await modificarCliente(nuevoClienteId, { telefono: '999-888-7777', ciudad: 'Madrid' });
-        if (modificado) {
-            console.log(`Cliente con ID ${nuevoClienteId} modificado.`);
-        }
-    }
-
-    // 4. Obtener todos los clientes
-    const todosLosClientes = await obtenerTodosLosClientes();
-    console.log('Lista de todos los clientes:', todosLosClientes);
-
-    // 5. Eliminar un cliente (descomenta para probar la eliminación)
-    // if (nuevoClienteId) {
-    //     const eliminado = await eliminarCliente(nuevoClienteId);
-    //     if (eliminado) {
-    //         console.log(`Cliente con ID ${nuevoClienteId} eliminado.`);
-    //     }
-    // }
 }
-
-// Puedes llamar a testClientes() desde otro script o desde la consola del navegador
-// después de que la aplicación se haya cargado y Firebase se haya inicializado.
-// Por ejemplo, en un archivo main.js importado por index.html:
-// window.addEventListener('load', testClientes);
-*/
-
