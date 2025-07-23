@@ -48,7 +48,7 @@ export async function renderPreciosSection(container) {
             <h2 class="text-4xl font-bold text-gray-900 mb-6 text-center">Gestión de Precios</h2>
 
             <!-- Controles de filtro y valores de conversión -->
-            <div class="mb-6 p-4 bg-gray-50 rounded-lg shadow-inner grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+            <div class="mb-6 p-4 bg-gray-50 rounded-lg shadow-inner grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
                 <div>
                     <label for="filter-rubro" class="block text-sm font-medium text-gray-700 mb-1">Filtrar por Rubro:</label>
                     <select id="filter-rubro" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
@@ -63,18 +63,11 @@ export async function renderPreciosSection(container) {
                         <!-- Opciones de segmento se cargarán dinámicamente -->
                     </select>
                 </div>
-                <div>
-                    <label for="filter-presentacion" class="block text-sm font-medium text-gray-700 mb-1">Filtrar por Presentación:</label>
-                    <select id="filter-presentacion" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
-                        <option value="">Todas las Presentaciones</option>
-                        <!-- Opciones de presentación se cargarán dinámicamente -->
-                    </select>
-                </div>
-                <div class="md:col-span-2 lg:col-span-1">
+                <div class="md:col-span-1">
                     <label for="input-cop" class="block text-sm font-medium text-gray-700 mb-1">Valor COP:</label>
                     <input type="number" step="0.01" id="input-cop" placeholder="Ej: 4000" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
                 </div>
-                <div class="md:col-span-2 lg:col-span-1">
+                <div class="md:col-span-1">
                     <label for="input-bs" class="block text-sm font-medium text-gray-700 mb-1">Valor BS:</label>
                     <input type="number" step="0.01" id="input-bs" placeholder="Ej: 36" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
                 </div>
@@ -87,7 +80,7 @@ export async function renderPreciosSection(container) {
                         <tr>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rubro</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Segmento</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Presentación</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pres.</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio Original</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio COP</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio BS</th>
@@ -113,7 +106,7 @@ export async function renderPreciosSection(container) {
     const closePreciosModalBtn = container.querySelector('#close-precios-modal');
     const filterRubroSelect = container.querySelector('#filter-rubro');
     const filterSegmentoSelect = container.querySelector('#filter-segmento');
-    const filterPresentacionSelect = container.querySelector('#filter-presentacion');
+    // const filterPresentacionSelect = container.querySelector('#filter-presentacion'); // Eliminado
     const inputCop = container.querySelector('#input-cop');
     const inputBs = container.querySelector('#input-bs');
     const preciosTableBody = container.querySelector('#precios-table-body');
@@ -144,13 +137,14 @@ export async function renderPreciosSection(container) {
             filterSegmentoSelect.appendChild(option);
         });
 
-        const presentaciones = [...new Set(allProducts.map(p => p.Presentacion).filter(Boolean))];
-        presentaciones.forEach(presentacion => {
-            const option = document.createElement('option');
-            option.value = presentacion;
-            option.textContent = presentacion;
-            filterPresentacionSelect.appendChild(option);
-        });
+        // Eliminado: Lógica para rellenar el filtro de Presentación
+        // const presentaciones = [...new Set(allProducts.map(p => p.Presentacion).filter(Boolean))];
+        // presentaciones.forEach(presentacion => {
+        //     const option = document.createElement('option');
+        //     option.value = presentacion;
+        //     option.textContent = presentacion;
+        //     filterPresentacionSelect.appendChild(option);
+        // });
     };
 
     // Función para aplicar filtros y actualizar la tabla
@@ -159,7 +153,7 @@ export async function renderPreciosSection(container) {
 
         const selectedRubro = filterRubroSelect.value;
         const selectedSegmento = filterSegmentoSelect.value;
-        const selectedPresentacion = filterPresentacionSelect.value;
+        // const selectedPresentacion = filterPresentacionSelect.value; // Eliminado
 
         if (selectedRubro) {
             filteredProducts = filteredProducts.filter(p => p.Rubro === selectedRubro);
@@ -167,9 +161,10 @@ export async function renderPreciosSection(container) {
         if (selectedSegmento) {
             filteredProducts = filteredProducts.filter(p => p.Segmento === selectedSegmento);
         }
-        if (selectedPresentacion) {
-            filteredProducts = filteredProducts.filter(p => p.Presentacion === selectedPresentacion);
-        }
+        // Eliminado: Lógica de filtrado por Presentación
+        // if (selectedPresentacion) {
+        //     filteredProducts = filteredProducts.filter(p => p.Presentacion === selectedPresentacion);
+        // }
 
         renderPreciosTable(filteredProducts);
     };
@@ -208,7 +203,8 @@ export async function renderPreciosSection(container) {
 
     filterRubroSelect.addEventListener('change', applyFiltersAndRender);
     filterSegmentoSelect.addEventListener('change', applyFiltersAndRender);
-    filterPresentacionSelect.addEventListener('change', applyFiltersAndRender);
+    // Eliminado: Event listener para el filtro de Presentación
+    // filterPresentacionSelect.addEventListener('change', applyFiltersAndRender);
 
     inputCop.addEventListener('input', () => {
         currentCopValue = parseFloat(inputCop.value) || 1; // Usa 1 si el valor no es un número válido
