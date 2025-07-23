@@ -191,6 +191,153 @@ export async function renderClientesSection(container) {
         showClientesMainButtons(); // Vuelve a la vista de botones principales al cerrar
     });
 
+    // Función para renderizar el formulario de modificar/eliminar
+    const renderModifyDeleteForm = (clientData = null) => {
+        clientesSubSection.innerHTML = `
+            <div class="p-6 bg-yellow-50 rounded-lg shadow-inner">
+                <h3 class="text-2xl font-semibold text-yellow-800 mb-4">Modificar o Eliminar Cliente</h3>
+                <input type="text" id="mod-del-cliente-id" placeholder="ID del Cliente" class="mb-4 w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" ${clientData ? 'value="' + clientData.id + '" readonly' : ''}>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="text" id="mod-cep" placeholder="Nuevo CEP (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${clientData?.CEP || ''}">
+                    <input type="text" id="mod-nombre-comercial" placeholder="Nuevo Nombre Comercial (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${clientData?.NombreComercial || ''}">
+                    <input type="text" id="mod-nombre-personal" placeholder="Nuevo Nombre Personal (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${clientData?.NombrePersonal || ''}">
+                    <select id="mod-zona" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                        <option value="">Nueva Zona (opcional)</option>
+                        ${Object.keys(zonaSectorMap).map(zona => `<option value="${zona}" ${clientData?.Zona === zona ? 'selected' : ''}>${zona}</option>`).join('')}
+                    </select>
+                    <select id="mod-sector" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" ${clientData?.Zona ? '' : 'disabled'}>
+                        <option value="">Nuevo Sector (opcional)</option>
+                        ${clientData?.Zona && zonaSectorMap[clientData.Zona] ? zonaSectorMap[clientData.Zona].map(sector => `<option value="${sector}" ${clientData?.Sector === sector ? 'selected' : ''}>${sector}</option>`).join('') : ''}
+                    </select>
+                    <input type="tel" id="mod-tlf" placeholder="Nuevo Teléfono (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${clientData?.Tlf || ''}">
+                    <textarea id="mod-observaciones" placeholder="Nuevas Observaciones (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 col-span-full">${clientData?.Observaciones || ''}</textarea>
+                </div>
+                <div class="flex flex-col md:flex-row gap-4 mt-6">
+                    <button id="btn-submit-modify-cliente" class="flex-1 bg-yellow-600 text-white p-3 rounded-md font-semibold hover:bg-yellow-700 transition duration-200">
+                        Confirmar Modificar
+                    </button>
+                    <button id="btn-submit-delete-cliente" class="flex-1 bg-red-600 text-white p-3 rounded-md font-semibold hover:bg-red-700 transition duration-200">
+                        Confirmar Eliminar
+                    </button>
+                </div>
+                <button id="btn-back-modify-delete-cliente" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
+                    Volver
+                </button>
+            </div>
+        `;
+
+        // Lógica para actualizar el select de Sector cuando cambia la Zona en modificar
+        const modZonaSelect = container.querySelector('#mod-zona');
+        const modSectorSelect = container.querySelector('#mod-sector');
+        modZonaSelect.addEventListener('change', () => {
+            const selectedZona = modZonaSelect.value;
+            modSectorSelect.innerHTML = '<option value="">Nuevo Sector (opcional)</option>'; // Limpiar opciones anteriores
+            if (selectedZona && zonaSectorMap[selectedZona]) {
+                zonaSectorMap[selectedZona].forEach(sector => {
+                    const option = document.createElement('option');
+                    option.value = sector;
+                    option.textContent = sector;
+                    modSectorSelect.appendChild(option);
+                });
+                modSectorSelect.disabled = false; // Habilitar el select de Sector
+            } else {
+                modSectorSelect.disabled = true; // Deshabilitar si no hay zona seleccionada
+            }
+        });
+
+        // Conectar los botones de modificar/eliminar cliente
+        container.querySelector('#btn-submit-modify-cliente').addEventListener('click', async () => {
+            const id = container.querySelector('#mod-del-cliente-id').value;
+            const nuevosDatos = {};
+            if (container.querySelector('#mod-cep').value !== (clientData?.CEP || '')) nuevosDatos.CEP = container.querySelector('#mod-cep').value;
+            if (container.querySelector('#mod-nombre-comercial').value !== (clientData?.NombreComercial || '')) nuevosDatos.NombreComercial = container.querySelector('#mod-nombre-comercial').value;
+            if (container.querySelector('#mod-nombre-personal').value !== (clientData?.NombrePersonal || '')) nuevosDatos.NombrePersonal = container.querySelector('#mod-nombre-personal').value;
+            if (container.querySelector('#mod-zona').value !== (clientData?.Zona || '')) nuevosDatos.Zona = container.querySelector('#mod-zona').value;
+            if (container.querySelector('#mod-sector').value !== (clientData?.Sector || '')) nuevosDatos.Sector = container.querySelector('#mod-sector').value;
+            if (container.querySelector('#mod-tlf').value !== (clientData?.Tlf || '')) nuevosDatos.Tlf = container.querySelector('#mod-tlf').value;
+            if (container.querySelector('#mod-observaciones').value !== (clientData?.Observaciones || '')) nuevosDatos.Observaciones = container.querySelector('#mod-observaciones').value;
+
+
+            if (id && Object.keys(nuevosDatos).length > 0) {
+                const modificado = await modificarCliente(id, nuevosDatos);
+                if (modificado) {
+                    alert('Cliente modificado con éxito.');
+                    // Limpiar campos y volver a la búsqueda
+                    showModifyDeleteSearch();
+                } else {
+                    alert('Fallo al modificar cliente.');
+                }
+            } else {
+                alert('Por favor, ingresa el ID del cliente y al menos un campo para modificar.');
+            }
+        });
+
+        container.querySelector('#btn-submit-delete-cliente').addEventListener('click', async () => {
+            const id = container.querySelector('#mod-del-cliente-id').value;
+            if (id) {
+                const eliminado = await eliminarCliente(id);
+                if (eliminado) {
+                    alert('Cliente eliminado con éxito.');
+                    // Volver a la búsqueda
+                    showModifyDeleteSearch();
+                } else {
+                    alert('Fallo al eliminar cliente.');
+                }
+            } else {
+                alert('Por favor, ingresa el ID del cliente a eliminar.');
+            }
+        });
+
+        // Conectar el botón Volver
+        container.querySelector('#btn-back-modify-delete-cliente').addEventListener('click', showModifyDeleteSearch);
+    };
+
+    // Función para mostrar la interfaz de búsqueda para modificar/eliminar
+    const showModifyDeleteSearch = async () => {
+        clientesMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
+        clientesSubSection.innerHTML = `
+            <div class="p-6 bg-yellow-50 rounded-lg shadow-inner">
+                <h3 class="text-2xl font-semibold text-yellow-800 mb-4">Buscar Cliente para Modificar/Eliminar</h3>
+                <input type="text" id="search-modify-delete-input" placeholder="Buscar por Nombre, CEP, Zona, etc." class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 mb-4">
+                <div id="modify-delete-client-list" class="bg-white p-4 rounded-md border border-gray-200 max-h-60 overflow-y-auto">
+                    <!-- Los clientes se mostrarán aquí -->
+                    <p class="text-gray-500">Cargando clientes...</p>
+                </div>
+                <button id="btn-back-modify-delete-search" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
+                    Volver al Menú Principal
+                </button>
+            </div>
+        `;
+
+        const clientListDiv = container.querySelector('#modify-delete-client-list');
+        const searchInput = container.querySelector('#search-modify-delete-input');
+        let allClients = [];
+
+        allClients = await obtenerTodosLosClientes();
+        renderClientsList(allClients, clientListDiv, (selectedClient) => {
+            renderModifyDeleteForm(selectedClient); // Pasa el cliente seleccionado al formulario de modificar/eliminar
+        });
+
+        searchInput.addEventListener('input', () => {
+            const searchTerm = searchInput.value.toLowerCase();
+            const filteredClients = allClients.filter(cliente => {
+                return (cliente.NombreComercial && cliente.NombreComercial.toLowerCase().includes(searchTerm)) ||
+                       (cliente.NombrePersonal && cliente.NombrePersonal.toLowerCase().includes(searchTerm)) ||
+                       (cliente.CEP && cliente.CEP.toLowerCase().includes(searchTerm)) ||
+                       (cliente.Zona && cliente.Zona.toLowerCase().includes(searchTerm)) ||
+                       (cliente.Sector && cliente.Sector.toLowerCase().includes(searchTerm)) ||
+                       (cliente.Tlf && cliente.Tlf.toLowerCase().includes(searchTerm)) ||
+                       (cliente.Observaciones && cliente.Observaciones.toLowerCase().includes(searchTerm));
+            });
+            renderClientsList(filteredClients, clientListDiv, (selectedClient) => {
+                renderModifyDeleteForm(selectedClient);
+            });
+        });
+
+        container.querySelector('#btn-back-modify-delete-search').addEventListener('click', showClientesMainButtons);
+    };
+
+
     // Lógica para mostrar la sección de agregar cliente
     container.querySelector('#btn-show-add-cliente').addEventListener('click', () => {
         clientesMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
@@ -271,112 +418,9 @@ export async function renderClientesSection(container) {
         container.querySelector('#btn-back-add-cliente').addEventListener('click', showClientesMainButtons);
     });
 
-    // Lógica para mostrar la sección de modificar/eliminar cliente
-    container.querySelector('#btn-show-modify-delete-cliente').addEventListener('click', () => {
-        clientesMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
-        clientesSubSection.innerHTML = `
-            <div class="p-6 bg-yellow-50 rounded-lg shadow-inner">
-                <h3 class="text-2xl font-semibold text-yellow-800 mb-4">Modificar o Eliminar Cliente</h3>
-                <input type="text" id="mod-del-cliente-id" placeholder="ID del Cliente" class="mb-4 w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input type="text" id="mod-cep" placeholder="Nuevo CEP (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
-                    <input type="text" id="mod-nombre-comercial" placeholder="Nuevo Nombre Comercial (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
-                    <input type="text" id="mod-nombre-personal" placeholder="Nuevo Nombre Personal (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
-                    <select id="mod-zona" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
-                        <option value="">Nueva Zona (opcional)</option>
-                        ${Object.keys(zonaSectorMap).map(zona => `<option value="${zona}">${zona}</option>`).join('')}
-                    </select>
-                    <select id="mod-sector" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" disabled>
-                        <option value="">Nuevo Sector (opcional)</option>
-                    </select>
-                    <input type="tel" id="mod-tlf" placeholder="Nuevo Teléfono (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
-                    <textarea id="mod-observaciones" placeholder="Nuevas Observaciones (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 col-span-full"></textarea>
-                </div>
-                <div class="flex flex-col md:flex-row gap-4 mt-6">
-                    <button id="btn-submit-modify-cliente" class="flex-1 bg-yellow-600 text-white p-3 rounded-md font-semibold hover:bg-yellow-700 transition duration-200">
-                        Confirmar Modificar
-                    </button>
-                    <button id="btn-submit-delete-cliente" class="flex-1 bg-red-600 text-white p-3 rounded-md font-semibold hover:bg-red-700 transition duration-200">
-                        Confirmar Eliminar
-                    </button>
-                </div>
-                <button id="btn-back-modify-delete-cliente" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
-                    Volver
-                </button>
-            </div>
-        `;
-        // Lógica para actualizar el select de Sector cuando cambia la Zona en modificar
-        const modZonaSelect = container.querySelector('#mod-zona');
-        const modSectorSelect = container.querySelector('#mod-sector');
-        modZonaSelect.addEventListener('change', () => {
-            const selectedZona = modZonaSelect.value;
-            modSectorSelect.innerHTML = '<option value="">Nuevo Sector (opcional)</option>'; // Limpiar opciones anteriores
-            if (selectedZona && zonaSectorMap[selectedZona]) {
-                zonaSectorMap[selectedZona].forEach(sector => {
-                    const option = document.createElement('option');
-                    option.value = sector;
-                    option.textContent = sector;
-                    modSectorSelect.appendChild(option);
-                });
-                modSectorSelect.disabled = false; // Habilitar el select de Sector
-            } else {
-                modSectorSelect.disabled = true; // Deshabilitar si no hay zona seleccionada
-            }
-        });
+    // Lógica para mostrar la sección de modificar/eliminar cliente (ahora con búsqueda previa)
+    container.querySelector('#btn-show-modify-delete-cliente').addEventListener('click', showModifyDeleteSearch);
 
-        // Conectar los botones de modificar/eliminar cliente
-        container.querySelector('#btn-submit-modify-cliente').addEventListener('click', async () => {
-            const id = container.querySelector('#mod-del-cliente-id').value;
-            const nuevosDatos = {};
-            if (container.querySelector('#mod-cep').value) nuevosDatos.CEP = container.querySelector('#mod-cep').value;
-            if (container.querySelector('#mod-nombre-comercial').value) nuevosDatos.NombreComercial = container.querySelector('#mod-nombre-comercial').value;
-            if (container.querySelector('#mod-nombre-personal').value) nuevosDatos.NombrePersonal = container.querySelector('#mod-nombre-personal').value;
-            if (container.querySelector('#mod-zona').value) nuevosDatos.Zona = container.querySelector('#mod-zona').value;
-            if (container.querySelector('#mod-sector').value) nuevosDatos.Sector = container.querySelector('#mod-sector').value;
-            if (container.querySelector('#mod-tlf').value) nuevosDatos.Tlf = container.querySelector('#mod-tlf').value;
-            if (container.querySelector('#mod-observaciones').value) nuevosDatos.Observaciones = container.querySelector('#mod-observaciones').value;
-
-
-            if (id && Object.keys(nuevosDatos).length > 0) {
-                const modificado = await modificarCliente(id, nuevosDatos);
-                if (modificado) {
-                    alert('Cliente modificado con éxito.');
-                    // Limpiar campos
-                    container.querySelector('#mod-del-cliente-id').value = '';
-                    container.querySelector('#mod-cep').value = '';
-                    container.querySelector('#mod-nombre-comercial').value = '';
-                    container.querySelector('#mod-nombre-personal').value = '';
-                    container.querySelector('#mod-zona').value = '';
-                    container.querySelector('#mod-sector').innerHTML = '<option value="">Nuevo Sector (opcional)</option>';
-                    container.querySelector('#mod-sector').disabled = true;
-                    container.querySelector('#mod-tlf').value = '';
-                    container.querySelector('#mod-observaciones').value = '';
-                } else {
-                    alert('Fallo al modificar cliente.');
-                }
-            } else {
-                alert('Por favor, ingresa el ID del cliente y al menos un campo para modificar.');
-            }
-        });
-
-        container.querySelector('#btn-submit-delete-cliente').addEventListener('click', async () => {
-            const id = container.querySelector('#mod-del-cliente-id').value;
-            if (id) {
-                const eliminado = await eliminarCliente(id);
-                if (eliminado) {
-                    alert('Cliente eliminado con éxito.');
-                    container.querySelector('#mod-del-cliente-id').value = '';
-                } else {
-                    alert('Fallo al eliminar cliente.');
-                }
-            } else {
-                alert('Por favor, ingresa el ID del cliente a eliminar.');
-            }
-        });
-
-        // Conectar el botón Volver
-        container.querySelector('#btn-back-modify-delete-cliente').addEventListener('click', showClientesMainButtons);
-    });
 
     // Lógica para mostrar la sección de buscar cliente (anteriormente listar)
     container.querySelector('#btn-show-search-cliente').addEventListener('click', async () => {
@@ -400,7 +444,7 @@ export async function renderClientesSection(container) {
 
         // Cargar todos los clientes al abrir la sección
         allClients = await obtenerTodosLosClientes();
-        renderClientesList(allClients, clientesListDiv);
+        renderClientesList(allClients, clientesListDiv); // No se pasa callback para "Seleccionar" aquí
 
         // Lógica de filtrado en tiempo real
         searchInput.addEventListener('input', () => {
@@ -422,8 +466,13 @@ export async function renderClientesSection(container) {
         container.querySelector('#btn-back-search-cliente').addEventListener('click', showClientesMainButtons);
     });
 
-    // Función auxiliar para renderizar la lista de clientes
-    function renderClientesList(clientes, listContainer) {
+    /**
+     * Función auxiliar para renderizar la lista de clientes.
+     * @param {Array<object>} clientes - Array de objetos de cliente.
+     * @param {HTMLElement} listContainer - El elemento DOM donde se renderizará la lista.
+     * @param {function(object): void} [actionCallback] - Función a ejecutar cuando se selecciona un cliente.
+     */
+    function renderClientesList(clientes, listContainer, actionCallback = null) {
         listContainer.innerHTML = ''; // Limpiar lista
         if (clientes.length === 0) {
             listContainer.innerHTML = '<p class="text-gray-500">No hay clientes para mostrar aún.</p>';
@@ -433,16 +482,33 @@ export async function renderClientesSection(container) {
         ul.className = 'divide-y divide-gray-200';
         clientes.forEach(cliente => {
             const li = document.createElement('li');
-            li.className = 'py-2';
+            li.className = 'py-2 flex flex-col sm:flex-row justify-between items-start sm:items-center';
             li.innerHTML = `
-                <p class="font-semibold">${cliente.NombreComercial || 'N/A'} (${cliente.NombrePersonal || 'N/A'})</p>
-                <p class="text-sm text-gray-600">ID: ${cliente.id || 'N/A'} | CEP: ${cliente.CEP || 'N/A'}</p>
-                <p class="text-sm text-gray-600">Zona: ${cliente.Zona || 'N/A'} | Sector: ${cliente.Sector || 'N/A'}</p>
-                <p class="text-sm text-gray-600">Teléfono: ${cliente.Tlf || 'N/A'}</p>
-                <p class="text-sm text-gray-600">Observaciones: ${cliente.Observaciones || 'N/A'}</p>
+                <div>
+                    <p class="font-semibold">${cliente.NombreComercial || 'N/A'} (${cliente.NombrePersonal || 'N/A'})</p>
+                    <p class="text-sm text-gray-600">ID: ${cliente.id || 'N/A'} | CEP: ${cliente.CEP || 'N/A'}</p>
+                    <p class="text-sm text-gray-600">Zona: ${cliente.Zona || 'N/A'} | Sector: ${cliente.Sector || 'N/A'}</p>
+                    <p class="text-sm text-gray-600">Teléfono: ${cliente.Tlf || 'N/A'}</p>
+                    <p class="text-sm text-gray-600">Observaciones: ${cliente.Observaciones || 'N/A'}</p>
+                </div>
+                ${actionCallback ? `<button class="mt-2 sm:mt-0 sm:ml-4 bg-blue-500 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-600 transition duration-200 select-client-btn" data-client-id="${cliente.id}">Seleccionar</button>` : ''}
             `;
             ul.appendChild(li);
         });
         listContainer.appendChild(ul);
+
+        // Adjuntar event listeners a los botones "Seleccionar" si existen
+        if (actionCallback) {
+            listContainer.querySelectorAll('.select-client-btn').forEach(button => {
+                button.addEventListener('click', async (event) => {
+                    const clientId = event.target.dataset.clientId;
+                    const selectedClient = clientes.find(c => c.id === clientId);
+                    if (selectedClient) {
+                        actionCallback(selectedClient);
+                    }
+                });
+            });
+        }
     }
 }
+
