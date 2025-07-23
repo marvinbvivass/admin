@@ -39,52 +39,7 @@ async function obtenerTodosLosProductosInventario() {
     }
 }
 
-/**
- * Intenta obtener el valor de BS de la página del BCV.
- * NOTA: La extracción directa de datos de sitios web puede ser inestable
- * debido a bloqueos de CORS, contenido dinámico o cambios en la estructura del sitio.
- * La solución ideal sería una API oficial o de terceros.
- * @returns {Promise<number|null>} El valor de BS o null si falla.
- */
-async function fetchBsValueFromWeb() {
-    try {
-        // Intentar obtener el contenido de la página del BCV
-        const response = await fetch('https://www.bcv.org.ve/');
-
-        // Verificar si la respuesta es exitosa
-        if (!response.ok) {
-            console.error(`Error HTTP: ${response.status} al intentar obtener el valor BS del BCV.`);
-            return null;
-        }
-
-        const text = await response.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(text, 'text/html');
-
-        // Selector basado en el HTML proporcionado: <div class="col-sm-6 col-xs-6 centrado"><strong> 120,42390000 </strong> </div>
-        // Buscamos el elemento <strong> dentro de un div con la clase 'centrado'
-        const usdElement = doc.querySelector('div.centrado strong');
-
-        if (usdElement) {
-            // Extraer el texto, reemplazar la coma por punto y convertir a número flotante
-            const value = parseFloat(usdElement.textContent.replace(',', '.'));
-            if (!isNaN(value)) {
-                console.log('Valor BS obtenido del BCV:', value);
-                return value;
-            } else {
-                console.warn('El valor extraído no es un número válido:', usdElement.textContent);
-                return null;
-            }
-        } else {
-            console.warn('No se encontró el elemento del valor BS con el selector "div.centrado strong" en la página del BCV.');
-            return null;
-        }
-    } catch (error) {
-        console.error('Error al intentar obtener el valor BS del BCV (posiblemente CORS o red):', error);
-        return null;
-    }
-}
-
+// Se ha eliminado la función fetchBsValueFromWeb()
 
 /**
  * Renderiza la interfaz de usuario de la sección de precios dentro del contenedor dado.
@@ -117,8 +72,8 @@ export async function renderPreciosSection(container) {
                 </div>
                 <div>
                     <label for="input-bs" class="block text-sm font-medium text-gray-700 mb-0.5">Valor BS:</label>
-                    <input type="number" step="0.01" id="input-bs" placeholder="Cargando..." class="w-full p-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
-                    <p id="bs-status" class="text-xs text-gray-500 mt-1">Intentando obtener valor del BCV...</p>
+                    <input type="number" step="0.01" id="input-bs" placeholder="Ingrese manualmente" class="w-full p-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+                    <!-- Se ha eliminado el párrafo para el estado de carga/error de BS -->
                 </div>
             </div>
 
@@ -157,7 +112,7 @@ export async function renderPreciosSection(container) {
     const filterSegmentoSelect = container.querySelector('#filter-segmento');
     const inputCop = container.querySelector('#input-cop');
     const inputBs = container.querySelector('#input-bs');
-    const bsStatusText = container.querySelector('#bs-status'); // Nuevo elemento para el estado
+    // const bsStatusText = container.querySelector('#bs-status'); // Eliminado
     const preciosTableBody = container.querySelector('#precios-table-body');
 
     let allProducts = []; // Almacenará todos los productos del inventario
@@ -186,18 +141,12 @@ export async function renderPreciosSection(container) {
             filterSegmentoSelect.appendChild(option);
         });
 
-        // Intentar obtener el valor de BS al cargar la sección
-        bsStatusText.textContent = 'Obteniendo valor BS...';
-        const fetchedBs = await fetchBsValueFromWeb();
-        if (fetchedBs !== null) {
-            currentBsValue = fetchedBs;
-            inputBs.value = fetchedBs;
-            bsStatusText.textContent = 'Valor BS obtenido.';
-        } else {
-            bsStatusText.textContent = 'No se pudo obtener valor BS. Ingrese manualmente.';
-            inputBs.placeholder = 'Ej: 36'; // Restaura el placeholder si falla la carga
-        }
-        applyFiltersAndRender(); // Re-renderiza con el valor de BS obtenido (o el predeterminado)
+        // Se ha eliminado la lógica para intentar obtener el valor de BS automáticamente
+        inputBs.placeholder = 'Ingrese manualmente'; // Asegura que el placeholder sea claro
+        inputBs.value = ''; // Limpia el valor si había algo de un intento anterior
+        currentBsValue = 1; // Resetea a un valor predeterminado seguro
+
+        applyFiltersAndRender(); // Re-renderiza con el valor de BS predeterminado
     };
 
     // Función para aplicar filtros y actualizar la tabla
@@ -240,29 +189,21 @@ export async function renderPreciosSection(container) {
                 <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">COP ${precioCop}</td>
                 <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">BS ${precioBs}</td>
             `;
-            preciosTableBody.appendChild(row);
+            ul.appendChild(li);
         });
-    };
+        listContainer.appendChild(ul);
 
-    // Event Listeners
-    closePreciosModalBtn.addEventListener('click', () => {
-        container.classList.add('hidden'); // Oculta el modal
-    });
-
-    filterRubroSelect.addEventListener('change', applyFiltersAndRender);
-    filterSegmentoSelect.addEventListener('change', applyFiltersAndRender);
-
-    inputCop.addEventListener('input', () => {
-        currentCopValue = parseFloat(inputCop.value) || 1; // Usa 1 si el valor no es un número válido
-        applyFiltersAndRender(); // Re-renderiza para actualizar los precios
-    });
-
-    inputBs.addEventListener('input', () => {
-        currentBsValue = parseFloat(inputBs.value) || 1; // Usa 1 si el valor no es un número válido
-        applyFiltersAndRender(); // Re-renderiza para actualizar los precios
-    });
-
-    // Cargar productos y filtros al inicializar la sección
-    loadProductsAndFilters();
+        // Adjuntar event listeners a los botones "Seleccionar" si existen
+        if (actionCallback) {
+            listContainer.querySelectorAll('.select-product-btn').forEach(button => {
+                button.addEventListener('click', async (event) => {
+                    const productId = event.target.dataset.productId;
+                    const selectedProduct = productos.find(p => p.id === productId);
+                    if (selectedProduct) {
+                        actionCallback(selectedProduct);
+                    }
+                });
+            });
+        }
+    }
 }
-
