@@ -3,30 +3,75 @@
 // utilizando Firebase Firestore, y también se encarga de renderizar su interfaz de usuario.
 
 // Importa las funciones necesarias de Firebase Firestore.
-import { collection, addDoc, doc, updateDoc, deleteDoc, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { collection, addDoc, doc, updateDoc, deleteDoc, getDoc, setDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-// Mapa de Zonas a Sectores para las listas desplegables
-const zonaSectorMap = {
-    "Santa Teresa": ["Barrio Bolivar", "Principal Santa Teresa", "Los Teques", "Calle 4", "La Villa"],
-    "Foraneo": ["No Aplica"],
-    "Zona Industrial": ["Zona Industrial"],
-    "Machiri": ["Parte Alta", "Parte Baja", "Barrio el Lago"],
-    "Palo Gordo": ["Gallardin", "Gallardin Parte Baja", "Gallardin Parte Alta", "Principal Palo Gordo", "Calle Tachira", "Calle del Medio", "Toica", "Nazareno", "La Trinidad", "Calle del Hambre", "Puente/Cancha"]
-};
+// Variable para almacenar el mapa de zonas a sectores, cargado desde Firebase
+let zonaSectorMap = {};
+const ZONA_SECTOR_CONFIG_DOC_ID = 'zonasSectores'; // ID fijo para el documento de configuración
 
 // Función auxiliar para obtener la instancia de Firestore y el ID de usuario/appId
-// Esto asegura que las variables globales de Firebase estén disponibles antes de usarlas.
 async function getFirestoreInstances() {
-    // Espera hasta que window.firebaseDb y window.currentUserId estén definidos
     while (!window.firebaseDb || !window.currentUserId || !window.currentAppId) {
         console.log('Esperando inicialización de Firebase en clientes.js...');
-        await new Promise(resolve => setTimeout(resolve, 100)); // Espera 100ms antes de reintentar
+        await new Promise(resolve => setTimeout(resolve, 100));
     }
     return {
         db: window.firebaseDb,
         userId: window.currentUserId,
         appId: window.currentAppId
     };
+}
+
+/**
+ * Obtiene la configuración de zonas y sectores desde Firebase.
+ * @returns {Promise<object>} El mapa de zonas a sectores.
+ */
+async function obtenerConfiguracionZonasSectores() {
+    try {
+        const { db, appId } = await getFirestoreInstances();
+        // Las configuraciones pueden ser públicas o por usuario, dependiendo del caso de uso.
+        // Para este ejemplo, la guardaremos bajo el appId en una colección 'configuracion'.
+        const configDocRef = doc(db, `artifacts/${appId}/configuracion`, ZONA_SECTOR_CONFIG_DOC_ID);
+        const configSnap = await getDoc(configDocRef);
+
+        if (configSnap.exists()) {
+            console.log('Configuración de zonas y sectores obtenida:', configSnap.data().mapa);
+            return configSnap.data().mapa || {};
+        } else {
+            console.log('No se encontró configuración de zonas y sectores. Usando mapa predeterminado.');
+            // Si no existe, inicializa con un mapa predeterminado o vacío
+            return {
+                "Santa Teresa": ["Barrio Bolivar", "Principal Santa Teresa", "Los Teques", "Calle 4", "La Villa"],
+                "Foraneo": ["No Aplica"],
+                "Zona Industrial": ["Zona Industrial"],
+                "Machiri": ["Parte Alta", "Parte Baja", "Barrio el Lago"],
+                "Palo Gordo": ["Gallardin", "Gallardin Parte Baja", "Gallardin Parte Alta", "Principal Palo Gordo", "Calle Tachira", "Calle del Medio", "Toica", "Nazareno", "La Trinidad", "Calle del Hambre", "Puente/Cancha"]
+            };
+        }
+    } catch (error) {
+        console.error('Error al obtener configuración de zonas y sectores:', error);
+        // En caso de error, devuelve un mapa vacío para evitar que la app falle.
+        return {};
+    }
+}
+
+/**
+ * Guarda la configuración de zonas y sectores en Firebase.
+ * @param {object} newMap - El nuevo mapa de zonas a sectores a guardar.
+ * @returns {Promise<boolean>} True si se guardó con éxito, false en caso contrario.
+ */
+async function guardarConfiguracionZonasSectores(newMap) {
+    try {
+        const { db, appId } = await getFirestoreInstances();
+        const configDocRef = doc(db, `artifacts/${appId}/configuracion`, ZONA_SECTOR_CONFIG_DOC_ID);
+        await setDoc(configDocRef, { mapa: newMap }); // Usa setDoc para sobrescribir o crear
+        console.log('Configuración de zonas y sectores guardada con éxito.');
+        zonaSectorMap = newMap; // Actualiza la variable global
+        return true;
+    } catch (error) {
+        console.error('Error al guardar configuración de zonas y sectores:', error);
+        return false;
+    }
 }
 
 /**
@@ -47,7 +92,7 @@ async function getFirestoreInstances() {
 export async function agregarCliente(cliente) {
     try {
         const { db, userId, appId } = await getFirestoreInstances();
-        const clientesCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/datosClientes`); // CAMBIO AQUÍ
+        const clientesCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/datosClientes`);
         const docRef = await addDoc(clientesCollectionRef, cliente);
         console.log('Cliente agregado con ID:', docRef.id);
         return docRef.id;
@@ -66,7 +111,7 @@ export async function agregarCliente(cliente) {
 export async function modificarCliente(idCliente, nuevosDatos) {
     try {
         const { db, userId, appId } = await getFirestoreInstances();
-        const clienteDocRef = doc(db, `artifacts/${appId}/users/${userId}/datosClientes`, idCliente); // CAMBIO AQUÍ
+        const clienteDocRef = doc(db, `artifacts/${appId}/users/${userId}/datosClientes`, idCliente);
         await updateDoc(clienteDocRef, nuevosDatos);
         console.log('Cliente modificado con éxito. ID:', idCliente);
         return true;
@@ -84,7 +129,7 @@ export async function modificarCliente(idCliente, nuevosDatos) {
 export async function eliminarCliente(idCliente) {
     try {
         const { db, userId, appId } = await getFirestoreInstances();
-        const clienteDocRef = doc(db, `artifacts/${appId}/users/${userId}/datosClientes`, idCliente); // CAMBIO AQUÍ
+        const clienteDocRef = doc(db, `artifacts/${appId}/users/${userId}/datosClientes`, idCliente);
         await deleteDoc(clienteDocRef);
         console.log('Cliente eliminado con éxito. ID:', idCliente);
         return true;
@@ -102,7 +147,7 @@ export async function eliminarCliente(idCliente) {
 export async function obtenerCliente(idCliente) {
     try {
         const { db, userId, appId } = await getFirestoreInstances();
-        const clienteDocRef = doc(db, `artifacts/${appId}/users/${userId}/datosClientes`, idCliente); // CAMBIO AQUÍ
+        const clienteDocRef = doc(db, `artifacts/${appId}/users/${userId}/datosClientes`, idCliente);
         const clienteSnap = await getDoc(clienteDocRef);
 
         if (clienteSnap.exists()) {
@@ -125,7 +170,7 @@ export async function obtenerCliente(idCliente) {
 export async function obtenerTodosLosClientes() {
     try {
         const { db, userId, appId } = await getFirestoreInstances();
-        const clientesCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/datosClientes`); // CAMBIO AQUÍ
+        const clientesCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/datosClientes`);
         const querySnapshot = await getDocs(clientesCollectionRef);
         const clientes = [];
         querySnapshot.forEach((doc) => {
@@ -155,8 +200,11 @@ export async function renderClientesSection(container) {
                 <button id="btn-show-modify-delete-cliente" class="bg-yellow-600 text-white p-4 rounded-md font-semibold hover:bg-yellow-700 transition duration-200">
                     Modificar/Eliminar Cliente
                 </button>
-                <button id="btn-show-search-cliente" class="bg-green-600 text-white p-4 rounded-md font-semibold hover:bg-green-700 transition duration-200 col-span-full">
+                <button id="btn-show-search-cliente" class="bg-green-600 text-white p-4 rounded-md font-semibold hover:bg-green-700 transition duration-200">
                     Buscar Cliente
+                </button>
+                <button id="btn-show-manage-zones-sectors" class="bg-purple-600 text-white p-4 rounded-md font-semibold hover:bg-purple-700 transition duration-200 col-span-full">
+                    Gestionar Zonas y Sectores
                 </button>
             </div>
 
@@ -179,6 +227,9 @@ export async function renderClientesSection(container) {
     const clientesSubSection = container.querySelector('#clientes-sub-section');
     const closeClientesModalBtn = container.querySelector('#close-clientes-modal');
 
+    // Cargar el mapa de zonas y sectores al inicio de la sección de clientes
+    zonaSectorMap = await obtenerConfiguracionZonasSectores();
+
     // Función para mostrar los botones principales y limpiar la sub-sección
     const showClientesMainButtons = () => {
         clientesSubSection.innerHTML = ''; // Limpia el contenido de la sub-sección
@@ -196,7 +247,7 @@ export async function renderClientesSection(container) {
         clientesSubSection.innerHTML = `
             <div class="p-6 bg-yellow-50 rounded-lg shadow-inner">
                 <h3 class="text-2xl font-semibold text-yellow-800 mb-4">Modificar o Eliminar Cliente</h3>
-                <input type="text" id="mod-del-cliente-id" placeholder="ID del Cliente" class="mb-4 w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" ${clientData ? 'value="' + clientData.id + '" readonly' : ''}>
+                <input type="hidden" id="mod-del-cliente-id" value="${clientData ? clientData.id : ''}">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <input type="text" id="mod-cep" placeholder="Nuevo CEP (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${clientData?.CEP || ''}">
                     <input type="text" id="mod-nombre-comercial" placeholder="Nuevo Nombre Comercial (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${clientData?.NombreComercial || ''}">
@@ -252,8 +303,8 @@ export async function renderClientesSection(container) {
             if (container.querySelector('#mod-cep').value !== (clientData?.CEP || '')) nuevosDatos.CEP = container.querySelector('#mod-cep').value;
             if (container.querySelector('#mod-nombre-comercial').value !== (clientData?.NombreComercial || '')) nuevosDatos.NombreComercial = container.querySelector('#mod-nombre-comercial').value;
             if (container.querySelector('#mod-nombre-personal').value !== (clientData?.NombrePersonal || '')) nuevosDatos.NombrePersonal = container.querySelector('#mod-nombre-personal').value;
-            if (container.querySelector('#mod-zona').value) nuevosDatos.Zona = container.querySelector('#mod-zona').value; // Siempre toma el valor del select
-            if (container.querySelector('#mod-sector').value) nuevosDatos.Sector = container.querySelector('#mod-sector').value; // Siempre toma el valor del select
+            if (container.querySelector('#mod-zona').value) nuevosDatos.Zona = container.querySelector('#mod-zona').value;
+            if (container.querySelector('#mod-sector').value) nuevosDatos.Sector = container.querySelector('#mod-sector').value;
             if (container.querySelector('#mod-tlf').value !== (clientData?.Tlf || '')) nuevosDatos.Tlf = container.querySelector('#mod-tlf').value;
             if (container.querySelector('#mod-observaciones').value !== (clientData?.Observaciones || '')) nuevosDatos.Observaciones = container.querySelector('#mod-observaciones').value;
 
@@ -450,7 +501,6 @@ export async function renderClientesSection(container) {
         searchInput.addEventListener('input', () => {
             const searchTerm = searchInput.value.toLowerCase();
             const filteredClients = allClients.filter(cliente => {
-                // Busca en todos los campos relevantes
                 return (cliente.NombreComercial && cliente.NombreComercial.toLowerCase().includes(searchTerm)) ||
                        (cliente.NombrePersonal && cliente.NombrePersonal.toLowerCase().includes(searchTerm)) ||
                        (cliente.CEP && cliente.CEP.toLowerCase().includes(searchTerm)) ||
@@ -464,6 +514,12 @@ export async function renderClientesSection(container) {
 
         // Conectar el botón Volver
         container.querySelector('#btn-back-search-cliente').addEventListener('click', showClientesMainButtons);
+    });
+
+    // Lógica para mostrar la sección de gestionar zonas y sectores
+    container.querySelector('#btn-show-manage-zones-sectors').addEventListener('click', async () => {
+        clientesMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
+        await renderGestionarZonasSectoresForm(); // Llama a la nueva función para gestionar zonas/sectores
     });
 
     /**
@@ -509,5 +565,143 @@ export async function renderClientesSection(container) {
                 });
             });
         }
+    }
+
+    // --- Nueva función para gestionar Zonas y Sectores ---
+    async function renderGestionarZonasSectoresForm() {
+        clientesSubSection.innerHTML = `
+            <div class="p-6 bg-purple-50 rounded-lg shadow-inner">
+                <h3 class="text-2xl font-semibold text-purple-800 mb-4">Gestionar Zonas y Sectores</h3>
+
+                <!-- Sección para añadir nueva Zona -->
+                <div class="mb-6 p-4 border border-purple-200 rounded-md">
+                    <h4 class="text-xl font-semibold text-purple-700 mb-3">Añadir Nueva Zona</h4>
+                    <input type="text" id="add-zona-input" placeholder="Nombre de la nueva Zona" class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 mb-3">
+                    <button id="btn-add-zona" class="w-full bg-purple-600 text-white p-3 rounded-md font-semibold hover:bg-purple-700 transition duration-200">
+                        Añadir Zona
+                    </button>
+                </div>
+
+                <!-- Sección para gestionar Zonas y sus Sectores -->
+                <div class="mb-6 p-4 border border-purple-200 rounded-md">
+                    <h4 class="text-xl font-semibold text-purple-700 mb-3">Zonas Existentes y sus Sectores</h4>
+                    <div id="zonas-list-container" class="max-h-60 overflow-y-auto bg-white p-3 rounded-md border border-gray-200">
+                        <!-- Las zonas y sectores se cargarán aquí -->
+                        <p class="text-gray-500">Cargando zonas y sectores...</p>
+                    </div>
+                </div>
+
+                <button id="btn-back-manage-zones-sectors" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
+                    Volver al Menú Principal
+                </button>
+            </div>
+        `;
+
+        const zonasListContainer = clientesSubSection.querySelector('#zonas-list-container');
+        const addZonaInput = clientesSubSection.querySelector('#add-zona-input');
+        const btnAddZona = clientesSubSection.querySelector('#btn-add-zona');
+        const btnBackManageZonesSectors = clientesSubSection.querySelector('#btn-back-manage-zones-sectors');
+
+        // Función interna para renderizar la lista de zonas y sectores
+        const renderZonasSectoresList = () => {
+            zonasListContainer.innerHTML = ''; // Limpiar lista
+            if (Object.keys(zonaSectorMap).length === 0) {
+                zonasListContainer.innerHTML = '<p class="text-gray-500">No hay zonas configuradas aún.</p>';
+                return;
+            }
+
+            for (const zona in zonaSectorMap) {
+                const zonaDiv = document.createElement('div');
+                zonaDiv.className = 'mb-4 p-3 border border-gray-300 rounded-md bg-gray-50';
+                zonaDiv.innerHTML = `
+                    <div class="flex justify-between items-center mb-2">
+                        <h5 class="font-bold text-lg text-gray-800">${zona}</h5>
+                        <button class="bg-red-500 text-white px-3 py-1 rounded-md text-sm hover:bg-red-600 delete-zona-btn" data-zona="${zona}">Eliminar Zona</button>
+                    </div>
+                    <div class="flex items-center mb-2">
+                        <input type="text" placeholder="Nuevo Sector para ${zona}" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-400 add-sector-input" data-zona="${zona}">
+                        <button class="bg-blue-500 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-600 ml-2 add-sector-btn" data-zona="${zona}">Añadir Sector</button>
+                    </div>
+                    <ul class="list-disc pl-5 text-gray-700" id="sectores-list-${zona.replace(/\s/g, '-')}-ul">
+                        ${zonaSectorMap[zona].map(sector => `
+                            <li class="flex justify-between items-center py-1">
+                                <span>${sector}</span>
+                                <button class="bg-red-400 text-white px-2 py-0.5 rounded-md text-xs hover:bg-red-500 delete-sector-btn" data-zona="${zona}" data-sector="${sector}">Eliminar</button>
+                            </li>
+                        `).join('')}
+                    </ul>
+                `;
+                zonasListContainer.appendChild(zonaDiv);
+            }
+
+            // Añadir event listeners para eliminar zonas
+            zonasListContainer.querySelectorAll('.delete-zona-btn').forEach(button => {
+                button.addEventListener('click', async (event) => {
+                    const zonaToDelete = event.target.dataset.zona;
+                    if (confirm(`¿Estás seguro de que quieres eliminar la zona "${zonaToDelete}" y todos sus sectores?`)) {
+                        delete zonaSectorMap[zonaToDelete];
+                        await guardarConfiguracionZonasSectores(zonaSectorMap);
+                        renderZonasSectoresList(); // Re-renderizar la lista
+                        alert(`Zona "${zonaToDelete}" eliminada.`);
+                    }
+                });
+            });
+
+            // Añadir event listeners para añadir sectores
+            zonasListContainer.querySelectorAll('.add-sector-btn').forEach(button => {
+                button.addEventListener('click', async (event) => {
+                    const zona = event.target.dataset.zona;
+                    const input = clientesSubSection.querySelector(`.add-sector-input[data-zona="${zona}"]`);
+                    const newSector = input.value.trim();
+                    if (newSector && !zonaSectorMap[zona].includes(newSector)) {
+                        zonaSectorMap[zona].push(newSector);
+                        await guardarConfiguracionZonasSectores(zonaSectorMap);
+                        renderZonasSectoresList(); // Re-renderizar la lista
+                        input.value = ''; // Limpiar input
+                        alert(`Sector "${newSector}" añadido a "${zona}".`);
+                    } else if (zonaSectorMap[zona].includes(newSector)) {
+                        alert(`El sector "${newSector}" ya existe en "${zona}".`);
+                    } else {
+                        alert('Por favor, ingresa un nombre para el nuevo sector.');
+                    }
+                });
+            });
+
+            // Añadir event listeners para eliminar sectores
+            zonasListContainer.querySelectorAll('.delete-sector-btn').forEach(button => {
+                button.addEventListener('click', async (event) => {
+                    const zona = event.target.dataset.zona;
+                    const sectorToDelete = event.target.dataset.sector;
+                    if (confirm(`¿Estás seguro de que quieres eliminar el sector "${sectorToDelete}" de "${zona}"?`)) {
+                        zonaSectorMap[zona] = zonaSectorMap[zona].filter(s => s !== sectorToDelete);
+                        await guardarConfiguracionZonasSectores(zonaSectorMap);
+                        renderZonasSectoresList(); // Re-renderizar la lista
+                        alert(`Sector "${sectorToDelete}" eliminado de "${zona}".`);
+                    }
+                });
+            });
+        };
+
+        // Event listener para añadir una nueva zona
+        btnAddZona.addEventListener('click', async () => {
+            const newZona = addZonaInput.value.trim();
+            if (newZona && !zonaSectorMap[newZona]) {
+                zonaSectorMap[newZona] = []; // Inicializa la nueva zona con un array vacío de sectores
+                await guardarConfiguracionZonasSectores(zonaSectorMap);
+                renderZonasSectoresList(); // Re-renderizar la lista
+                addZonaInput.value = ''; // Limpiar input
+                alert(`Zona "${newZona}" añadida.`);
+            } else if (zonaSectorMap[newZona]) {
+                alert(`La zona "${newZona}" ya existe.`);
+            } else {
+                alert('Por favor, ingresa un nombre para la nueva zona.');
+            }
+        });
+
+        // Event listener para el botón Volver
+        btnBackManageZonesSectors.addEventListener('click', showClientesMainButtons);
+
+        // Cargar y renderizar la lista de zonas y sectores al abrir la sección
+        renderZonasSectoresList();
     }
 }
