@@ -2,7 +2,8 @@
 // Este archivo gestiona las operaciones de venta y el cierre de caja diario.
 
 // Importa las funciones necesarias de Firebase Firestore.
-import { collection, addDoc, getDocs, doc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+// Se ha añadido 'getDoc' a la lista de importaciones para resolver el ReferenceError.
+import { collection, addDoc, getDocs, doc, updateDoc, query, where, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // Importa funciones de otros módulos para obtener datos necesarios
 import { obtenerTodosLosClientes } from './clientes.js';
@@ -127,6 +128,7 @@ export async function renderVentasSection(container) {
         let allClients = await obtenerTodosLosClientes();
         let allProducts = await verInventarioCompleto();
         let rubroSegmentoMap = {}; // Se cargará si es necesario para el filtro de rubro
+        let productsInSale = []; // Nueva lista para los productos seleccionados para la venta
 
         // Obtener la configuración de rubros y segmentos (similar a inventario.js)
         try {
@@ -154,7 +156,7 @@ export async function renderVentasSection(container) {
                     <p id="selected-client-display" class="font-medium text-gray-800">Cliente Seleccionado: Ninguno</p>
                 </div>
 
-                <!-- Tabla de Productos para Venta -->
+                <!-- Tabla de Productos para Añadir a la Venta -->
                 <div class="mb-6 p-4 border border-blue-200 rounded-md" id="productos-para-venta-section">
                     <h4 class="text-xl font-semibold text-blue-700 mb-3">2. Productos Disponibles</h4>
                     <div class="mb-3">
@@ -185,6 +187,31 @@ export async function renderVentasSection(container) {
                     </div>
                 </div>
 
+                <!-- Productos en Venta (anteriormente carrito) -->
+                <div class="mb-6 p-4 border border-blue-200 rounded-md">
+                    <h4 class="text-xl font-semibold text-blue-700 mb-3">3. Productos en Venta</h4>
+                    <div id="products-in-sale-list" class="bg-white p-3 rounded-md border border-gray-200 max-h-40 overflow-y-auto mb-3">
+                        <p class="text-gray-500">No hay productos en la lista de venta.</p>
+                    </div>
+                    <p class="text-lg font-bold text-gray-900">Total Venta: $<span id="total-venta-display">0.00</span></p>
+                </div>
+
+                <!-- Detalles Finales de la Venta -->
+                <div class="mb-6 p-4 border border-blue-200 rounded-md">
+                    <h4 class="text-xl font-semibold text-blue-700 mb-3">4. Detalles y Finalización</h4>
+                    <select id="metodo-pago-select" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3">
+                        <option value="">-- Selecciona Método de Pago --</option>
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="Transferencia">Transferencia</option>
+                        <option value="Punto de Venta">Punto de Venta</option>
+                        <option value="Credito">Crédito</option>
+                    </select>
+                    <textarea id="observaciones-venta-input" placeholder="Observaciones de la venta (opcional)" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"></textarea>
+                    <button id="btn-finalizar-venta" class="w-full bg-green-600 text-white p-3 rounded-md font-semibold hover:bg-green-700 transition duration-200" disabled>
+                        Finalizar Venta
+                    </button>
+                </div>
+
                 <button id="btn-back-from-realizar-venta" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
                     Volver
                 </button>
@@ -198,10 +225,16 @@ export async function renderVentasSection(container) {
         const productosParaVentaSection = parentContainer.querySelector('#productos-para-venta-section');
         const filterRubroVentaSelect = parentContainer.querySelector('#filter-rubro-venta');
         const productosVentaTableBody = parentContainer.querySelector('#productos-venta-table-body');
+        const productsInSaleListDiv = parentContainer.querySelector('#products-in-sale-list');
+        const totalVentaDisplay = parentContainer.querySelector('#total-venta-display');
+        const metodoPagoSelect = parentContainer.querySelector('#metodo-pago-select');
+        const observacionesVentaInput = parentContainer.querySelector('#observaciones-venta-input');
+        const btnFinalizarVenta = parentContainer.querySelector('#btn-finalizar-venta');
         const btnBack = parentContainer.querySelector('#btn-back-from-realizar-venta');
 
-        // Inicialmente ocultar la sección de productos
+        // Inicialmente ocultar la sección de productos y el botón de finalizar venta
         productosParaVentaSection.classList.add('hidden');
+        btnFinalizarVenta.disabled = true;
 
         // --- Lógica de Selección de Cliente ---
         const renderClientList = (clientsToRender) => {
@@ -221,6 +254,7 @@ export async function renderVentasSection(container) {
                     searchClienteInput.value = ''; // Limpiar input de búsqueda
                     productosParaVentaSection.classList.remove('hidden'); // Mostrar la sección de productos
                     renderProductTable(allProducts); // Renderizar todos los productos inicialmente
+                    checkFinalizarVentaButtonStatus();
                 });
                 clientesVentaListDiv.appendChild(clientDiv);
             });
@@ -236,7 +270,7 @@ export async function renderVentasSection(container) {
             renderClientList(filteredClients);
         });
 
-        // --- Lógica de Tabla de Productos y Venta Individual ---
+        // --- Lógica de Tabla de Productos y Añadir a Venta ---
         const renderProductTable = (productsToRender) => {
             productosVentaTableBody.innerHTML = ''; // Limpiar tabla
 
@@ -258,74 +292,60 @@ export async function renderVentasSection(container) {
                         <input type="number" min="1" value="1" class="w-20 p-1 border border-gray-300 rounded-md text-center quantity-input" data-product-id="${product.id}">
                     </td>
                     <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">
-                        <button class="bg-blue-500 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-600 transition duration-200 sell-product-btn" data-product-id="${product.id}">Vender</button>
+                        <button class="bg-blue-500 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-600 transition duration-200 add-to-sale-btn" data-product-id="${product.id}">Añadir</button>
                     </td>
                 `;
                 productosVentaTableBody.appendChild(row);
             });
 
-            // Añadir event listeners para los botones de venta
-            productosVentaTableBody.querySelectorAll('.sell-product-btn').forEach(button => {
-                button.addEventListener('click', async (event) => {
+            // Añadir event listeners para los botones "Añadir"
+            productosVentaTableBody.querySelectorAll('.add-to-sale-btn').forEach(button => {
+                button.addEventListener('click', (event) => {
                     const productId = event.target.dataset.productId;
                     const quantityInput = productosVentaTableBody.querySelector(`.quantity-input[data-product-id="${productId}"]`);
                     const cantidad = parseInt(quantityInput.value);
 
-                    const productToSell = allProducts.find(p => p.id === productId);
+                    const productToAdd = allProducts.find(p => p.id === productId);
 
-                    if (!selectedClient) {
-                        alert('Por favor, seleccione un cliente primero.');
-                        return;
-                    }
-                    if (!productToSell) {
+                    if (!productToAdd) {
                         alert('Producto no encontrado.');
                         return;
                     }
                     if (isNaN(cantidad) || cantidad <= 0) {
-                        alert('Por favor, ingrese una cantidad válida para vender.');
+                        alert('Por favor, ingrese una cantidad válida.');
                         return;
                     }
-                    if (cantidad > productToSell.Cantidad) {
-                        alert(`No hay suficiente stock para ${productToSell.Producto}. Disponible: ${productToSell.Cantidad}`);
+                    if (cantidad > productToAdd.Cantidad) {
+                        alert(`No hay suficiente stock para ${productToAdd.Producto}. Disponible: ${productToAdd.Cantidad}`);
                         return;
                     }
 
-                    // Realizar la venta
-                    const newCantidad = productToSell.Cantidad - cantidad;
-                    const totalVentaProducto = cantidad * productToSell.Precio;
+                    // Verificar si el producto ya está en la lista de venta
+                    const existingItemIndex = productsInSale.findIndex(item => item.productId === productToAdd.id);
 
-                    const ventaData = {
-                        clienteId: selectedClient.id,
-                        nombreCliente: selectedClient.NombreComercial,
-                        fecha: new Date().toISOString(),
-                        productos: [{
-                            productId: productToSell.id,
-                            nombre: productToSell.Producto,
-                            presentacion: productToSell.Presentacion,
-                            sku: productToSell.Sku,
-                            cantidad: cantidad,
-                            precioUnitario: productToSell.Precio,
-                            subtotal: totalVentaProducto
-                        }],
-                        totalVenta: totalVentaProducto,
-                        // No hay método de pago explícito ni lógica de deuda automática aquí
-                        observaciones: `Venta de ${cantidad} unidades de ${productToSell.Producto}` // Observación automática
-                    };
-
-                    // Actualizar stock en Firebase
-                    const stockActualizado = await modificarProducto(productId, { Cantidad: newCantidad });
-
-                    // Registrar la venta en Firebase
-                    const ventaRegistrada = await agregarVenta(ventaData);
-
-                    if (stockActualizado && ventaRegistrada) {
-                        alert(`Venta de ${cantidad} unidades de ${productToSell.Producto} a ${selectedClient.NombreComercial} realizada con éxito.`);
-                        // Actualizar el stock en la lista local para reflejar el cambio sin recargar todo
-                        productToSell.Cantidad = newCantidad;
-                        renderProductTable(allProducts); // Re-renderizar la tabla para mostrar el stock actualizado
+                    if (existingItemIndex > -1) {
+                        // Si ya existe, actualizar la cantidad
+                        productsInSale[existingItemIndex].cantidad += cantidad;
+                        productsInSale[existingItemIndex].subtotal = productsInSale[existingItemIndex].cantidad * productsInSale[existingItemIndex].precioUnitario;
                     } else {
-                        alert('Fallo al realizar la venta. Por favor, intente de nuevo.');
+                        // Si no existe, añadirlo como nuevo
+                        productsInSale.push({
+                            productId: productToAdd.id,
+                            nombre: productToAdd.Producto,
+                            presentacion: productToAdd.Presentacion,
+                            sku: productToAdd.Sku,
+                            cantidad: cantidad,
+                            precioUnitario: productToAdd.Precio,
+                            subtotal: cantidad * productToAdd.Precio
+                        });
                     }
+
+                    // Restar del stock "virtual" para la venta actual (no se guarda aún en Firebase)
+                    productToAdd.Cantidad -= cantidad;
+
+                    renderProductsInSaleList();
+                    quantityInput.value = 1; // Resetear cantidad a 1
+                    renderProductTable(allProducts); // Re-renderizar la tabla para mostrar el stock actualizado
                 });
             });
         };
@@ -337,6 +357,138 @@ export async function renderVentasSection(container) {
                 filteredProducts = allProducts.filter(p => p.Rubro === selectedRubro);
             }
             renderProductTable(filteredProducts);
+        });
+
+        // --- Lógica de Productos en Venta (Lista) ---
+        const renderProductsInSaleList = () => {
+            productsInSaleListDiv.innerHTML = '';
+            let totalVenta = 0;
+
+            if (productsInSale.length === 0) {
+                productsInSaleListDiv.innerHTML = '<p class="text-gray-500">No hay productos en la lista de venta.</p>';
+            } else {
+                productsInSale.forEach((item, index) => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'flex justify-between items-center p-1 border-b border-gray-100';
+                    itemDiv.innerHTML = `
+                        <span>${item.nombre} (${item.presentacion}) - ${item.cantidad} x $${item.precioUnitario.toFixed(2)} = $${item.subtotal.toFixed(2)}</span>
+                        <button class="bg-red-400 text-white px-2 py-0.5 rounded-md text-xs hover:bg-red-500 remove-from-sale-btn" data-index="${index}">Eliminar</button>
+                    `;
+                    productsInSaleListDiv.appendChild(itemDiv);
+                    totalVenta += item.subtotal;
+                });
+            }
+            totalVentaDisplay.textContent = totalVenta.toFixed(2);
+            checkFinalizarVentaButtonStatus();
+
+            // Añadir event listeners para eliminar de la lista de venta
+            productsInSaleListDiv.querySelectorAll('.remove-from-sale-btn').forEach(button => {
+                button.addEventListener('click', (event) => {
+                    const indexToRemove = parseInt(event.target.dataset.index);
+                    const removedItem = productsInSale.splice(indexToRemove, 1)[0];
+
+                    // Devolver la cantidad al stock "virtual" del producto original
+                    const originalProduct = allProducts.find(p => p.id === removedItem.productId);
+                    if (originalProduct) {
+                        originalProduct.Cantidad += removedItem.cantidad;
+                    }
+                    renderProductsInSaleList();
+                    renderProductTable(allProducts); // Re-renderizar la tabla de productos disponibles
+                });
+            });
+        };
+
+        // --- Lógica de Finalizar Venta ---
+        const checkFinalizarVentaButtonStatus = () => {
+            const hasClient = selectedClient !== null;
+            const hasItemsInSale = productsInSale.length > 0;
+            const isPaymentMethodSelected = metodoPagoSelect.value !== '';
+            btnFinalizarVenta.disabled = !(hasClient && hasItemsInSale && isPaymentMethodSelected);
+        };
+
+        metodoPagoSelect.addEventListener('change', checkFinalizarVentaButtonStatus);
+
+        btnFinalizarVenta.addEventListener('click', async () => {
+            if (!selectedClient) {
+                alert('Por favor, seleccione un cliente.');
+                return;
+            }
+            if (productsInSale.length === 0) {
+                alert('No hay productos en la lista de venta. Añada productos para finalizar la venta.');
+                return;
+            }
+            const metodoPago = metodoPagoSelect.value;
+            if (!metodoPago) {
+                alert('Por favor, seleccione un método de pago.');
+                return;
+            }
+
+            const totalVenta = parseFloat(totalVentaDisplay.textContent);
+            const observaciones = observacionesVentaInput.value.trim();
+
+            const ventaData = {
+                clienteId: selectedClient.id,
+                nombreCliente: selectedClient.NombreComercial,
+                fecha: new Date().toISOString(), // Fecha y hora actual
+                productos: productsInSale.map(item => ({
+                    productId: item.productId,
+                    nombre: item.nombre,
+                    presentacion: item.presentacion,
+                    sku: item.sku,
+                    cantidad: item.cantidad,
+                    precioUnitario: item.precioUnitario,
+                    subtotal: item.subtotal
+                })),
+                totalVenta: totalVenta,
+                metodoPago: metodoPago,
+                observaciones: observaciones
+            };
+
+            // 1. Actualizar el stock en inventario para cada producto vendido
+            for (const item of productsInSale) {
+                const productInDb = allProducts.find(p => p.id === item.productId);
+                if (productInDb) {
+                    const newCantidad = productInDb.Cantidad - item.cantidad;
+                    await modificarProducto(item.productId, { Cantidad: newCantidad });
+                }
+            }
+
+            // 2. Actualizar la deuda del cliente si el método de pago es "Crédito"
+            if (metodoPago === 'Credito') {
+                const { db, userId, appId } = await getFirestoreInstances();
+                const clienteDocRef = doc(db, `artifacts/${appId}/users/${userId}/datosClientes`, selectedClient.id);
+                const nuevaDeuda = (selectedClient.Deuda || 0) + totalVenta;
+                await updateDoc(clienteDocRef, { Deuda: nuevaDeuda });
+                selectedClient.Deuda = nuevaDeuda; // Actualizar el objeto cliente en memoria
+            }
+
+            // 3. Registrar la venta
+            const ventaId = await agregarVenta(ventaData);
+
+            if (ventaId) {
+                alert('Venta realizada con éxito! ID: ' + ventaId);
+                // Resetear el formulario
+                selectedClient = null;
+                productsInSale = [];
+                selectedClientDisplay.textContent = 'Cliente Seleccionado: Ninguno';
+                searchClienteInput.value = '';
+                // No limpiar searchProductoInput para que el filtro de rubro se mantenga
+                // searchProductoInput.value = '';
+                // cantidadProductoInput.value = ''; // No existe más un solo input de cantidad
+                metodoPagoSelect.value = '';
+                observacionesVentaInput.value = '';
+                productsInSaleListDiv.innerHTML = '<p class="text-gray-500">No hay productos en la lista de venta.</p>'; // Limpiar la lista visualmente
+                totalVentaDisplay.textContent = '0.00';
+                productosParaVentaSection.classList.add('hidden'); // Ocultar sección de productos
+                btnFinalizarVenta.disabled = true;
+
+                // Recargar todos los productos para reflejar el stock actualizado
+                allProducts = await verInventarioCompleto();
+                // Recargar clientes para reflejar la deuda actualizada
+                allClients = await obtenerTodosLosClientes();
+            } else {
+                alert('Fallo al finalizar la venta.');
+            }
         });
 
         btnBack.addEventListener('click', backToMainMenuCallback);
@@ -462,3 +614,4 @@ export async function renderVentasSection(container) {
         btnBack.addEventListener('click', backToMainMenuCallback);
     }
 }
+
