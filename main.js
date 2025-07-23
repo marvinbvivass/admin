@@ -1,8 +1,8 @@
 // main.js
-// Este archivo maneja la inicialización de Firebase y la navegación principal de la aplicación.
+// Este archivo maneja la inicialización de Firebase, la autenticación de usuario y la navegación principal de la aplicación.
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // Importa las funciones de renderizado de cada sección
@@ -10,7 +10,7 @@ import { renderClientesSection } from './clientes.js';
 import { renderInventarioSection } from './inventario.js';
 import { renderPreciosSection } from './precios.js';
 import { renderVentasSection } from './ventas.js';
-import { renderArchivosSection } from './archivos.js'; // Importa la nueva sección de archivos
+import { renderArchivosSection } from './archivos.js';
 // Importa módulos para futuras secciones (descomentar cuando los archivos existan)
 // import { renderCargaVehiculosSection } from './carga-vehiculos.js';
 
@@ -20,11 +20,10 @@ window.firebaseApp = null;
 window.firebaseDb = null;
 window.firebaseAuth = null;
 window.currentUserId = null;
-window.currentAppId = null; // Definir appId globalmente
+window.currentAppId = null;
 
 // Configuración de Firebase (solo para desarrollo local o GitHub Pages si no se usa Canvas)
-// EN UN ENTORNO DE PRODUCCIÓN REAL (NO CANVAS), ESTAS CREDENCIALES DEBERÍAN SER GESTIONADAS
-// DE FORMA MÁS SEGURA (EJ. VARIABLES DE ENTORNO EN UN BACKEND) Y NO DIRECTAMENTE EN EL CÓDIGO DEL CLIENTE.
+// En un entorno de producción real, estas credenciales deberían ser gestionadas de forma más segura.
 const firebaseConfigLocal = {
     apiKey: "AIzaSyBags4wEqc_v8GGsHoLBwStPf0FIJgT6hE", // REEMPLAZA CON TU API KEY REAL
     authDomain: "admin-804f6.firebaseapp.com", // REEMPLAZA CON TU AUTH DOMAIN REAL
@@ -34,10 +33,6 @@ const firebaseConfigLocal = {
     appId: "1:641744033630:web:7e61b41752b1882a6461cf", // REEMPLAZA CON TU APP ID REAL
     measurementId: "G-DFL37S2NVX" // REEMPLAZA CON TU MEASUREMENT ID REAL
 };
-
-// USER ID DE PRUEBA (SOLO PARA DESARROLLO LOCAL/GITHUB PAGES SI NO HAY AUTENTICACIÓN REAL)
-// ESTE ES EL ID QUE ME PROPORCIONASTE.
-const TEST_USER_ID = "hiKJDsYSD2U4gj71q8GQStr2Rhb2"; // <--- TU USER ID DE FIREBASE
 
 // Función de inicialización de Firebase
 async function initializeFirebase() {
@@ -52,49 +47,127 @@ async function initializeFirebase() {
         window.firebaseAuth = getAuth(window.firebaseApp);
         window.currentAppId = typeof __app_id !== 'undefined' && __app_id !== 'default-app-id'
             ? __app_id
-            : firebaseConfig.projectId; // Usar el projectId de la config local si no viene de Canvas
+            : firebaseConfig.projectId;
 
-        // Autenticación: Usar token personalizado si está disponible (Canvas), de lo contrario, anónima
+        // Observar cambios en el estado de autenticación
+        onAuthStateChanged(window.firebaseAuth, (user) => {
+            if (user) {
+                window.currentUserId = user.uid;
+                console.log('Firebase: User ID activo:', window.currentUserId);
+                renderMainAppScreen(); // Renderizar la app principal si el usuario está autenticado
+            } else {
+                window.currentUserId = null;
+                console.log('Firebase: No user is signed in.');
+                renderAuthScreen(); // Mostrar la pantalla de autenticación si no hay usuario
+            }
+        });
+
+        // Intentar autenticar con token personalizado si estamos en Canvas
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token !== '') {
             await signInWithCustomToken(window.firebaseAuth, __initial_auth_token);
             console.log('Firebase: Autenticado con token personalizado (Entorno Canvas).');
         } else {
-            await signInAnonymously(window.firebaseAuth);
-            console.log('Firebase: Autenticado anónimamente (GitHub Pages o desarrollo local).');
-            // Forzamos el User ID de prueba aquí para que cargue tus datos existentes
-            window.currentUserId = TEST_USER_ID;
-            console.warn('ADVERTENCIA: Usando un USER ID de prueba fijo para depuración. ¡Remueve esto en producción si usas autenticación real!');
+            // No hacemos signInAnonymously aquí, ya que queremos que el usuario se registre/inicie sesión
+            // La pantalla de autenticación se mostrará por onAuthStateChanged si no hay usuario.
         }
-
-        // Observar cambios en el estado de autenticación para obtener el UID
-        onAuthStateChanged(window.firebaseAuth, (user) => {
-            if (user) {
-                // Si estamos en Canvas y el token funciona, este UID es el correcto.
-                // Si estamos fuera de Canvas y forzamos TEST_USER_ID, este callback puede sobrescribirlo
-                // si el usuario anónimo es diferente. Por eso, el forzado se hace después.
-                if (typeof __initial_auth_token === 'undefined' || __initial_auth_token === '') {
-                    // Si no estamos en Canvas, mantenemos el TEST_USER_ID forzado.
-                    window.currentUserId = TEST_USER_ID;
-                } else {
-                    window.currentUserId = user.uid; // En Canvas, usamos el UID real.
-                }
-                console.log('Firebase: User ID activo:', window.currentUserId);
-            } else {
-                window.currentUserId = null;
-                console.log('Firebase: No user is signed in.');
-            }
-        });
 
         console.log('Firebase inicializado con éxito.');
     } catch (error) {
         console.error('Error al inicializar Firebase:', error);
+        // Si hay un error grave de inicialización, mostrar un mensaje al usuario
+        const appContainer = document.getElementById('app-container');
+        appContainer.innerHTML = '<p class="text-red-600 text-center">Error al iniciar la aplicación. Por favor, intente de nuevo más tarde.</p>';
     }
 }
 
-// Función principal para renderizar la aplicación
-async function renderApp() {
-    await initializeFirebase(); // Asegurarse de que Firebase esté inicializado y autenticado
+// --- Funciones de Autenticación ---
 
+async function handleRegister(email, password) {
+    try {
+        const userCredential = await createUserWithEmailAndPassword(window.firebaseAuth, email, password);
+        console.log('Usuario registrado:', userCredential.user.uid);
+        alert('Registro exitoso. ¡Bienvenido!');
+        // onAuthStateChanged se encargará de renderizar la pantalla principal
+    } catch (error) {
+        console.error('Error al registrar usuario:', error);
+        let errorMessage = 'Error al registrar usuario.';
+        if (error.code === 'auth/email-already-in-use') {
+            errorMessage = 'El email ya está registrado.';
+        } else if (error.code === 'auth/invalid-email') {
+            errorMessage = 'Formato de email inválido.';
+        } else if (error.code === 'auth/weak-password') {
+            errorMessage = 'La contraseña debe tener al menos 6 caracteres.';
+        }
+        alert(errorMessage);
+    }
+}
+
+async function handleLogin(email, password) {
+    try {
+        const userCredential = await signInWithEmailAndPassword(window.firebaseAuth, email, password);
+        console.log('Usuario inició sesión:', userCredential.user.uid);
+        alert('Inicio de sesión exitoso. ¡Bienvenido de nuevo!');
+        // onAuthStateChanged se encargará de renderizar la pantalla principal
+    } catch (error) {
+        console.error('Error al iniciar sesión:', error);
+        let errorMessage = 'Error al iniciar sesión.';
+        if (error.code === 'auth/invalid-email' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+            errorMessage = 'Email o contraseña incorrectos.';
+        } else if (error.code === 'auth/too-many-requests') {
+            errorMessage = 'Demasiados intentos fallidos. Intente de nuevo más tarde.';
+        }
+        alert(errorMessage);
+    }
+}
+
+async function handleLogout() {
+    try {
+        await signOut(window.firebaseAuth);
+        console.log('Usuario cerró sesión.');
+        alert('Sesión cerrada.');
+        // onAuthStateChanged se encargará de renderizar la pantalla de autenticación
+    } catch (error) {
+        console.error('Error al cerrar sesión:', error);
+        alert('Error al cerrar sesión.');
+    }
+}
+
+// --- Renderizado de Pantallas ---
+
+function renderAuthScreen() {
+    const appContainer = document.getElementById('app-container');
+    appContainer.innerHTML = `
+        <div class="p-8 bg-white rounded-lg shadow-xl w-full max-w-md text-center">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Iniciar Sesión / Registrarse</h2>
+            <div class="mb-4">
+                <input type="email" id="auth-email" placeholder="Email" class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div class="mb-6">
+                <input type="password" id="auth-password" placeholder="Contraseña" class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <button id="btn-login" class="w-full bg-blue-600 text-white p-3 rounded-md font-semibold hover:bg-blue-700 transition duration-200 mb-3">
+                Iniciar Sesión
+            </button>
+            <button id="btn-register" class="w-full bg-green-600 text-white p-3 rounded-md font-semibold hover:bg-green-700 transition duration-200">
+                Registrarse
+            </button>
+        </div>
+    `;
+
+    document.getElementById('btn-login').addEventListener('click', () => {
+        const email = document.getElementById('auth-email').value;
+        const password = document.getElementById('auth-password').value;
+        handleLogin(email, password);
+    });
+
+    document.getElementById('btn-register').addEventListener('click', () => {
+        const email = document.getElementById('auth-email').value;
+        const password = document.getElementById('auth-password').value;
+        handleRegister(email, password);
+    });
+}
+
+function renderMainAppScreen() {
     const appContainer = document.getElementById('app-container');
     appContainer.innerHTML = `
         <header class="text-center mb-10">
@@ -104,6 +177,9 @@ async function renderApp() {
             <p class="text-xl text-gray-600">
                 Tu plataforma integral para administrar tu negocio.
             </p>
+            <button id="btn-logout" class="mt-4 bg-red-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-600 transition duration-200">
+                Cerrar Sesión
+            </button>
         </header>
 
         <!-- Sección de botones/tarjetas para las diferentes áreas de gestión -->
@@ -193,7 +269,6 @@ async function renderApp() {
         await renderVentasSection(modalContainer);
     });
 
-    // Habilitar el botón de Archivos
     document.getElementById('btn-archivos').addEventListener('click', async () => {
         modalContainer.classList.remove('hidden');
         await renderArchivosSection(modalContainer);
@@ -205,7 +280,10 @@ async function renderApp() {
         // modalContainer.classList.remove('hidden');
         // await renderCargaVehiculosSection(modalContainer);
     });
+
+    document.getElementById('btn-logout').addEventListener('click', handleLogout);
 }
 
 // Iniciar la aplicación cuando el DOM esté completamente cargado
-document.addEventListener('DOMContentLoaded', renderApp);
+document.addEventListener('DOMContentLoaded', initializeFirebase);
+
