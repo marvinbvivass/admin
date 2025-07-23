@@ -86,6 +86,7 @@ async function guardarConfiguracionZonasSectores(newMap) {
  * @param {string} cliente.Zona - Zona geográfica del cliente.
  * @param {string} cliente.Sector - Sector de actividad del cliente.
  * @param {string} cliente.Tlf - Número de teléfono.
+ * @param {number} cliente.Deuda - Monto de la deuda del cliente.
  * @param {string} [cliente.Observaciones] - Observaciones adicionales (opcional).
  * @returns {Promise<string|null>} El ID del documento del cliente agregado o null si hubo un error.
  */
@@ -261,6 +262,7 @@ export async function renderClientesSection(container) {
                         ${clientData?.Zona && zonaSectorMap[clientData.Zona] ? zonaSectorMap[clientData.Zona].map(sector => `<option value="${sector}" ${clientData?.Sector === sector ? 'selected' : ''}>${sector}</option>`).join('') : ''}
                     </select>
                     <input type="tel" id="mod-tlf" placeholder="Nuevo Teléfono (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${clientData?.Tlf || ''}">
+                    <input type="number" step="0.01" id="mod-deuda" placeholder="Nueva Deuda (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${clientData?.Deuda || ''}">
                     <textarea id="mod-observaciones" placeholder="Nuevas Observaciones (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 col-span-full">${clientData?.Observaciones || ''}</textarea>
                 </div>
                 <div class="flex flex-col md:flex-row gap-4 mt-6">
@@ -306,6 +308,7 @@ export async function renderClientesSection(container) {
             if (container.querySelector('#mod-zona').value) nuevosDatos.Zona = container.querySelector('#mod-zona').value;
             if (container.querySelector('#mod-sector').value) nuevosDatos.Sector = container.querySelector('#mod-sector').value;
             if (container.querySelector('#mod-tlf').value !== (clientData?.Tlf || '')) nuevosDatos.Tlf = container.querySelector('#mod-tlf').value;
+            if (container.querySelector('#mod-deuda').value !== (clientData?.Deuda || '')) nuevosDatos.Deuda = parseFloat(container.querySelector('#mod-deuda').value); // Capturar Deuda
             if (container.querySelector('#mod-observaciones').value !== (clientData?.Observaciones || '')) nuevosDatos.Observaciones = container.querySelector('#mod-observaciones').value;
 
 
@@ -407,6 +410,7 @@ export async function renderClientesSection(container) {
                         <option value="">Selecciona Sector</option>
                     </select>
                     <input type="tel" id="add-tlf" placeholder="Teléfono" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="number" step="0.01" id="add-deuda" placeholder="Deuda" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <textarea id="add-observaciones" placeholder="Observaciones (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 col-span-full"></textarea>
                 </div>
                 <button id="btn-submit-add-cliente" class="mt-6 w-full bg-blue-600 text-white p-3 rounded-md font-semibold hover:bg-blue-700 transition duration-200">
@@ -445,6 +449,7 @@ export async function renderClientesSection(container) {
                 Zona: container.querySelector('#add-zona').value,
                 Sector: container.querySelector('#add-sector').value,
                 Tlf: container.querySelector('#add-tlf').value,
+                Deuda: parseFloat(container.querySelector('#add-deuda').value) || 0, // Capturar Deuda
                 Observaciones: container.querySelector('#add-observaciones').value
             };
 
@@ -459,6 +464,7 @@ export async function renderClientesSection(container) {
                 container.querySelector('#add-sector').innerHTML = '<option value="">Selecciona Sector</option>'; // Limpiar y resetear sector
                 container.querySelector('#add-sector').disabled = true;
                 container.querySelector('#add-tlf').value = '';
+                container.querySelector('#add-deuda').value = ''; // Limpiar Deuda
                 container.querySelector('#add-observaciones').value = '';
             } else {
                 alert('Fallo al agregar cliente.');
@@ -544,7 +550,7 @@ export async function renderClientesSection(container) {
                     <p class="font-semibold">${cliente.NombreComercial || 'N/A'} (${cliente.NombrePersonal || 'N/A'})</p>
                     <p class="text-sm text-gray-600">ID: ${cliente.id || 'N/A'} | CEP: ${cliente.CEP || 'N/A'}</p>
                     <p class="text-sm text-gray-600">Zona: ${cliente.Zona || 'N/A'} | Sector: ${cliente.Sector || 'N/A'}</p>
-                    <p class="text-sm text-gray-600">Teléfono: ${cliente.Tlf || 'N/A'}</p>
+                    <p class="text-sm text-gray-600">Teléfono: ${cliente.Tlf || 'N/A'} | Deuda: $${(cliente.Deuda || 0).toFixed(2)}</p>
                     <p class="text-sm text-gray-600">Observaciones: ${cliente.Observaciones || 'N/A'}</p>
                 </div>
                 ${actionCallback ? `<button class="mt-2 sm:mt-0 sm:ml-4 bg-blue-500 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-600 transition duration-200 select-client-btn" data-client-id="${cliente.id}">Seleccionar</button>` : ''}
