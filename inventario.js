@@ -9,16 +9,14 @@ import { collection, addDoc, doc, updateDoc, deleteDoc, getDoc, setDoc, getDocs 
 let rubroSegmentoMap = {};
 const RUBRO_SEGMENTO_CONFIG_DOC_ID = 'rubrosSegmentos'; // ID fijo para el documento de configuración
 
-// Función auxiliar para obtener la instancia de Firestore y el ID de usuario/appId
+// Función auxiliar para obtener la instancia de Firestore
 async function getFirestoreInstances() {
-    while (!window.firebaseDb || !window.currentAppId) { // Ya no necesitamos window.currentUserId aquí para rutas de datos compartidos
+    while (!window.firebaseDb) {
         console.log('Esperando inicialización de Firebase en inventario.js...');
         await new Promise(resolve => setTimeout(resolve, 100));
     }
     return {
         db: window.firebaseDb,
-        // userId: window.currentUserId, // Ya no se usa para rutas de datos compartidos
-        appId: window.currentAppId
     };
 }
 
@@ -28,9 +26,9 @@ async function getFirestoreInstances() {
  */
 async function obtenerConfiguracionRubrosSegmentos() {
     try {
-        const { db, appId } = await getFirestoreInstances();
-        // Las configuraciones son globales por appId
-        const configDocRef = doc(db, `artifacts/${appId}/configuracion`, RUBRO_SEGMENTO_CONFIG_DOC_ID);
+        const { db } = await getFirestoreInstances();
+        // Las configuraciones ahora están en la raíz
+        const configDocRef = doc(db, `configuracion`, RUBRO_SEGMENTO_CONFIG_DOC_ID);
         const configSnap = await getDoc(configDocRef);
 
         if (configSnap.exists()) {
@@ -61,8 +59,8 @@ async function obtenerConfiguracionRubrosSegmentos() {
  */
 async function guardarConfiguracionRubrosSegmentos(newMap) {
     try {
-        const { db, appId } = await getFirestoreInstances();
-        const configDocRef = doc(db, `artifacts/${appId}/configuracion`, RUBRO_SEGMENTO_CONFIG_DOC_ID);
+        const { db } = await getFirestoreInstances();
+        const configDocRef = doc(db, `configuracion`, RUBRO_SEGMENTO_CONFIG_DOC_ID);
         await setDoc(configDocRef, { mapa: newMap }); // Usa setDoc para sobrescribir o crear
         console.log('Configuración de rubros y segmentos guardada con éxito.');
         rubroSegmentoMap = newMap; // Actualiza la variable global
@@ -75,15 +73,15 @@ async function guardarConfiguracionRubrosSegmentos(newMap) {
 
 /**
  * Agrega un nuevo producto al inventario en Firestore.
- * Los datos se guardarán en una colección compartida.
- * Ruta: /artifacts/{appId}/datosInventario
+ * Los datos se guardarán en una colección compartida en la raíz.
+ * Ruta: /datosInventario
  * @param {object} producto - Objeto con los datos del producto a agregar.
  * @returns {Promise<string|null>} El ID del documento del producto agregado o null si hubo un error.
  */
 export async function agregarProducto(producto) {
     try {
-        const { db, appId } = await getFirestoreInstances();
-        const inventarioCollectionRef = collection(db, `artifacts/${appId}/datosInventario`); // Ruta modificada
+        const { db } = await getFirestoreInstances();
+        const inventarioCollectionRef = collection(db, `datosInventario`); // Ruta modificada
         const docRef = await addDoc(inventarioCollectionRef, producto);
         console.log('Producto agregado con ID:', docRef.id);
         return docRef.id;
@@ -101,8 +99,8 @@ export async function agregarProducto(producto) {
  */
 export async function modificarProducto(idProducto, nuevosDatos) {
     try {
-        const { db, appId } = await getFirestoreInstances();
-        const productoDocRef = doc(db, `artifacts/${appId}/datosInventario`, idProducto); // Ruta modificada
+        const { db } = await getFirestoreInstances();
+        const productoDocRef = doc(db, `datosInventario`, idProducto); // Ruta modificada
         await updateDoc(productoDocRef, nuevosDatos);
         console.log('Producto modificado con éxito. ID:', idProducto);
         return true;
@@ -119,8 +117,8 @@ export async function modificarProducto(idProducto, nuevosDatos) {
  */
 export async function eliminarProducto(idProducto) {
     try {
-        const { db, appId } = await getFirestoreInstances();
-        const productoDocRef = doc(db, `artifacts/${appId}/datosInventario`, idProducto); // Ruta modificada
+        const { db } = await getFirestoreInstances();
+        const productoDocRef = doc(db, `datosInventario`, idProducto); // Ruta modificada
         await deleteDoc(productoDocRef);
         console.log('Producto eliminado con éxito. ID:', idProducto);
         return true;
@@ -137,8 +135,8 @@ export async function eliminarProducto(idProducto) {
  */
 export async function obtenerProducto(idProducto) {
     try {
-        const { db, appId } = await getFirestoreInstances();
-        const productoDocRef = doc(db, `artifacts/${appId}/datosInventario`, idProducto); // Ruta modificada
+        const { db } = await getFirestoreInstances();
+        const productoDocRef = doc(db, `datosInventario`, idProducto); // Ruta modificada
         const productoSnap = await getDoc(productoDocRef);
 
         if (productoSnap.exists()) {
@@ -160,8 +158,8 @@ export async function obtenerProducto(idProducto) {
  */
 export async function verInventarioCompleto() {
     try {
-        const { db, appId } = await getFirestoreInstances();
-        const inventarioCollectionRef = collection(db, `artifacts/${appId}/datosInventario`); // Ruta modificada
+        const { db } = await getFirestoreInstances();
+        const inventarioCollectionRef = collection(db, `datosInventario`); // Ruta modificada
         const querySnapshot = await getDocs(inventarioCollectionRef);
         const productos = [];
         querySnapshot.forEach((doc) => {
@@ -775,7 +773,7 @@ export async function renderInventarioSection(container) {
                         rubroSegmentoMap[rubro] = rubroSegmentoMap[rubro].filter(s => s !== segmentoToDelete);
                         await guardarConfiguracionRubrosSegmentos(rubroSegmentoMap);
                         renderList(rubroSegmentoMap); // Re-renderizar la lista con el mapa actualizado
-                        alert(`Segmento "${segmentoToDelete}" eliminado de "${rubro}".`);
+                        alert(`Sector "${segmentoToDelete}" eliminado de "${rubro}".`);
                     }
                 });
             });
