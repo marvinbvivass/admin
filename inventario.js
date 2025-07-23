@@ -1,16 +1,25 @@
-// inventario.js
-// Este archivo gestiona las operaciones CRUD (Crear, Leer, Actualizar, Eliminar) para los productos del inventario
+// clientes.js
+// Este archivo gestiona las operaciones CRUD (Crear, Leer, Actualizar, Eliminar) para los clientes
 // utilizando Firebase Firestore, y también se encarga de renderizar su interfaz de usuario.
 
 // Importa las funciones necesarias de Firebase Firestore.
-import { collection, addDoc, doc, updateDoc, deleteDoc, getDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { collection, addDoc, doc, updateDoc, deleteDoc, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+// Mapa de Zonas a Sectores para las listas desplegables
+const zonaSectorMap = {
+    "Santa Teresa": ["Barrio Bolivar", "Principal Santa Teresa", "Los Teques", "Calle 4", "La Villa"],
+    "Foraneo": ["No Aplica"],
+    "Zona Industrial": ["Zona Industrial"],
+    "Machiri": ["Parte Alta", "Parte Baja", "Barrio el Lago"],
+    "Palo Gordo": ["Gallardin", "Gallardin Parte Baja", "Gallardin Parte Alta", "Principal Palo Gordo", "Calle Tachira", "Calle del Medio", "Toica", "Nazareno", "La Trinidad", "Calle del Hambre", "Puente/Cancha"]
+};
 
 // Función auxiliar para obtener la instancia de Firestore y el ID de usuario/appId
 // Esto asegura que las variables globales de Firebase estén disponibles antes de usarlas.
 async function getFirestoreInstances() {
     // Espera hasta que window.firebaseDb y window.currentUserId estén definidos
     while (!window.firebaseDb || !window.currentUserId || !window.currentAppId) {
-        console.log('Esperando inicialización de Firebase en inventario.js...');
+        console.log('Esperando inicialización de Firebase en clientes.js...');
         await new Promise(resolve => setTimeout(resolve, 100)); // Espera 100ms antes de reintentar
     }
     return {
@@ -21,147 +30,143 @@ async function getFirestoreInstances() {
 }
 
 /**
- * Agrega un nuevo producto al inventario en Firestore.
+ * Agrega un nuevo cliente al sistema en Firestore.
  * Los datos se guardarán en una colección específica del usuario para mantenerlos privados.
- * Ruta: /artifacts/{appId}/users/{userId}/inventario
- * @param {object} producto - Objeto con los datos del producto a agregar.
- * @param {string} producto.Rubro - Categoría del producto.
- * @param {string} producto.Sku - Código de identificación único del producto.
- * @param {string} producto.Segmento - Segmento al que pertenece el producto.
- * @param {string} producto.Producto - Nombre del producto.
- * @param {string} producto.Presentacion - Formato o presentación del producto.
- * @param {number} producto.Cantidad - Cantidad actual en inventario.
- * @param {number} producto.Precio - Precio unitario del producto.
- * @returns {Promise<string|null>} El ID del documento del producto agregado o null si hubo un error.
+ * Ruta: /artifacts/{appId}/users/{userId}/clientes
+ * @param {object} cliente - Objeto con los datos del cliente a agregar.
+ * @param {string} cliente.ID - ID único del cliente (puede ser autogenerado por Firestore si no se especifica).
+ * @param {string} cliente.CEP - Código de Enrutamiento Postal.
+ * @param {string} cliente.NombreComercial - Nombre comercial del cliente.
+ * @param {string} cliente.NombrePersonal - Nombre personal del contacto.
+ * @param {string} cliente.Zona - Zona geográfica del cliente.
+ * @param {string} cliente.Sector - Sector de actividad del cliente.
+ * @param {string} cliente.Tlf - Número de teléfono.
+ * @param {string} [cliente.Observaciones] - Observaciones adicionales (opcional).
+ * @returns {Promise<string|null>} El ID del documento del cliente agregado o null si hubo un error.
  */
-export async function agregarProducto(producto) {
+export async function agregarCliente(cliente) {
     try {
         const { db, userId, appId } = await getFirestoreInstances();
-        const inventarioCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/inventario`);
-        const docRef = await addDoc(inventarioCollectionRef, producto);
-        console.log('Producto agregado con ID:', docRef.id);
+        const clientesCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/clientes`);
+        const docRef = await addDoc(clientesCollectionRef, cliente);
+        console.log('Cliente agregado con ID:', docRef.id);
         return docRef.id;
     } catch (error) {
-        console.error('Error al agregar producto:', error);
+        console.error('Error al agregar cliente:', error);
         return null;
     }
 }
 
 /**
- * Obtiene el inventario completo del sistema de Firestore para el usuario actual.
- * @returns {Promise<Array<object>>} Un array de objetos de producto.
- */
-export async function verInventarioCompleto() {
-    try {
-        const { db, userId, appId } = await getFirestoreInstances();
-        const inventarioCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/inventario`);
-        const querySnapshot = await getDocs(inventarioCollectionRef);
-        const inventario = [];
-        querySnapshot.forEach((doc) => {
-            inventario.push({ id: doc.id, ...doc.data() });
-        });
-        console.log('Inventario completo obtenido:', inventario);
-        return inventario;
-    } catch (error) {
-        console.error('Error al obtener el inventario completo:', error);
-        return [];
-    }
-}
-
-/**
- * Busca productos en el inventario por un campo y valor específicos.
- * @param {string} campo - El nombre del campo por el cual buscar (ej. 'Sku', 'Producto', 'Rubro').
- * @param {any} valor - El valor a buscar en el campo especificado.
- * @returns {Promise<Array<object>>} Un array de objetos de producto que coinciden con la búsqueda.
- */
-export async function buscarProducto(campo, valor) {
-    try {
-        const { db, userId, appId } = await getFirestoreInstances();
-        const inventarioCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/inventario`);
-        // Nota: Firestore requiere índices para consultas de igualdad en campos no ID.
-        // Si no tienes un índice para el campo 'campo', esta consulta podría fallar.
-        const q = query(inventarioCollectionRef, where(campo, '==', valor));
-        const querySnapshot = await getDocs(q);
-        const resultados = [];
-        querySnapshot.forEach((doc) => {
-            resultados.push({ id: doc.id, ...doc.data() });
-        });
-        console.log(`Productos encontrados por ${campo} = ${valor}:`, resultados);
-        return resultados;
-    } catch (error) {
-        console.error(`Error al buscar producto por ${campo}:`, error);
-        return [];
-    }
-}
-
-/**
- * Modifica los datos de un producto existente en Firestore.
- * @param {string} idProducto - ID único del documento del producto a modificar.
- * @param {object} nuevosDatos - Objeto con los nuevos datos del producto.
+ * Modifica los datos de un cliente existente en Firestore.
+ * @param {string} idCliente - ID único del documento del cliente a modificar.
+ * @param {object} nuevosDatos - Objeto con los nuevos datos del cliente.
  * @returns {Promise<boolean>} True si la modificación fue exitosa, false en caso contrario.
  */
-export async function modificarProducto(idProducto, nuevosDatos) {
+export async function modificarCliente(idCliente, nuevosDatos) {
     try {
         const { db, userId, appId } = await getFirestoreInstances();
-        const productoDocRef = doc(db, `artifacts/${appId}/users/${userId}/inventario`, idProducto);
-        await updateDoc(productoDocRef, nuevosDatos);
-        console.log('Producto modificado con éxito. ID:', idProducto);
+        const clienteDocRef = doc(db, `artifacts/${appId}/users/${userId}/clientes`, idCliente);
+        await updateDoc(clienteDocRef, nuevosDatos);
+        console.log('Cliente modificado con éxito. ID:', idCliente);
         return true;
     } catch (error) {
-        console.error('Error al modificar producto:', error);
+        console.error('Error al modificar cliente:', error);
         return false;
     }
 }
 
 /**
- * Elimina un producto del inventario de Firestore.
- * @param {string} idProducto - ID único del documento del producto a eliminar.
+ * Elimina un cliente del sistema de Firestore.
+ * @param {string} idCliente - ID único del documento del cliente a eliminar.
  * @returns {Promise<boolean>} True si la eliminación fue exitosa, false en caso contrario.
  */
-export async function eliminarProducto(idProducto) {
+export async function eliminarCliente(idCliente) {
     try {
         const { db, userId, appId } = await getFirestoreInstances();
-        const productoDocRef = doc(db, `artifacts/${appId}/users/${userId}/inventario`, idProducto);
-        await deleteDoc(productoDocRef);
-        console.log('Producto eliminado con éxito. ID:', idProducto);
+        const clienteDocRef = doc(db, `artifacts/${appId}/users/${userId}/clientes`, idCliente);
+        await deleteDoc(clienteDocRef);
+        console.log('Cliente eliminado con éxito. ID:', idCliente);
         return true;
     } catch (error) {
-        console.error('Error al eliminar producto:', error);
+        console.error('Error al eliminar cliente:', error);
         return false;
     }
 }
 
 /**
- * Renderiza la interfaz de usuario de la sección de inventario dentro del contenedor dado.
- * @param {HTMLElement} container - El elemento DOM donde se renderizará el modal de inventario.
+ * Obtiene los datos de un cliente específico de Firestore.
+ * @param {string} idCliente - ID único del documento del cliente a obtener.
+ * @returns {Promise<object|null>} Los datos del cliente o null si no se encuentra o hay un error.
  */
-export async function renderInventarioSection(container) {
+export async function obtenerCliente(idCliente) {
+    try {
+        const { db, userId, appId } = await getFirestoreInstances();
+        const clienteDocRef = doc(db, `artifacts/${appId}/users/${userId}/clientes`, idCliente);
+        const clienteSnap = await getDoc(clienteDocRef);
+
+        if (clienteSnap.exists()) {
+            console.log('Cliente obtenido:', clienteSnap.data());
+            return { id: clienteSnap.id, ...clienteSnap.data() };
+        } else {
+            console.log('No se encontró el cliente con ID:', idCliente);
+            return null;
+        }
+    } catch (error) {
+        console.error('Error al obtener cliente:', error);
+        return null;
+    }
+}
+
+/**
+ * Obtiene todos los clientes del sistema de Firestore para el usuario actual.
+ * @returns {Promise<Array<object>>} Un array de objetos de cliente.
+ */
+export async function obtenerTodosLosClientes() {
+    try {
+        const { db, userId, appId } = await getFirestoreInstances();
+        const clientesCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/clientes`);
+        const querySnapshot = await getDocs(clientesCollectionRef);
+        const clientes = [];
+        querySnapshot.forEach((doc) => {
+            clientes.push({ id: doc.id, ...doc.data() });
+        });
+        console.log('Todos los clientes obtenidos:', clientes);
+        return clientes;
+    } catch (error) {
+        console.error('Error al obtener todos los clientes:', error);
+        return [];
+    }
+}
+
+/**
+ * Renderiza la interfaz de usuario de la sección de clientes dentro del contenedor dado.
+ * @param {HTMLElement} container - El elemento DOM donde se renderizará el modal de clientes.
+ */
+export async function renderClientesSection(container) {
     container.innerHTML = `
         <div class="modal-content">
-            <h2 class="text-4xl font-bold text-gray-900 mb-6 text-center">Gestión de Inventario</h2>
+            <h2 class="text-4xl font-bold text-gray-900 mb-6 text-center">Gestión de Clientes</h2>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-                <button id="btn-show-add-producto" class="bg-indigo-600 text-white p-4 rounded-md font-semibold hover:bg-indigo-700 transition duration-200">
-                    Agregar Producto
+            <div id="clientes-main-buttons-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+                <button id="btn-show-add-cliente" class="bg-blue-600 text-white p-4 rounded-md font-semibold hover:bg-blue-700 transition duration-200">
+                    Agregar Cliente
                 </button>
-                <button id="btn-show-modify-delete-producto" class="bg-yellow-600 text-white p-4 rounded-md font-semibold hover:bg-yellow-700 transition duration-200">
-                    Modificar/Eliminar Producto
+                <button id="btn-show-modify-delete-cliente" class="bg-yellow-600 text-white p-4 rounded-md font-semibold hover:bg-yellow-700 transition duration-200">
+                    Modificar/Eliminar Cliente
                 </button>
-                <button id="btn-show-search-producto" class="bg-gray-600 text-white p-4 rounded-md font-semibold hover:bg-gray-700 transition duration-200">
-                    Buscar Producto
-                </button>
-                <button id="btn-show-full-inventario" class="bg-purple-600 text-white p-4 rounded-md font-semibold hover:bg-purple-700 transition duration-200 col-span-full">
-                    Ver Inventario Completo
+                <button id="btn-show-search-cliente" class="bg-green-600 text-white p-4 rounded-md font-semibold hover:bg-green-700 transition duration-200 col-span-full">
+                    Buscar Cliente
                 </button>
             </div>
 
             <!-- Contenedor para las sub-secciones dinámicas -->
-            <div id="inventario-sub-section" class="mt-8">
-                <!-- El contenido de agregar, modificar/eliminar, buscar o listar se cargará aquí -->
+            <div id="clientes-sub-section" class="mt-8">
+                <!-- El contenido de agregar, modificar/eliminar o buscar/listar se cargará aquí -->
             </div>
 
             <!-- Botón para cerrar el modal -->
-            <button id="close-inventario-modal" class="absolute top-4 right-4 bg-gray-200 text-gray-700 p-2 rounded-full hover:bg-gray-300 transition duration-200">
+            <button id="close-clientes-modal" class="absolute top-4 right-4 bg-gray-200 text-gray-700 p-2 rounded-full hover:bg-gray-300 transition duration-200">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -170,237 +175,271 @@ export async function renderInventarioSection(container) {
     `;
 
     // Obtener referencias a los elementos del DOM después de que se hayan renderizado
-    const inventarioSubSection = container.querySelector('#inventario-sub-section');
-    const closeInventarioModalBtn = container.querySelector('#close-inventario-modal');
+    const clientesMainButtonsContainer = container.querySelector('#clientes-main-buttons-container');
+    const clientesSubSection = container.querySelector('#clientes-sub-section');
+    const closeClientesModalBtn = container.querySelector('#close-clientes-modal');
+
+    // Función para mostrar los botones principales y limpiar la sub-sección
+    const showClientesMainButtons = () => {
+        clientesSubSection.innerHTML = ''; // Limpia el contenido de la sub-sección
+        clientesMainButtonsContainer.classList.remove('hidden'); // Muestra los botones principales
+    };
 
     // Lógica para cerrar el modal
-    closeInventarioModalBtn.addEventListener('click', () => {
+    closeClientesModalBtn.addEventListener('click', () => {
         container.classList.add('hidden'); // Oculta el modal
-        inventarioSubSection.innerHTML = ''; // Limpia el contenido de la sub-sección
+        showClientesMainButtons(); // Vuelve a la vista de botones principales al cerrar
     });
 
-    // Lógica para mostrar la sección de agregar producto
-    container.querySelector('#btn-show-add-producto').addEventListener('click', () => {
-        inventarioSubSection.innerHTML = `
-            <div class="p-6 bg-indigo-50 rounded-lg shadow-inner">
-                <h3 class="text-2xl font-semibold text-indigo-800 mb-4">Agregar Nuevo Producto</h3>
+    // Lógica para mostrar la sección de agregar cliente
+    container.querySelector('#btn-show-add-cliente').addEventListener('click', () => {
+        clientesMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
+        clientesSubSection.innerHTML = `
+            <div class="p-6 bg-blue-50 rounded-lg shadow-inner">
+                <h3 class="text-2xl font-semibold text-blue-800 mb-4">Agregar Nuevo Cliente</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <select id="add-rubro" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                        <option value="">Selecciona Rubro</option>
-                        <option value="Cerveceria">Cerveceria</option>
-                        <option value="P&M">P&M</option>
-                        <option value="Alimentos">Alimentos</option>
-                        <option value="P&G">P&G</option>
+                    <input type="text" id="add-cep" placeholder="CEP" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="text" id="add-nombre-comercial" placeholder="Nombre Comercial" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="text" id="add-nombre-personal" placeholder="Nombre Personal" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <select id="add-zona" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">Selecciona Zona</option>
+                        ${Object.keys(zonaSectorMap).map(zona => `<option value="${zona}">${zona}</option>`).join('')}
                     </select>
-                    <input type="text" id="add-sku" placeholder="SKU" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <select id="add-segmento" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                        <option value="">Selecciona Segmento</option>
-                        <option value="Cerveza">Cerveza</option>
-                        <option value="Malta">Malta</option>
-                        <option value="PEP">PEP</option>
-                        <option value="Harina">Harina</option>
-                        <option value="Pasta">Pasta</option>
-                        <option value="Shampoo">Shampoo</option>
-                        <option value="Jabon en polvo">Jabon en polvo</option>
+                    <select id="add-sector" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" disabled>
+                        <option value="">Selecciona Sector</option>
                     </select>
-                    <input type="text" id="add-producto-nombre" placeholder="Producto" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <input type="text" id="add-presentacion" placeholder="Presentación" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <input type="number" id="add-cantidad" placeholder="Cantidad" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <input type="number" step="0.01" id="add-precio" placeholder="Precio" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <input type="tel" id="add-tlf" placeholder="Teléfono" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <textarea id="add-observaciones" placeholder="Observaciones (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 col-span-full"></textarea>
                 </div>
-                <button id="btn-submit-add-producto" class="mt-6 w-full bg-indigo-600 text-white p-3 rounded-md font-semibold hover:bg-indigo-700 transition duration-200">
-                    Confirmar Agregar Producto
+                <button id="btn-submit-add-cliente" class="mt-6 w-full bg-blue-600 text-white p-3 rounded-md font-semibold hover:bg-blue-700 transition duration-200">
+                    Confirmar Agregar Cliente
+                </button>
+                <button id="btn-back-add-cliente" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
+                    Volver
                 </button>
             </div>
         `;
-        // Conectar el botón de agregar producto
-        container.querySelector('#btn-submit-add-producto').addEventListener('click', async () => {
-            const producto = {
-                Rubro: container.querySelector('#add-rubro').value,
-                Sku: container.querySelector('#add-sku').value,
-                Segmento: container.querySelector('#add-segmento').value,
-                Producto: container.querySelector('#add-producto-nombre').value,
-                Presentacion: container.querySelector('#add-presentacion').value,
-                Cantidad: parseFloat(container.querySelector('#add-cantidad').value),
-                Precio: parseFloat(container.querySelector('#add-precio').value)
-            };
-
-            // Validación básica
-            if (!producto.Rubro || !producto.Sku || !producto.Producto || isNaN(producto.Cantidad) || isNaN(producto.Precio)) {
-                alert('Por favor, completa todos los campos obligatorios (Rubro, SKU, Producto, Cantidad, Precio).');
-                return;
-            }
-
-            const id = await agregarProducto(producto);
-            if (id) {
-                alert('Producto agregado con éxito, ID: ' + id);
-                // Limpiar campos
-                container.querySelector('#add-rubro').value = '';
-                container.querySelector('#add-sku').value = '';
-                container.querySelector('#add-segmento').value = '';
-                container.querySelector('#add-producto-nombre').value = '';
-                container.querySelector('#add-presentacion').value = '';
-                container.querySelector('#add-cantidad').value = '';
-                container.querySelector('#add-precio').value = '';
+        // Lógica para actualizar el select de Sector cuando cambia la Zona
+        const addZonaSelect = container.querySelector('#add-zona');
+        const addSectorSelect = container.querySelector('#add-sector');
+        addZonaSelect.addEventListener('change', () => {
+            const selectedZona = addZonaSelect.value;
+            addSectorSelect.innerHTML = '<option value="">Selecciona Sector</option>'; // Limpiar opciones anteriores
+            if (selectedZona && zonaSectorMap[selectedZona]) {
+                zonaSectorMap[selectedZona].forEach(sector => {
+                    const option = document.createElement('option');
+                    option.value = sector;
+                    option.textContent = sector;
+                    addSectorSelect.appendChild(option);
+                });
+                addSectorSelect.disabled = false; // Habilitar el select de Sector
             } else {
-                alert('Fallo al agregar producto.');
+                addSectorSelect.disabled = true; // Deshabilitar si no hay zona seleccionada
             }
         });
+
+        // Conectar el botón de agregar cliente
+        container.querySelector('#btn-submit-add-cliente').addEventListener('click', async () => {
+            const cliente = {
+                CEP: container.querySelector('#add-cep').value,
+                NombreComercial: container.querySelector('#add-nombre-comercial').value,
+                NombrePersonal: container.querySelector('#add-nombre-personal').value,
+                Zona: container.querySelector('#add-zona').value,
+                Sector: container.querySelector('#add-sector').value,
+                Tlf: container.querySelector('#add-tlf').value,
+                Observaciones: container.querySelector('#add-observaciones').value
+            };
+
+            const id = await agregarCliente(cliente);
+            if (id) {
+                alert('Cliente agregado con éxito, ID: ' + id);
+                // Limpiar campos
+                container.querySelector('#add-cep').value = '';
+                container.querySelector('#add-nombre-comercial').value = '';
+                container.querySelector('#add-nombre-personal').value = '';
+                container.querySelector('#add-zona').value = '';
+                container.querySelector('#add-sector').innerHTML = '<option value="">Selecciona Sector</option>'; // Limpiar y resetear sector
+                container.querySelector('#add-sector').disabled = true;
+                container.querySelector('#add-tlf').value = '';
+                container.querySelector('#add-observaciones').value = '';
+            } else {
+                alert('Fallo al agregar cliente.');
+            }
+        });
+
+        // Conectar el botón Volver
+        container.querySelector('#btn-back-add-cliente').addEventListener('click', showClientesMainButtons);
     });
 
-    // Lógica para mostrar la sección de modificar/eliminar producto
-    container.querySelector('#btn-show-modify-delete-producto').addEventListener('click', () => {
-        inventarioSubSection.innerHTML = `
+    // Lógica para mostrar la sección de modificar/eliminar cliente
+    container.querySelector('#btn-show-modify-delete-cliente').addEventListener('click', () => {
+        clientesMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
+        clientesSubSection.innerHTML = `
             <div class="p-6 bg-yellow-50 rounded-lg shadow-inner">
-                <h3 class="text-2xl font-semibold text-yellow-800 mb-4">Modificar o Eliminar Producto</h3>
-                <input type="text" id="mod-del-producto-id" placeholder="ID del Producto" class="mb-4 w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                <h3 class="text-2xl font-semibold text-yellow-800 mb-4">Modificar o Eliminar Cliente</h3>
+                <input type="text" id="mod-del-cliente-id" placeholder="ID del Cliente" class="mb-4 w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <select id="mod-rubro" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
-                        <option value="">Nuevo Rubro (opcional)</option>
-                        <option value="Cerveceria">Cerveceria</option>
-                        <option value="P&M">P&M</option>
-                        <option value="Alimentos">Alimentos</option>
-                        <option value="P&G">P&G</option>
+                    <input type="text" id="mod-cep" placeholder="Nuevo CEP (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                    <input type="text" id="mod-nombre-comercial" placeholder="Nuevo Nombre Comercial (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                    <input type="text" id="mod-nombre-personal" placeholder="Nuevo Nombre Personal (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                    <select id="mod-zona" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                        <option value="">Nueva Zona (opcional)</option>
+                        ${Object.keys(zonaSectorMap).map(zona => `<option value="${zona}">${zona}</option>`).join('')}
                     </select>
-                    <input type="text" id="mod-sku" placeholder="Nuevo SKU (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
-                    <select id="mod-segmento" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
-                        <option value="">Nuevo Segmento (opcional)</option>
-                        <option value="Cerveza">Cerveza</option>
-                        <option value="Malta">Malta</option>
-                        <option value="PEP">PEP</option>
-                        <option value="Harina">Harina</option>
-                        <option value="Pasta">Pasta</option>
-                        <option value="Shampoo">Shampoo</option>
-                        <option value="Jabon en polvo">Jabon en polvo</option>
+                    <select id="mod-sector" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" disabled>
+                        <option value="">Nuevo Sector (opcional)</option>
                     </select>
-                    <input type="text" id="mod-producto-nombre" placeholder="Nuevo Producto (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
-                    <input type="text" id="mod-presentacion" placeholder="Nueva Presentación (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
-                    <input type="number" id="mod-cantidad" placeholder="Nueva Cantidad (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
-                    <input type="number" step="0.01" id="mod-precio" placeholder="Nuevo Precio (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                    <input type="tel" id="mod-tlf" placeholder="Nuevo Teléfono (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                    <textarea id="mod-observaciones" placeholder="Nuevas Observaciones (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 col-span-full"></textarea>
                 </div>
                 <div class="flex flex-col md:flex-row gap-4 mt-6">
-                    <button id="btn-submit-modify-producto" class="flex-1 bg-yellow-600 text-white p-3 rounded-md font-semibold hover:bg-yellow-700 transition duration-200">
+                    <button id="btn-submit-modify-cliente" class="flex-1 bg-yellow-600 text-white p-3 rounded-md font-semibold hover:bg-yellow-700 transition duration-200">
                         Confirmar Modificar
                     </button>
-                    <button id="btn-submit-delete-producto" class="flex-1 bg-red-600 text-white p-3 rounded-md font-semibold hover:bg-red-700 transition duration-200">
+                    <button id="btn-submit-delete-cliente" class="flex-1 bg-red-600 text-white p-3 rounded-md font-semibold hover:bg-red-700 transition duration-200">
                         Confirmar Eliminar
                     </button>
                 </div>
+                <button id="btn-back-modify-delete-cliente" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
+                    Volver
+                </button>
             </div>
         `;
-        // Conectar los botones de modificar/eliminar producto
-        container.querySelector('#btn-submit-modify-producto').addEventListener('click', async () => {
-            const id = container.querySelector('#mod-del-producto-id').value;
+        // Lógica para actualizar el select de Sector cuando cambia la Zona en modificar
+        const modZonaSelect = container.querySelector('#mod-zona');
+        const modSectorSelect = container.querySelector('#mod-sector');
+        modZonaSelect.addEventListener('change', () => {
+            const selectedZona = modZonaSelect.value;
+            modSectorSelect.innerHTML = '<option value="">Nuevo Sector (opcional)</option>'; // Limpiar opciones anteriores
+            if (selectedZona && zonaSectorMap[selectedZona]) {
+                zonaSectorMap[selectedZona].forEach(sector => {
+                    const option = document.createElement('option');
+                    option.value = sector;
+                    option.textContent = sector;
+                    modSectorSelect.appendChild(option);
+                });
+                modSectorSelect.disabled = false; // Habilitar el select de Sector
+            } else {
+                modSectorSelect.disabled = true; // Deshabilitar si no hay zona seleccionada
+            }
+        });
+
+        // Conectar los botones de modificar/eliminar cliente
+        container.querySelector('#btn-submit-modify-cliente').addEventListener('click', async () => {
+            const id = container.querySelector('#mod-del-cliente-id').value;
             const nuevosDatos = {};
-            if (container.querySelector('#mod-rubro').value) nuevosDatos.Rubro = container.querySelector('#mod-rubro').value;
-            if (container.querySelector('#mod-sku').value) nuevosDatos.Sku = container.querySelector('#mod-sku').value;
-            if (container.querySelector('#mod-segmento').value) nuevosDatos.Segmento = container.querySelector('#mod-segmento').value;
-            if (container.querySelector('#mod-producto-nombre').value) nuevosDatos.Producto = container.querySelector('#mod-producto-nombre').value;
-            if (container.querySelector('#mod-presentacion').value) nuevosDatos.Presentacion = container.querySelector('#mod-presentacion').value;
-            if (container.querySelector('#mod-cantidad').value) nuevosDatos.Cantidad = parseFloat(container.querySelector('#mod-cantidad').value);
-            if (container.querySelector('#mod-precio').value) nuevosDatos.Precio = parseFloat(container.querySelector('#mod-precio').value);
+            if (container.querySelector('#mod-cep').value) nuevosDatos.CEP = container.querySelector('#mod-cep').value;
+            if (container.querySelector('#mod-nombre-comercial').value) nuevosDatos.NombreComercial = container.querySelector('#mod-nombre-comercial').value;
+            if (container.querySelector('#mod-nombre-personal').value) nuevosDatos.NombrePersonal = container.querySelector('#mod-nombre-personal').value;
+            if (container.querySelector('#mod-zona').value) nuevosDatos.Zona = container.querySelector('#mod-zona').value;
+            if (container.querySelector('#mod-sector').value) nuevosDatos.Sector = container.querySelector('#mod-sector').value;
+            if (container.querySelector('#mod-tlf').value) nuevosDatos.Tlf = container.querySelector('#mod-tlf').value;
+            if (container.querySelector('#mod-observaciones').value) nuevosDatos.Observaciones = container.querySelector('#mod-observaciones').value;
+
 
             if (id && Object.keys(nuevosDatos).length > 0) {
-                const modificado = await modificarProducto(id, nuevosDatos);
+                const modificado = await modificarCliente(id, nuevosDatos);
                 if (modificado) {
-                    alert('Producto modificado con éxito.');
+                    alert('Cliente modificado con éxito.');
                     // Limpiar campos
-                    container.querySelector('#mod-del-producto-id').value = '';
-                    container.querySelector('#mod-rubro').value = '';
-                    container.querySelector('#mod-sku').value = '';
-                    container.querySelector('#mod-segmento').value = '';
-                    container.querySelector('#mod-producto-nombre').value = '';
-                    container.querySelector('#mod-presentacion').value = '';
-                    container.querySelector('#mod-cantidad').value = '';
-                    container.querySelector('#mod-precio').value = '';
+                    container.querySelector('#mod-del-cliente-id').value = '';
+                    container.querySelector('#mod-cep').value = '';
+                    container.querySelector('#mod-nombre-comercial').value = '';
+                    container.querySelector('#mod-nombre-personal').value = '';
+                    container.querySelector('#mod-zona').value = '';
+                    container.querySelector('#mod-sector').innerHTML = '<option value="">Nuevo Sector (opcional)</option>';
+                    container.querySelector('#mod-sector').disabled = true;
+                    container.querySelector('#mod-tlf').value = '';
+                    container.querySelector('#mod-observaciones').value = '';
                 } else {
-                    alert('Fallo al modificar producto.');
+                    alert('Fallo al modificar cliente.');
                 }
             } else {
-                alert('Por favor, ingresa el ID del producto y al menos un campo para modificar.');
+                alert('Por favor, ingresa el ID del cliente y al menos un campo para modificar.');
             }
         });
 
-        container.querySelector('#btn-submit-delete-producto').addEventListener('click', async () => {
-            const id = container.querySelector('#mod-del-producto-id').value;
+        container.querySelector('#btn-submit-delete-cliente').addEventListener('click', async () => {
+            const id = container.querySelector('#mod-del-cliente-id').value;
             if (id) {
-                const eliminado = await eliminarProducto(id);
+                const eliminado = await eliminarCliente(id);
                 if (eliminado) {
-                    alert('Producto eliminado con éxito.');
-                    container.querySelector('#mod-del-producto-id').value = '';
+                    alert('Cliente eliminado con éxito.');
+                    container.querySelector('#mod-del-cliente-id').value = '';
                 } else {
-                    alert('Fallo al eliminar producto.');
+                    alert('Fallo al eliminar cliente.');
                 }
             } else {
-                alert('Por favor, ingresa el ID del producto a eliminar.');
+                alert('Por favor, ingresa el ID del cliente a eliminar.');
             }
         });
+
+        // Conectar el botón Volver
+        container.querySelector('#btn-back-modify-delete-cliente').addEventListener('click', showClientesMainButtons);
     });
 
-    // Lógica para mostrar la sección de buscar producto
-    container.querySelector('#btn-show-search-producto').addEventListener('click', () => {
-        inventarioSubSection.innerHTML = `
-            <div class="p-6 bg-gray-50 rounded-lg shadow-inner">
-                <h3 class="text-2xl font-semibold text-gray-800 mb-4">Buscar Producto</h3>
-                <input type="text" id="search-field" placeholder="Campo a buscar (Ej: Sku, Producto)" class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 mb-4">
-                <input type="text" id="search-value" placeholder="Valor a buscar" class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 mb-4">
-                <button id="btn-submit-search-producto" class="w-full bg-gray-600 text-white p-3 rounded-md font-semibold hover:bg-gray-700 transition duration-200">
-                    Confirmar Búsqueda
+    // Lógica para mostrar la sección de buscar cliente (anteriormente listar)
+    container.querySelector('#btn-show-search-cliente').addEventListener('click', async () => {
+        clientesMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
+        clientesSubSection.innerHTML = `
+            <div class="p-6 bg-green-50 rounded-lg shadow-inner">
+                <h3 class="text-2xl font-semibold text-green-800 mb-4">Buscar Cliente</h3>
+                <input type="text" id="search-cliente-input" placeholder="Buscar por Nombre, CEP, Zona, etc." class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 mb-4">
+                <div id="clientes-list" class="bg-white p-4 rounded-md border border-gray-200 max-h-60 overflow-y-auto">
+                    <!-- Los clientes se mostrarán aquí -->
+                    <p class="text-gray-500">Cargando clientes...</p>
+                </div>
+                <button id="btn-back-search-cliente" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
+                    Volver
                 </button>
-                <div id="search-results-list" class="bg-white p-4 rounded-md border border-gray-200 max-h-60 overflow-y-auto mt-4">
-                    <!-- Los resultados de la búsqueda se mostrarán aquí -->
-                    <p class="text-gray-500">Los resultados aparecerán aquí.</p>
-                </div>
             </div>
         `;
-        // Conectar el botón de búsqueda
-        container.querySelector('#btn-submit-search-producto').addEventListener('click', async () => {
-            const campo = container.querySelector('#search-field').value;
-            const valor = container.querySelector('#search-value').value;
+        const clientesListDiv = container.querySelector('#clientes-list');
+        const searchInput = container.querySelector('#search-cliente-input');
+        let allClients = []; // Para almacenar todos los clientes y filtrar sobre ellos
 
-            if (campo && valor) {
-                const resultados = await buscarProducto(campo, valor);
-                renderInventarioList(resultados, container.querySelector('#search-results-list')); // Muestra los resultados de la búsqueda
-                if (resultados.length === 0) {
-                    alert(`No se encontraron productos con ${campo}: ${valor}`);
-                }
-            } else {
-                alert('Por favor, ingresa el campo y el valor para buscar.');
-            }
+        // Cargar todos los clientes al abrir la sección
+        allClients = await obtenerTodosLosClientes();
+        renderClientesList(allClients, clientesListDiv);
+
+        // Lógica de filtrado en tiempo real
+        searchInput.addEventListener('input', () => {
+            const searchTerm = searchInput.value.toLowerCase();
+            const filteredClients = allClients.filter(cliente => {
+                // Busca en todos los campos relevantes
+                return (cliente.NombreComercial && cliente.NombreComercial.toLowerCase().includes(searchTerm)) ||
+                       (cliente.NombrePersonal && cliente.NombrePersonal.toLowerCase().includes(searchTerm)) ||
+                       (cliente.CEP && cliente.CEP.toLowerCase().includes(searchTerm)) ||
+                       (cliente.Zona && cliente.Zona.toLowerCase().includes(searchTerm)) ||
+                       (cliente.Sector && cliente.Sector.toLowerCase().includes(searchTerm)) ||
+                       (cliente.Tlf && cliente.Tlf.toLowerCase().includes(searchTerm)) ||
+                       (cliente.Observaciones && cliente.Observaciones.toLowerCase().includes(searchTerm));
+            });
+            renderClientesList(filteredClients, clientesListDiv);
         });
+
+        // Conectar el botón Volver
+        container.querySelector('#btn-back-search-cliente').addEventListener('click', showClientesMainButtons);
     });
 
-    // Lógica para mostrar la sección de ver inventario completo
-    container.querySelector('#btn-show-full-inventario').addEventListener('click', async () => {
-        inventarioSubSection.innerHTML = `
-            <div class="p-6 bg-purple-50 rounded-lg shadow-inner">
-                <h3 class="text-2xl font-semibold text-purple-800 mb-4">Inventario Completo</h3>
-                <div id="full-inventario-list" class="bg-white p-4 rounded-md border border-gray-200 max-h-60 overflow-y-auto">
-                    <!-- Los productos se mostrarán aquí -->
-                    <p class="text-gray-500">Cargando inventario...</p>
-                </div>
-            </div>
-        `;
-        const inventario = await verInventarioCompleto();
-        renderInventarioList(inventario, container.querySelector('#full-inventario-list'));
-    });
-
-    // Función auxiliar para renderizar la lista de productos
-    function renderInventarioList(productos, listContainer) {
+    // Función auxiliar para renderizar la lista de clientes
+    function renderClientesList(clientes, listContainer) {
         listContainer.innerHTML = ''; // Limpiar lista
-        if (productos.length === 0) {
-            listContainer.innerHTML = '<p class="text-gray-500">No hay productos para mostrar aún.</p>';
+        if (clientes.length === 0) {
+            listContainer.innerHTML = '<p class="text-gray-500">No hay clientes para mostrar aún.</p>';
             return;
         }
         const ul = document.createElement('ul');
         ul.className = 'divide-y divide-gray-200';
-        productos.forEach(producto => {
+        clientes.forEach(cliente => {
             const li = document.createElement('li');
             li.className = 'py-2';
             li.innerHTML = `
-                <p class="font-semibold">${producto.Producto} (${producto.Presentacion}) - SKU: ${producto.Sku} (ID: ${producto.id})</p>
-                <p class="text-sm text-gray-600">Rubro: ${producto.Rubro || 'N/A'} | Segmento: ${producto.Segmento || 'N/A'}</p>
-                <p class="text-sm text-gray-600">Cantidad: ${producto.Cantidad || 0} | Precio: $${(producto.Precio || 0).toFixed(2)}</p>
+                <p class="font-semibold">${cliente.NombreComercial || 'N/A'} (${cliente.NombrePersonal || 'N/A'})</p>
+                <p class="text-sm text-gray-600">ID: ${cliente.id || 'N/A'} | CEP: ${cliente.CEP || 'N/A'}</p>
+                <p class="text-sm text-gray-600">Zona: ${cliente.Zona || 'N/A'} | Sector: ${cliente.Sector || 'N/A'}</p>
+                <p class="text-sm text-gray-600">Teléfono: ${cliente.Tlf || 'N/A'}</p>
+                <p class="text-sm text-gray-600">Observaciones: ${cliente.Observaciones || 'N/A'}</p>
             `;
             ul.appendChild(li);
         });
