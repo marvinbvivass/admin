@@ -87,10 +87,8 @@
 
         <!-- Sección de botones/tarjetas para las diferentes áreas de gestión -->
         <main class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-            <!-- Tarjeta para la sección de Clientes - Azul más profundo -->
-            <!-- Añadimos un ID para poder seleccionar esta tarjeta con JavaScript -->
+            <!-- Tarjeta para la sección de Clientes -->
             <div id="clientes-card" class="section-button bg-gradient-to-r from-blue-700 to-blue-800 text-white p-6 rounded-lg shadow-md flex flex-col items-center justify-center cursor-pointer transform hover:scale-105">
-                <!-- Icono representativo para Clientes (ej. un usuario) -->
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.3.356-1.857m0 0A5.002 5.002 0 0112 10a5.002 5.002 0 015.644 3.143m0 0L17 20m-2-9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v4m3 2h6m-6 4h6" />
                 </svg>
@@ -98,9 +96,8 @@
                 <p class="text-lg text-center mt-2 opacity-90">Gestión de la base de datos de clientes.</p>
             </div>
 
-            <!-- Tarjeta para la sección de Ventas - Verde más profundo -->
+            <!-- Tarjeta para la sección de Ventas -->
             <div class="section-button bg-gradient-to-r from-green-600 to-green-700 text-white p-6 rounded-lg shadow-md flex flex-col items-center justify-center cursor-pointer transform hover:scale-105">
-                <!-- Icono representativo para Ventas (ej. un carrito de compras) -->
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
@@ -108,9 +105,8 @@
                 <p class="text-lg text-center mt-2 opacity-90">Registro y seguimiento de transacciones de venta.</p>
             </div>
 
-            <!-- Tarjeta para la sección de Inventario - Púrpura/Indigo para contraste -->
+            <!-- Tarjeta para la sección de Inventario -->
             <div id="inventario-card" class="section-button bg-gradient-to-r from-indigo-600 to-indigo-700 text-white p-6 rounded-lg shadow-md flex flex-col items-center justify-center cursor-pointer transform hover:scale-105">
-                <!-- Icono representativo para Inventario (ej. una caja) -->
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                 </svg>
@@ -118,9 +114,8 @@
                 <p class="text-lg text-center mt-2 opacity-90">Control de productos y existencias en almacén.</p>
             </div>
 
-            <!-- Tarjeta para la sección de Precios - Rojo más vibrante -->
+            <!-- Tarjeta para la sección de Precios -->
             <div class="section-button bg-gradient-to-r from-red-700 to-red-800 text-white p-6 rounded-lg shadow-md flex flex-col items-center justify-center cursor-pointer transform hover:scale-105">
-                <!-- Icono representativo para Precios (ej. una etiqueta de precio) -->
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                 </svg>
@@ -128,9 +123,8 @@
                 <p class="text-lg text-center mt-2 opacity-90">Configuración y actualización de precios de productos.</p>
             </div>
 
-            <!-- Nueva Tarjeta para la sección de Archivos - Amarillo/Dorado -->
+            <!-- Nueva Tarjeta para la sección de Archivos -->
             <div class="section-button bg-gradient-to-r from-yellow-500 to-yellow-600 text-white p-6 rounded-lg shadow-md flex flex-col items-center justify-center cursor-pointer transform hover:scale-105">
-                <!-- Icono representativo para Archivos (ej. una carpeta de documentos) -->
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                 </svg>
@@ -138,9 +132,8 @@
                 <p class="text-lg text-center mt-2 opacity-90">Gestión de documentos y archivos.</p>
             </div>
 
-            <!-- Nueva Tarjeta para la sección de Carga & Vehículos - Naranja/Ámbar -->
+            <!-- Nueva Tarjeta para la sección de Carga & Vehículos -->
             <div class="section-button bg-gradient-to-r from-orange-600 to-orange-700 text-white p-6 rounded-lg shadow-md flex flex-col items-center justify-center cursor-pointer transform hover:scale-105">
-                <!-- Icono representativo para Carga & Vehículos (ej. un camión o vehículo de carga) -->
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 10H7a2 2 0 00-2 2v2a2 2 0 002 2h2v.01M15 10h2a2 2 0 012 2v2a2 2 0 01-2 2h-2m-4 0h.01M12 16v.01" />
@@ -152,140 +145,11 @@
         </main>
     </div>
 
-    <!-- Modal para la gestión de clientes (inicialmente oculto) -->
-    <div id="clientes-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <h2 class="text-4xl font-bold text-gray-900 mb-6 text-center">Gestión de Clientes</h2>
+    <!-- Contenedor para el modal de Clientes, cargado dinámicamente por clientes.js -->
+    <div id="clientes-modal-container" class="modal-overlay hidden"></div>
 
-            <!-- Formulario para Agregar Cliente -->
-            <div class="mb-8 p-6 bg-blue-50 rounded-lg shadow-inner">
-                <h3 class="text-2xl font-semibold text-blue-800 mb-4">Agregar Nuevo Cliente</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input type="text" id="add-nombre" placeholder="Nombre" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <input type="text" id="add-apellido" placeholder="Apellido" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <input type="email" id="add-email" placeholder="Email" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <input type="tel" id="add-telefono" placeholder="Teléfono (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <button id="btn-agregar-cliente" class="mt-6 w-full bg-blue-600 text-white p-3 rounded-md font-semibold hover:bg-blue-700 transition duration-200">
-                    Agregar Cliente
-                </button>
-            </div>
-
-            <!-- Formulario para Modificar/Eliminar Cliente -->
-            <div class="mb-8 p-6 bg-gray-50 rounded-lg shadow-inner">
-                <h3 class="text-2xl font-semibold text-gray-800 mb-4">Modificar o Eliminar Cliente</h3>
-                <input type="text" id="cliente-id" placeholder="ID del Cliente" class="mb-4 w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500">
-                <div class="flex flex-col md:flex-row gap-4">
-                    <input type="text" id="mod-nombre" placeholder="Nuevo Nombre (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500">
-                    <input type="text" id="mod-apellido" placeholder="Nuevo Apellido (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500">
-                </div>
-                <div class="flex flex-col md:flex-row gap-4 mt-4">
-                    <input type="email" id="mod-email" placeholder="Nuevo Email (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500">
-                    <input type="tel" id="mod-telefono" placeholder="Nuevo Teléfono (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500">
-                </div>
-                <div class="flex flex-col md:flex-row gap-4 mt-6">
-                    <button id="btn-modificar-cliente" class="flex-1 bg-yellow-600 text-white p-3 rounded-md font-semibold hover:bg-yellow-700 transition duration-200">
-                        Modificar Cliente
-                    </button>
-                    <button id="btn-eliminar-cliente" class="flex-1 bg-red-600 text-white p-3 rounded-md font-semibold hover:bg-red-700 transition duration-200">
-                        Eliminar Cliente
-                    </button>
-                </div>
-            </div>
-
-            <!-- Sección para Listar Clientes -->
-            <div class="mb-8 p-6 bg-green-50 rounded-lg shadow-inner">
-                <h3 class="text-2xl font-semibold text-green-800 mb-4">Listado de Clientes</h3>
-                <button id="btn-listar-clientes" class="w-full bg-green-600 text-white p-3 rounded-md font-semibold hover:bg-green-700 transition duration-200 mb-4">
-                    Listar Todos los Clientes
-                </button>
-                <div id="clientes-list" class="bg-white p-4 rounded-md border border-gray-200 max-h-60 overflow-y-auto">
-                    <!-- Los clientes se mostrarán aquí -->
-                    <p class="text-gray-500">No hay clientes para mostrar aún.</p>
-                </div>
-            </div>
-
-            <!-- Botón para cerrar el modal -->
-            <button id="close-clientes-modal" class="absolute top-4 right-4 bg-gray-200 text-gray-700 p-2 rounded-full hover:bg-gray-300 transition duration-200">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-            </button>
-        </div>
-    </div>
-
-    <!-- Modal para la gestión de inventario (inicialmente oculto) -->
-    <div id="inventario-modal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <h2 class="text-4xl font-bold text-gray-900 mb-6 text-center">Gestión de Inventario</h2>
-
-            <!-- Formulario para Agregar Producto -->
-            <div class="mb-8 p-6 bg-indigo-50 rounded-lg shadow-inner">
-                <h3 class="text-2xl font-semibold text-indigo-800 mb-4">Agregar Nuevo Producto</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input type="text" id="add-rubro" placeholder="Rubro" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <input type="text" id="add-sku" placeholder="SKU" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <input type="text" id="add-segmento" placeholder="Segmento" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <input type="text" id="add-producto-nombre" placeholder="Producto" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <input type="text" id="add-presentacion" placeholder="Presentación" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <input type="number" id="add-cantidad" placeholder="Cantidad" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <input type="number" step="0.01" id="add-precio" placeholder="Precio" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                </div>
-                <button id="btn-agregar-producto" class="mt-6 w-full bg-indigo-600 text-white p-3 rounded-md font-semibold hover:bg-indigo-700 transition duration-200">
-                    Agregar Producto
-                </button>
-            </div>
-
-            <!-- Sección para Buscar y Modificar/Eliminar Producto -->
-            <div class="mb-8 p-6 bg-gray-50 rounded-lg shadow-inner">
-                <h3 class="text-2xl font-semibold text-gray-800 mb-4">Buscar, Modificar o Eliminar Producto</h3>
-                <input type="text" id="search-producto-id" placeholder="ID del Producto para Modificar/Eliminar" class="mb-4 w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input type="text" id="mod-rubro" placeholder="Nuevo Rubro (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500">
-                    <input type="text" id="mod-sku" placeholder="Nuevo SKU (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500">
-                    <input type="text" id="mod-segmento" placeholder="Nuevo Segmento (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500">
-                    <input type="text" id="mod-producto-nombre" placeholder="Nuevo Producto (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500">
-                    <input type="text" id="mod-presentacion" placeholder="Nueva Presentación (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500">
-                    <input type="number" id="mod-cantidad" placeholder="Nueva Cantidad (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500">
-                    <input type="number" step="0.01" id="mod-precio" placeholder="Nuevo Precio (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500">
-                </div>
-                <div class="flex flex-col md:flex-row gap-4 mt-6">
-                    <button id="btn-modificar-producto" class="flex-1 bg-yellow-600 text-white p-3 rounded-md font-semibold hover:bg-yellow-700 transition duration-200">
-                        Modificar Producto
-                    </button>
-                    <button id="btn-eliminar-producto" class="flex-1 bg-red-600 text-white p-3 rounded-md font-semibold hover:bg-red-700 transition duration-200">
-                        Eliminar Producto
-                    </button>
-                </div>
-                <div class="mt-6">
-                    <input type="text" id="search-field" placeholder="Campo a buscar (Ej: Sku, Producto)" class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 mb-4">
-                    <input type="text" id="search-value" placeholder="Valor a buscar" class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 mb-4">
-                    <button id="btn-buscar-producto" class="w-full bg-gray-600 text-white p-3 rounded-md font-semibold hover:bg-gray-700 transition duration-200">
-                        Buscar Producto
-                    </button>
-                </div>
-            </div>
-
-            <!-- Sección para Ver Inventario Completo -->
-            <div class="mb-8 p-6 bg-purple-50 rounded-lg shadow-inner">
-                <h3 class="text-2xl font-semibold text-purple-800 mb-4">Inventario Completo</h3>
-                <button id="btn-ver-inventario" class="w-full bg-purple-600 text-white p-3 rounded-md font-semibold hover:bg-purple-700 transition duration-200 mb-4">
-                    Ver Inventario Completo
-                </button>
-                <div id="inventario-list" class="bg-white p-4 rounded-md border border-gray-200 max-h-60 overflow-y-auto">
-                    <!-- Los productos se mostrarán aquí -->
-                    <p class="text-gray-500">No hay productos para mostrar aún.</p>
-                </div>
-            </div>
-
-            <!-- Botón para cerrar el modal -->
-            <button id="close-inventario-modal" class="absolute top-4 right-4 bg-gray-200 text-gray-700 p-2 rounded-full hover:bg-gray-300 transition duration-200">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-            </button>
-        </div>
-    </div>
+    <!-- Contenedor para el modal de Inventario, cargado dinámicamente por inventario.js -->
+    <div id="inventario-modal-container" class="modal-overlay hidden"></div>
 
     <!-- Script para registrar el Service Worker -->
     <script>
@@ -304,16 +168,11 @@
         }
     </script>
 
-    <!-- Importa las librerías de Firebase -->
+    <!-- Importa las librerías de Firebase y la lógica de inicialización -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Importa las funciones de clientes y inventario
-        import { agregarCliente, modificarCliente, eliminarCliente, obtenerCliente, obtenerTodosLosClientes } from '/admin/clientes.js';
-        import { agregarProducto, verInventarioCompleto, buscarProducto, modificarProducto, eliminarProducto } from '/admin/inventario.js';
-
 
         // Variables globales para Firebase (serán accesibles en otros módulos JS)
         let app;
@@ -335,32 +194,25 @@
         // Función para inicializar Firebase y autenticar al usuario
         async function initializeFirebase() {
             try {
-                // No usamos __firebase_config aquí, sino la configuración pegada arriba
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
 
-                // Autenticación: intenta con el token personalizado si está disponible, de lo contrario, anónimamente.
-                // La variable __initial_auth_token es del entorno de Canvas, no de GitHub Pages.
-                // Para GitHub Pages, nos autenticaremos anónimamente si no hay un sistema de login.
-                if (typeof __initial_auth_token !== 'undefined') { // Esto solo funciona en Canvas
+                if (typeof __initial_auth_token !== 'undefined') {
                     await signInWithCustomToken(auth, __initial_auth_token);
                     console.log('Firebase: Autenticado con token personalizado (Entorno Canvas).');
-                } else { // Esto es lo que se ejecutará en GitHub Pages
+                } else {
                     await signInAnonymously(auth);
                     console.log('Firebase: Autenticado anónimamente (GitHub Pages o desarrollo local).');
                 }
 
-                // Obtener el ID del usuario actual
                 userId = auth.currentUser?.uid || crypto.randomUUID();
                 console.log('Firebase: User ID:', userId);
 
-                // Exportar las instancias de Firebase y userId para que otros módulos puedan usarlas
                 window.firebaseApp = app;
                 window.firebaseDb = db;
                 window.firebaseAuth = auth;
                 window.currentUserId = userId;
-                // Para GitHub Pages, el appId del proyecto Firebase es el mismo que el projectId en la config
                 window.currentAppId = firebaseConfig.projectId;
 
                 console.log('Firebase inicializado y autenticado con éxito.');
@@ -372,298 +224,10 @@
 
         // Llama a la función de inicialización cuando la ventana esté cargada
         window.addEventListener('load', initializeFirebase);
-
-
-        // --- Lógica para mostrar/ocultar el modal de Clientes ---
-        document.addEventListener('DOMContentLoaded', () => {
-            const clientesCard = document.getElementById('clientes-card');
-            const clientesModal = document.getElementById('clientes-modal');
-            const closeClientesModalBtn = document.getElementById('close-clientes-modal');
-
-            if (clientesCard && clientesModal && closeClientesModalBtn) {
-                clientesCard.addEventListener('click', () => {
-                    clientesModal.classList.remove('hidden'); // Muestra el modal
-                    // Aquí podrías cargar la lista de clientes al abrir el modal
-                });
-
-                closeClientesModalBtn.addEventListener('click', () => {
-                    clientesModal.classList.add('hidden'); // Oculta el modal
-                });
-
-                // Opcional: Ocultar el modal si se hace clic fuera de él
-                clientesModal.addEventListener('click', (event) => {
-                    if (event.target === clientesModal) {
-                        clientesModal.classList.add('hidden');
-                    }
-                });
-
-                // --- Conexión de botones de Clientes con funciones (por ahora solo console.log) ---
-                document.getElementById('btn-agregar-cliente').addEventListener('click', async () => {
-                    const nombre = document.getElementById('add-nombre').value;
-                    const apellido = document.getElementById('add-apellido').value;
-                    const email = document.getElementById('add-email').value;
-                    const telefono = document.getElementById('add-telefono').value;
-                    const nuevoCliente = { nombre, apellido, email, telefono };
-                    const id = await agregarCliente(nuevoCliente);
-                    if (id) {
-                        console.log('Cliente agregado con éxito, ID:', id);
-                        // Limpiar campos
-                        document.getElementById('add-nombre').value = '';
-                        document.getElementById('add-apellido').value = '';
-                        document.getElementById('add-email').value = '';
-                        document.getElementById('add-telefono').value = '';
-                        // Actualizar lista de clientes
-                        const clientes = await obtenerTodosLosClientes();
-                        renderClientesList(clientes);
-                    } else {
-                        console.error('Fallo al agregar cliente.');
-                    }
-                });
-
-                document.getElementById('btn-modificar-cliente').addEventListener('click', async () => {
-                    const id = document.getElementById('cliente-id').value;
-                    const nuevosDatos = {};
-                    if (document.getElementById('mod-nombre').value) nuevosDatos.nombre = document.getElementById('mod-nombre').value;
-                    if (document.getElementById('mod-apellido').value) nuevosDatos.apellido = document.getElementById('mod-apellido').value;
-                    if (document.getElementById('mod-email').value) nuevosDatos.email = document.getElementById('mod-email').value;
-                    if (document.getElementById('mod-telefono').value) nuevosDatos.telefono = document.getElementById('mod-telefono').value;
-
-                    if (id && Object.keys(nuevosDatos).length > 0) {
-                        const modificado = await modificarCliente(id, nuevosDatos);
-                        if (modificado) {
-                            console.log('Cliente modificado con éxito.');
-                            // Limpiar campos
-                            document.getElementById('cliente-id').value = '';
-                            document.getElementById('mod-nombre').value = '';
-                            document.getElementById('mod-apellido').value = '';
-                            document.getElementById('mod-email').value = '';
-                            document.getElementById('mod-telefono').value = '';
-                            // Actualizar lista de clientes
-                            const clientes = await obtenerTodosLosClientes();
-                            renderClientesList(clientes);
-                        } else {
-                            console.error('Fallo al modificar cliente.');
-                        }
-                    } else {
-                        console.warn('ID de cliente o datos a modificar incompletos.');
-                    }
-                });
-
-                document.getElementById('btn-eliminar-cliente').addEventListener('click', async () => {
-                    const id = document.getElementById('cliente-id').value;
-                    if (id) {
-                        const eliminado = await eliminarCliente(id);
-                        if (eliminado) {
-                            console.log('Cliente eliminado con éxito.');
-                            document.getElementById('cliente-id').value = '';
-                            // Actualizar lista de clientes
-                            const clientes = await obtenerTodosLosClientes();
-                            renderClientesList(clientes);
-                        } else {
-                            console.error('Fallo al eliminar cliente.');
-                        }
-                    } else {
-                        console.warn('ID de cliente para eliminar no proporcionado.');
-                    }
-                });
-
-                document.getElementById('btn-listar-clientes').addEventListener('click', async () => {
-                    const clientes = await obtenerTodosLosClientes();
-                    renderClientesList(clientes);
-                });
-
-                function renderClientesList(clientes) {
-                    const clientesListDiv = document.getElementById('clientes-list');
-                    clientesListDiv.innerHTML = ''; // Limpiar lista
-                    if (clientes.length === 0) {
-                        clientesListDiv.innerHTML = '<p class="text-gray-500">No hay clientes para mostrar aún.</p>';
-                        return;
-                    }
-                    const ul = document.createElement('ul');
-                    ul.className = 'divide-y divide-gray-200';
-                    clientes.forEach(cliente => {
-                        const li = document.createElement('li');
-                        li.className = 'py-2';
-                        li.innerHTML = `
-                            <p class="font-semibold">${cliente.nombre} ${cliente.apellido} (ID: ${cliente.id})</p>
-                            <p class="text-sm text-gray-600">Email: ${cliente.email || 'N/A'}</p>
-                            <p class="text-sm text-gray-600">Teléfono: ${cliente.telefono || 'N/A'}</p>
-                        `;
-                        ul.appendChild(li);
-                    });
-                    clientesListDiv.appendChild(ul);
-                }
-            } else {
-                console.error("Elementos del modal de clientes no encontrados. Asegúrate de que los IDs sean correctos.");
-            }
-
-
-            // --- Lógica para mostrar/ocultar el modal de Inventario ---
-            const inventarioCard = document.getElementById('inventario-card');
-            const inventarioModal = document.getElementById('inventario-modal');
-            const closeInventarioModalBtn = document.getElementById('close-inventario-modal');
-
-            if (inventarioCard && inventarioModal && closeInventarioModalBtn) {
-                inventarioCard.addEventListener('click', () => {
-                    inventarioModal.classList.remove('hidden'); // Muestra el modal
-                    // Aquí podrías cargar la lista de productos al abrir el modal
-                });
-
-                closeInventarioModalBtn.addEventListener('click', () => {
-                    inventarioModal.classList.add('hidden'); // Oculta el modal
-                });
-
-                // Opcional: Ocultar el modal si se hace clic fuera de él
-                inventarioModal.addEventListener('click', (event) => {
-                    if (event.target === inventarioModal) {
-                        inventarioModal.classList.add('hidden');
-                    }
-                });
-
-                // --- Conexión de botones de Inventario con funciones (por ahora solo console.log) ---
-                document.getElementById('btn-agregar-producto').addEventListener('click', async () => {
-                    const producto = {
-                        Rubro: document.getElementById('add-rubro').value,
-                        Sku: document.getElementById('add-sku').value,
-                        Segmento: document.getElementById('add-segmento').value,
-                        Producto: document.getElementById('add-producto-nombre').value,
-                        Presentacion: document.getElementById('add-presentacion').value,
-                        Cantidad: parseFloat(document.getElementById('add-cantidad').value),
-                        Precio: parseFloat(document.getElementById('add-precio').value)
-                    };
-
-                    // Validación básica
-                    if (!producto.Rubro || !producto.Sku || !producto.Producto || isNaN(producto.Cantidad) || isNaN(producto.Precio)) {
-                        alert('Por favor, completa todos los campos obligatorios (Rubro, SKU, Producto, Cantidad, Precio).');
-                        return;
-                    }
-
-                    const id = await agregarProducto(producto);
-                    if (id) {
-                        console.log('Producto agregado con éxito, ID:', id);
-                        alert('Producto agregado con éxito!');
-                        // Limpiar campos
-                        document.getElementById('add-rubro').value = '';
-                        document.getElementById('add-sku').value = '';
-                        document.getElementById('add-segmento').value = '';
-                        document.getElementById('add-producto-nombre').value = '';
-                        document.getElementById('add-presentacion').value = '';
-                        document.getElementById('add-cantidad').value = '';
-                        document.getElementById('add-precio').value = '';
-                        // Actualizar lista de inventario
-                        const inventario = await verInventarioCompleto();
-                        renderInventarioList(inventario);
-                    } else {
-                        console.error('Fallo al agregar producto.');
-                        alert('Fallo al agregar producto.');
-                    }
-                });
-
-                document.getElementById('btn-ver-inventario').addEventListener('click', async () => {
-                    const inventario = await verInventarioCompleto();
-                    renderInventarioList(inventario);
-                });
-
-                document.getElementById('btn-buscar-producto').addEventListener('click', async () => {
-                    const campo = document.getElementById('search-field').value;
-                    const valor = document.getElementById('search-value').value;
-
-                    if (campo && valor) {
-                        const resultados = await buscarProducto(campo, valor);
-                        renderInventarioList(resultados); // Muestra los resultados de la búsqueda
-                        if (resultados.length === 0) {
-                            alert(`No se encontraron productos con ${campo}: ${valor}`);
-                        }
-                    } else {
-                        alert('Por favor, ingresa el campo y el valor para buscar.');
-                    }
-                });
-
-                document.getElementById('btn-modificar-producto').addEventListener('click', async () => {
-                    const id = document.getElementById('search-producto-id').value;
-                    const nuevosDatos = {};
-
-                    if (document.getElementById('mod-rubro').value) nuevosDatos.Rubro = document.getElementById('mod-rubro').value;
-                    if (document.getElementById('mod-sku').value) nuevosDatos.Sku = document.getElementById('mod-sku').value;
-                    if (document.getElementById('mod-segmento').value) nuevosDatos.Segmento = document.getElementById('mod-segmento').value;
-                    if (document.getElementById('mod-producto-nombre').value) nuevosDatos.Producto = document.getElementById('mod-producto-nombre').value;
-                    if (document.getElementById('mod-presentacion').value) nuevosDatos.Presentacion = document.getElementById('mod-presentacion').value;
-                    if (document.getElementById('mod-cantidad').value) nuevosDatos.Cantidad = parseFloat(document.getElementById('mod-cantidad').value);
-                    if (document.getElementById('mod-precio').value) nuevosDatos.Precio = parseFloat(document.getElementById('mod-precio').value);
-
-                    if (id && Object.keys(nuevosDatos).length > 0) {
-                        const modificado = await modificarProducto(id, nuevosDatos);
-                        if (modificado) {
-                            console.log('Producto modificado con éxito.');
-                            alert('Producto modificado con éxito!');
-                            // Limpiar campos
-                            document.getElementById('search-producto-id').value = '';
-                            document.getElementById('mod-rubro').value = '';
-                            document.getElementById('mod-sku').value = '';
-                            document.getElementById('mod-segmento').value = '';
-                            document.getElementById('mod-producto-nombre').value = '';
-                            document.getElementById('mod-presentacion').value = '';
-                            document.getElementById('mod-cantidad').value = '';
-                            document.getElementById('mod-precio').value = '';
-                            // Actualizar lista de inventario
-                            const inventario = await verInventarioCompleto();
-                            renderInventarioList(inventario);
-                        } else {
-                            console.error('Fallo al modificar producto.');
-                            alert('Fallo al modificar producto.');
-                        }
-                    } else {
-                        alert('Por favor, ingresa el ID del producto y al menos un campo para modificar.');
-                    }
-                });
-
-                document.getElementById('btn-eliminar-producto').addEventListener('click', async () => {
-                    const id = document.getElementById('search-producto-id').value;
-                    if (id) {
-                        const eliminado = await eliminarProducto(id);
-                        if (eliminado) {
-                            console.log('Producto eliminado con éxito.');
-                            alert('Producto eliminado con éxito!');
-                            document.getElementById('search-producto-id').value = '';
-                            // Actualizar lista de inventario
-                            const inventario = await verInventarioCompleto();
-                            renderInventarioList(inventario);
-                        } else {
-                            console.error('Fallo al eliminar producto.');
-                            alert('Fallo al eliminar producto.');
-                        }
-                    } else {
-                        alert('Por favor, ingresa el ID del producto a eliminar.');
-                    }
-                });
-
-                function renderInventarioList(productos) {
-                    const inventarioListDiv = document.getElementById('inventario-list');
-                    inventarioListDiv.innerHTML = ''; // Limpiar lista
-                    if (productos.length === 0) {
-                        inventarioListDiv.innerHTML = '<p class="text-gray-500">No hay productos para mostrar aún.</p>';
-                        return;
-                    }
-                    const ul = document.createElement('ul');
-                    ul.className = 'divide-y divide-gray-200';
-                    productos.forEach(producto => {
-                        const li = document.createElement('li');
-                        li.className = 'py-2';
-                        li.innerHTML = `
-                            <p class="font-semibold">${producto.Producto} (${producto.Presentacion}) - SKU: ${producto.Sku} (ID: ${producto.id})</p>
-                            <p class="text-sm text-gray-600">Rubro: ${producto.Rubro || 'N/A'} | Segmento: ${producto.Segmento || 'N/A'}</p>
-                            <p class="text-sm text-gray-600">Cantidad: ${producto.Cantidad || 0} | Precio: $${(producto.Precio || 0).toFixed(2)}</p>
-                        `;
-                        ul.appendChild(li);
-                    });
-                    inventarioListDiv.appendChild(ul);
-                }
-
-            } else {
-                console.error("Elementos del modal de inventario no encontrados. Asegúrate de que los IDs sean correctos.");
-            }
-        });
     </script>
+
+    <!-- Importa el script principal de la aplicación -->
+    <!-- IMPORTANTE: La ruta de main.js debe ser relativa al subdirectorio del repositorio en GitHub Pages -->
+    <script type="module" src="/admin/main.js"></script>
 </body>
 </html>
-
