@@ -9,16 +9,14 @@ import { collection, addDoc, doc, updateDoc, deleteDoc, getDoc, setDoc, getDocs 
 let zonaSectorMap = {};
 const ZONA_SECTOR_CONFIG_DOC_ID = 'zonasSectores'; // ID fijo para el documento de configuración
 
-// Función auxiliar para obtener la instancia de Firestore y el ID de usuario/appId
+// Función auxiliar para obtener la instancia de Firestore
 async function getFirestoreInstances() {
-    while (!window.firebaseDb || !window.currentAppId) { // Ya no necesitamos window.currentUserId aquí para rutas de datos compartidos
+    while (!window.firebaseDb) {
         console.log('Esperando inicialización de Firebase en clientes.js...');
         await new Promise(resolve => setTimeout(resolve, 100));
     }
     return {
         db: window.firebaseDb,
-        // userId: window.currentUserId, // Ya no se usa para rutas de datos compartidos
-        appId: window.currentAppId
     };
 }
 
@@ -28,9 +26,9 @@ async function getFirestoreInstances() {
  */
 async function obtenerConfiguracionZonasSectores() {
     try {
-        const { db, appId } = await getFirestoreInstances();
-        // Las configuraciones son globales por appId
-        const configDocRef = doc(db, `artifacts/${appId}/configuracion`, ZONA_SECTOR_CONFIG_DOC_ID);
+        const { db } = await getFirestoreInstances();
+        // Las configuraciones ahora están en la raíz
+        const configDocRef = doc(db, `configuracion`, ZONA_SECTOR_CONFIG_DOC_ID);
         const configSnap = await getDoc(configDocRef);
 
         if (configSnap.exists()) {
@@ -61,8 +59,8 @@ async function obtenerConfiguracionZonasSectores() {
  */
 async function guardarConfiguracionZonasSectores(newMap) {
     try {
-        const { db, appId } = await getFirestoreInstances();
-        const configDocRef = doc(db, `artifacts/${appId}/configuracion`, ZONA_SECTOR_CONFIG_DOC_ID);
+        const { db } = await getFirestoreInstances();
+        const configDocRef = doc(db, `configuracion`, ZONA_SECTOR_CONFIG_DOC_ID);
         await setDoc(configDocRef, { mapa: newMap }); // Usa setDoc para sobrescribir o crear
         console.log('Configuración de zonas y sectores guardada con éxito.');
         zonaSectorMap = newMap; // Actualiza la variable global
@@ -75,8 +73,8 @@ async function guardarConfiguracionZonasSectores(newMap) {
 
 /**
  * Agrega un nuevo cliente al sistema en Firestore.
- * Los datos se guardarán en una colección compartida.
- * Ruta: /artifacts/{appId}/datosClientes
+ * Los datos se guardarán en una colección compartida en la raíz.
+ * Ruta: /datosClientes
  * @param {object} cliente - Objeto con los datos del cliente a agregar.
  * @param {string} cliente.ID - ID único del cliente (puede ser autogenerado por Firestore si no se especifica).
  * @param {string} cliente.CEP - Código de Enrutamiento Postal.
@@ -91,8 +89,8 @@ async function guardarConfiguracionZonasSectores(newMap) {
  */
 export async function agregarCliente(cliente) {
     try {
-        const { db, appId } = await getFirestoreInstances(); // userId ya no se usa aquí
-        const clientesCollectionRef = collection(db, `artifacts/${appId}/datosClientes`); // Ruta modificada
+        const { db } = await getFirestoreInstances();
+        const clientesCollectionRef = collection(db, `datosClientes`); // Ruta modificada
         const docRef = await addDoc(clientesCollectionRef, cliente);
         console.log('Cliente agregado con ID:', docRef.id);
         return docRef.id;
@@ -110,8 +108,8 @@ export async function agregarCliente(cliente) {
  */
 export async function modificarCliente(idCliente, nuevosDatos) {
     try {
-        const { db, appId } = await getFirestoreInstances(); // userId ya no se usa aquí
-        const clienteDocRef = doc(db, `artifacts/${appId}/datosClientes`, idCliente); // Ruta modificada
+        const { db } = await getFirestoreInstances();
+        const clienteDocRef = doc(db, `datosClientes`, idCliente); // Ruta modificada
         await updateDoc(clienteDocRef, nuevosDatos);
         console.log('Cliente modificado con éxito. ID:', idCliente);
         return true;
@@ -128,8 +126,8 @@ export async function modificarCliente(idCliente, nuevosDatos) {
  */
 export async function eliminarCliente(idCliente) {
     try {
-        const { db, appId } = await getFirestoreInstances(); // userId ya no se usa aquí
-        const clienteDocRef = doc(db, `artifacts/${appId}/datosClientes`, idCliente); // Ruta modificada
+        const { db } = await getFirestoreInstances();
+        const clienteDocRef = doc(db, `datosClientes`, idCliente); // Ruta modificada
         await deleteDoc(clienteDocRef);
         console.log('Cliente eliminado con éxito. ID:', idCliente);
         return true;
@@ -146,8 +144,8 @@ export async function eliminarCliente(idCliente) {
  */
 export async function obtenerCliente(idCliente) {
     try {
-        const { db, appId } = await getFirestoreInstances(); // userId ya no se usa aquí
-        const clienteDocRef = doc(db, `artifacts/${appId}/datosClientes`, idCliente); // Ruta modificada
+        const { db } = await getFirestoreInstances();
+        const clienteDocRef = doc(db, `datosClientes`, idCliente); // Ruta modificada
         const clienteSnap = await getDoc(clienteDocRef);
 
         if (clienteSnap.exists()) {
@@ -169,8 +167,8 @@ export async function obtenerCliente(idCliente) {
  */
 export async function obtenerTodosLosClientes() {
     try {
-        const { db, appId } = await getFirestoreInstances(); // userId ya no se usa aquí
-        const clientesCollectionRef = collection(db, `artifacts/${appId}/datosClientes`); // Ruta modificada
+        const { db } = await getFirestoreInstances();
+        const clientesCollectionRef = collection(db, `datosClientes`); // Ruta modificada
         const querySnapshot = await getDocs(clientesCollectionRef);
         const clientes = [];
         querySnapshot.forEach((doc) => {
