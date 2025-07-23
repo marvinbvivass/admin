@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestión Empresarial - Pantalla Principal</title>
+    <title>Sistema de Gestión Empresarial</title>
     <!-- Carga de Tailwind CSS para un diseño moderno y responsivo -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Configuración de Tailwind para usar la fuente Inter -->
@@ -70,93 +70,32 @@
             overflow-y: auto; /* Permite scroll si el contenido es muy largo */
             position: relative;
         }
+        /* Estilos para el scrollbar dentro de modales */
+        .modal-content::-webkit-scrollbar {
+            width: 8px;
+        }
+        .modal-content::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .modal-content::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        .modal-content::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800 p-4">
-    <!-- Contenedor principal de la aplicación, centrado y con un ancho máximo -->
-    <div class="max-w-4xl w-full bg-white rounded-xl shadow-lg p-8 md:p-12 bg-opacity-90">
-        <!-- Encabezado de la aplicación -->
-        <header class="text-center mb-10">
-            <h1 class="text-5xl font-extrabold text-gray-900 mb-4">
-                Bienvenido al Sistema de Gestión
-            </h1>
-            <p class="text-xl text-gray-600">
-                Tu plataforma integral para administrar tu negocio.
-            </p>
-        </header>
-
-        <!-- Sección de botones/tarjetas para las diferentes áreas de gestión -->
-        <main class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-            <!-- Tarjeta para la sección de Clientes -->
-            <div id="clientes-card" class="section-button bg-gradient-to-r from-blue-700 to-blue-800 text-white p-6 rounded-lg shadow-md flex flex-col items-center justify-center cursor-pointer transform hover:scale-105">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.3.356-1.857m0 0A5.002 5.002 0 0112 10a5.002 5.002 0 015.644 3.143m0 0L17 20m-2-9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v4m3 2h6m-6 4h6" />
-                </svg>
-                <h2 class="text-3xl font-bold">Clientes</h2>
-                <p class="text-lg text-center mt-2 opacity-90">Gestión de la base de datos de clientes.</p>
-            </div>
-
-            <!-- Tarjeta para la sección de Ventas - Verde más profundo -->
-            <div class="section-button bg-gradient-to-r from-green-600 to-green-700 text-white p-6 rounded-lg shadow-md flex flex-col items-center justify-center cursor-pointer transform hover:scale-105">
-                <!-- Icono representativo para Ventas (ej. un carrito de compras) -->
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-                <h2 class="text-3xl font-bold">Ventas</h2>
-                <p class="text-lg text-center mt-2 opacity-90">Registro y seguimiento de transacciones de venta.</p>
-            </div>
-
-            <!-- Tarjeta para la sección de Inventario -->
-            <div id="inventario-card" class="section-button bg-gradient-to-r from-indigo-600 to-indigo-700 text-white p-6 rounded-lg shadow-md flex flex-col items-center justify-center cursor-pointer transform hover:scale-105">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                </svg>
-                <h2 class="text-3xl font-bold">Inventario</h2>
-                <p class="text-lg text-center mt-2 opacity-90">Control de productos y existencias en almacén.</p>
-            </div>
-
-            <!-- Tarjeta para la sección de Precios - Rojo más vibrante -->
-            <div id="precios-card" class="section-button bg-gradient-to-r from-red-700 to-red-800 text-white p-6 rounded-lg shadow-md flex flex-col items-center justify-center cursor-pointer transform hover:scale-105">
-                <!-- Icono representativo para Precios (ej. una etiqueta de precio) -->
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                </svg>
-                <h2 class="text-3xl font-bold">Precios</h2>
-                <p class="text-lg text-center mt-2 opacity-90">Configuración y actualización de precios de productos.</p>
-            </div>
-
-            <!-- Nueva Tarjeta para la sección de Archivos - Amarillo/Dorado -->
-            <div class="section-button bg-gradient-to-r from-yellow-500 to-yellow-600 text-white p-6 rounded-lg shadow-md flex flex-col items-center justify-center cursor-pointer transform hover:scale-105">
-                <!-- Icono representativo para Archivos (ej. una carpeta de documentos) -->
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                </svg>
-                <h2 class="text-3xl font-bold">Archivos</h2>
-                <p class="text-lg text-center mt-2 opacity-90">Gestión de documentos y archivos.</p>
-            </div>
-
-            <!-- Nueva Tarjeta para la sección de Carga & Vehículos - Naranja/Ámbar -->
-            <div class="section-button bg-gradient-to-r from-orange-600 to-orange-700 text-white p-6 rounded-lg shadow-md flex flex-col items-center justify-center cursor-pointer transform hover:scale-105">
-                <!-- Icono representativo para Carga & Vehículos (ej. un camión o vehículo de carga) -->
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 10H7a2 2 0 00-2 2v2a2 2 0 002 2h2v.01M15 10h2a2 2 0 012 2v2a2 2 0 01-2 2h-2m-4 0h.01M12 16v.01" />
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 14V8m0 0l-3 3m3-3l3 3" />
-                </svg>
-                <h2 class="text-3xl font-bold">Carga & Vehículos</h2>
-                <p class="text-lg text-center mt-2 opacity-90">Administración de carga y flota de vehículos.</p>
-            </div>
-        </main>
+    <!-- Contenedor principal de la aplicación, donde main.js inyectará el contenido -->
+    <div id="app-container" class="max-w-4xl w-full bg-white rounded-xl shadow-lg p-8 md:p-12 bg-opacity-90">
+        <!-- El contenido de la aplicación (encabezado, botones, etc.) se cargará aquí por main.js -->
+        <p class="text-center text-gray-600">Cargando aplicación...</p>
     </div>
 
-    <!-- Contenedor para el modal de Clientes, cargado dinámicamente por clientes.js -->
-    <div id="clientes-modal-container" class="modal-overlay hidden"></div>
-
-    <!-- Contenedor para el modal de Inventario, cargado dinámicamente por inventario.js -->
-    <div id="inventario-modal-container" class="modal-overlay hidden"></div>
-
-    <!-- Contenedor para el modal de Precios, cargado dinámicamente por precios.js -->
-    <div id="precios-modal-container" class="modal-overlay hidden"></div>
+    <!-- Contenedor para el modal de cada sección, cargado dinámicamente por main.js -->
+    <div id="modal-container" class="modal-overlay hidden"></div>
 
     <!-- Script para registrar el Service Worker -->
     <script>
@@ -175,72 +114,13 @@
         }
     </script>
 
-    <!-- Importa las librerías de Firebase y la lógica de inicialización -->
+    <!-- Importa las variables globales (solo para compatibilidad con Canvas) -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Variables globales para Firebase (serán accesibles en otros módulos JS)
-        let app;
-        let db;
-        let auth;
-        let userId;
-
-        // TU OBJETO firebaseConfig DE LA CONSOLA DE FIREBASE
-        const firebaseConfig = {
-            apiKey: "AIzaSyBags4wEqc_v8GGsHoLBwStPf0FIJgT6hE",
-            authDomain: "admin-804f6.firebaseapp.com",
-            projectId: "admin-804f6",
-            storageBucket: "admin-804f6.firebasestorage.app",
-            messagingSenderId: "641744033630",
-            appId: "1:641744033630:web:7e61b41752b1882a6461cf",
-            measurementId: "G-DFL37S2NVX"
-        };
-
-        // Función para inicializar Firebase y autenticar al usuario
-        async function initializeFirebase() {
-            try {
-                app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
-
-                // --- INICIO DE LA MODIFICACIÓN TEMPORAL PARA PRUEBAS ---
-                // Pega aquí el USER ID exacto de Firebase donde están tus datos.
-                // Lo puedes encontrar en la ruta de tu base de datos:
-                // /artifacts/admin-804f6/users/AQUI_VA_TU_USER_ID/datosClientes
-                const TEST_USER_ID = "hiKJDsYSD2U4gj71q8GQStr2Rhb2"; // <--- PEGA TU USER ID AQUÍ
-
-                if (typeof __initial_auth_token !== 'undefined') { // Esto solo funciona en Canvas
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                    console.log('Firebase: Autenticado con token personalizado (Entorno Canvas).');
-                    userId = auth.currentUser?.uid; // Usa el UID del token si estás en Canvas
-                } else { // Esto es lo que se ejecutará en GitHub Pages o desarrollo local
-                    // Intenta autenticar anónimamente, pero luego fuerza el userId de prueba
-                    await signInAnonymously(auth);
-                    console.log('Firebase: Autenticado anónimamente (GitHub Pages o desarrollo local).');
-                    userId = TEST_USER_ID; // <--- FORZAMOS EL USER ID DE PRUEBA AQUÍ
-                    console.warn('ADVERTENCIA: Usando un USER ID de prueba fijo para depuración. ¡Remueve esto en producción!');
-                }
-                // --- FIN DE LA MODIFICACIÓN TEMPORAL ---
-
-                console.log('Firebase: User ID activo:', userId);
-
-                window.firebaseApp = app;
-                window.firebaseDb = db;
-                window.firebaseAuth = auth;
-                window.currentUserId = userId;
-                window.currentAppId = firebaseConfig.projectId;
-
-                console.log('Firebase inicializado y autenticado con éxito.');
-
-            } catch (error) {
-                console.error('Error al inicializar Firebase o autenticar:', error);
-            }
-        }
-
-        // Llama a la función de inicialización cuando la ventana esté cargada
-        window.addEventListener('load', initializeFirebase);
+        // Las variables globales __firebase_config y __app_id serán inyectadas por el entorno de Canvas.
+        // Si no están definidas (ej. ejecutando localmente sin Canvas), se usan valores por defecto.
+        window.__firebase_config = window.__firebase_config || '{}';
+        window.__app_id = window.__app_id || 'default-app-id';
+        window.__initial_auth_token = window.__initial_auth_token || ''; // Asegurar que siempre esté definida
     </script>
 
     <!-- Importa el script principal de la aplicación -->
@@ -248,3 +128,4 @@
     <script type="module" src="/admin/main.js"></script>
 </body>
 </html>
+
