@@ -567,130 +567,108 @@ export async function renderClientesSection(container) {
         }
     }
 
-    // --- Nueva función para gestionar Zonas y Sectores ---
+    // --- Funciones para gestionar Zonas y Sectores (Refactorizadas) ---
+
+    // Función principal para el menú de gestión de Zonas y Sectores
     async function renderGestionarZonasSectoresForm() {
         clientesSubSection.innerHTML = `
             <div class="p-6 bg-purple-50 rounded-lg shadow-inner">
                 <h3 class="text-2xl font-semibold text-purple-800 mb-4">Gestionar Zonas y Sectores</h3>
 
-                <!-- Sección para añadir nueva Zona -->
-                <div class="mb-6 p-4 border border-purple-200 rounded-md">
-                    <h4 class="text-xl font-semibold text-purple-700 mb-3">Añadir Nueva Zona</h4>
-                    <input type="text" id="add-zona-input" placeholder="Nombre de la nueva Zona" class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 mb-3">
-                    <button id="btn-add-zona" class="w-full bg-purple-600 text-white p-3 rounded-md font-semibold hover:bg-purple-700 transition duration-200">
-                        Añadir Zona
+                <div id="zones-sectors-management-buttons" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <button id="btn-add-zone-sector" class="bg-blue-600 text-white p-4 rounded-md font-semibold hover:bg-blue-700 transition duration-200">
+                        Añadir Zona o Sector
+                    </button>
+                    <button id="btn-modify-delete-zone-sector" class="bg-yellow-600 text-white p-4 rounded-md font-semibold hover:bg-yellow-700 transition duration-200">
+                        Modificar o Eliminar Zona o Sector
                     </button>
                 </div>
 
-                <!-- Sección para gestionar Zonas y sus Sectores -->
-                <div class="mb-6 p-4 border border-purple-200 rounded-md">
-                    <h4 class="text-xl font-semibold text-purple-700 mb-3">Zonas Existentes y sus Sectores</h4>
-                    <div id="zonas-list-container" class="max-h-60 overflow-y-auto bg-white p-3 rounded-md border border-gray-200">
-                        <!-- Las zonas y sectores se cargarán aquí -->
-                        <p class="text-gray-500">Cargando zonas y sectores...</p>
-                    </div>
+                <div id="zones-sectors-sub-section">
+                    <!-- El contenido de añadir o modificar/eliminar se cargará aquí -->
                 </div>
 
-                <button id="btn-back-manage-zones-sectors" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
-                    Volver al Menú Principal
+                <button id="btn-back-from-zones-sectors-management" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
+                    Volver al Menú Principal de Clientes
                 </button>
             </div>
         `;
 
-        const zonasListContainer = clientesSubSection.querySelector('#zonas-list-container');
-        const addZonaInput = clientesSubSection.querySelector('#add-zona-input');
-        const btnAddZona = clientesSubSection.querySelector('#btn-add-zona');
-        const btnBackManageZonesSectors = clientesSubSection.querySelector('#btn-back-manage-zones-sectors');
+        const zonesSectorsSubSection = clientesSubSection.querySelector('#zones-sectors-sub-section');
+        const btnBack = clientesSubSection.querySelector('#btn-back-from-zones-sectors-management');
+        const btnAdd = clientesSubSection.querySelector('#btn-add-zone-sector');
+        const btnModifyDelete = clientesSubSection.querySelector('#btn-modify-delete-zone-sector');
 
-        // Función interna para renderizar la lista de zonas y sectores
-        const renderZonasSectoresList = () => {
-            zonasListContainer.innerHTML = ''; // Limpiar lista
-            if (Object.keys(zonaSectorMap).length === 0) {
-                zonasListContainer.innerHTML = '<p class="text-gray-500">No hay zonas configuradas aún.</p>';
-                return;
-            }
-
-            for (const zona in zonaSectorMap) {
-                const zonaDiv = document.createElement('div');
-                zonaDiv.className = 'mb-4 p-3 border border-gray-300 rounded-md bg-gray-50';
-                zonaDiv.innerHTML = `
-                    <div class="flex justify-between items-center mb-2">
-                        <h5 class="font-bold text-lg text-gray-800">${zona}</h5>
-                        <button class="bg-red-500 text-white px-3 py-1 rounded-md text-sm hover:bg-red-600 delete-zona-btn" data-zona="${zona}">Eliminar Zona</button>
-                    </div>
-                    <div class="flex items-center mb-2">
-                        <input type="text" placeholder="Nuevo Sector para ${zona}" class="flex-grow p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-400 add-sector-input" data-zona="${zona}">
-                        <button class="bg-blue-500 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-600 ml-2 add-sector-btn" data-zona="${zona}">Añadir Sector</button>
-                    </div>
-                    <ul class="list-disc pl-5 text-gray-700" id="sectores-list-${zona.replace(/\s/g, '-')}-ul">
-                        ${zonaSectorMap[zona].map(sector => `
-                            <li class="flex justify-between items-center py-1">
-                                <span>${sector}</span>
-                                <button class="bg-red-400 text-white px-2 py-0.5 rounded-md text-xs hover:bg-red-500 delete-sector-btn" data-zona="${zona}" data-sector="${sector}">Eliminar</button>
-                            </li>
-                        `).join('')}
-                    </ul>
-                `;
-                zonasListContainer.appendChild(zonaDiv);
-            }
-
-            // Añadir event listeners para eliminar zonas
-            zonasListContainer.querySelectorAll('.delete-zona-btn').forEach(button => {
-                button.addEventListener('click', async (event) => {
-                    const zonaToDelete = event.target.dataset.zona;
-                    if (confirm(`¿Estás seguro de que quieres eliminar la zona "${zonaToDelete}" y todos sus sectores?`)) {
-                        delete zonaSectorMap[zonaToDelete];
-                        await guardarConfiguracionZonasSectores(zonaSectorMap);
-                        renderZonasSectoresList(); // Re-renderizar la lista
-                        alert(`Zona "${zonaToDelete}" eliminada.`);
-                    }
-                });
-            });
-
-            // Añadir event listeners para añadir sectores
-            zonasListContainer.querySelectorAll('.add-sector-btn').forEach(button => {
-                button.addEventListener('click', async (event) => {
-                    const zona = event.target.dataset.zona;
-                    const input = clientesSubSection.querySelector(`.add-sector-input[data-zona="${zona}"]`);
-                    const newSector = input.value.trim();
-                    if (newSector && !zonaSectorMap[zona].includes(newSector)) {
-                        zonaSectorMap[zona].push(newSector);
-                        await guardarConfiguracionZonasSectores(zonaSectorMap);
-                        renderZonasSectoresList(); // Re-renderizar la lista
-                        input.value = ''; // Limpiar input
-                        alert(`Sector "${newSector}" añadido a "${zona}".`);
-                    } else if (zonaSectorMap[zona].includes(newSector)) {
-                        alert(`El sector "${newSector}" ya existe en "${zona}".`);
-                    } else {
-                        alert('Por favor, ingresa un nombre para el nuevo sector.');
-                    }
-                });
-            });
-
-            // Añadir event listeners para eliminar sectores
-            zonasListContainer.querySelectorAll('.delete-sector-btn').forEach(button => {
-                button.addEventListener('click', async (event) => {
-                    const zona = event.target.dataset.zona;
-                    const sectorToDelete = event.target.dataset.sector;
-                    if (confirm(`¿Estás seguro de que quieres eliminar el sector "${sectorToDelete}" de "${zona}"?`)) {
-                        zonaSectorMap[zona] = zonaSectorMap[zona].filter(s => s !== sectorToDelete);
-                        await guardarConfiguracionZonasSectores(zonaSectorMap);
-                        renderZonasSectoresList(); // Re-renderizar la lista
-                        alert(`Sector "${sectorToDelete}" eliminado de "${zona}".`);
-                    }
-                });
-            });
+        // Función para mostrar los botones principales de gestión de zonas/sectores
+        const showZonesSectorsMainButtons = () => {
+            zonesSectorsSubSection.innerHTML = ''; // Limpiar el contenido de la sub-sección
+            clientesSubSection.querySelector('#zones-sectors-management-buttons').classList.remove('hidden'); // Mostrar los botones principales
         };
 
-        // Event listener para añadir una nueva zona
-        btnAddZona.addEventListener('click', async () => {
-            const newZona = addZonaInput.value.trim();
+        // Event Listeners para los botones del menú de gestión de zonas/sectores
+        btnAdd.addEventListener('click', () => {
+            clientesSubSection.querySelector('#zones-sectors-management-buttons').classList.add('hidden'); // Oculta los botones del menú
+            renderAddZoneSectorForm(zonesSectorsSubSection, showZonesSectorsMainButtons);
+        });
+        btnModifyDelete.addEventListener('click', () => {
+            clientesSubSection.querySelector('#zones-sectors-management-buttons').classList.add('hidden'); // Oculta los botones del menú
+            renderModifyDeleteZoneSectorForm(zonesSectorsSubSection, showZonesSectorsMainButtons);
+        });
+        btnBack.addEventListener('click', showClientesMainButtons); // Vuelve al menú principal de clientes
+    }
+
+    // Función para renderizar el formulario de añadir Zona o Sector
+    async function renderAddZoneSectorForm(parentContainer, backToMainMenuCallback) {
+        parentContainer.innerHTML = `
+            <div class="p-4 bg-blue-50 rounded-lg shadow-inner">
+                <h4 class="text-xl font-semibold text-blue-800 mb-3">Añadir Zona o Sector</h4>
+
+                <div class="mb-4">
+                    <label for="add-new-zone-input" class="block text-sm font-medium text-gray-700 mb-1">Añadir Nueva Zona:</label>
+                    <input type="text" id="add-new-zone-input" placeholder="Nombre de la nueva Zona" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <button id="btn-add-new-zone" class="mt-2 w-full bg-blue-600 text-white p-2 rounded-md font-semibold hover:bg-blue-700 transition duration-200">
+                        Añadir Zona
+                    </button>
+                </div>
+
+                <div class="mb-4">
+                    <label for="select-zone-for-sector" class="block text-sm font-medium text-gray-700 mb-1">Seleccionar Zona para Añadir Sector:</label>
+                    <select id="select-zone-for-sector" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">-- Selecciona una Zona --</option>
+                        ${Object.keys(zonaSectorMap).map(zona => `<option value="${zona}">${zona}</option>`).join('')}
+                    </select>
+                    <input type="text" id="add-new-sector-input" placeholder="Nombre del nuevo Sector" class="mt-2 w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" disabled>
+                    <button id="btn-add-new-sector" class="mt-2 w-full bg-blue-600 text-white p-2 rounded-md font-semibold hover:bg-blue-700 transition duration-200" disabled>
+                        Añadir Sector
+                    </button>
+                </div>
+
+                <button id="btn-back-from-add-form" class="mt-4 w-full bg-gray-400 text-white p-2 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
+                    Volver
+                </button>
+            </div>
+        `;
+
+        const addNewZoneInput = parentContainer.querySelector('#add-new-zone-input');
+        const btnAddNewZone = parentContainer.querySelector('#btn-add-new-zone');
+        const selectZoneForSector = parentContainer.querySelector('#select-zone-for-sector');
+        const addNewSectorInput = parentContainer.querySelector('#add-new-sector-input');
+        const btnAddNewSector = parentContainer.querySelector('#btn-add-new-sector');
+        const btnBack = parentContainer.querySelector('#btn-back-from-add-form');
+
+        // Lógica para añadir nueva zona
+        btnAddNewZone.addEventListener('click', async () => {
+            const newZona = addNewZoneInput.value.trim();
             if (newZona && !zonaSectorMap[newZona]) {
                 zonaSectorMap[newZona] = []; // Inicializa la nueva zona con un array vacío de sectores
-                await guardarConfiguracionZonasSectores(zonaSectorMap);
-                renderZonasSectoresList(); // Re-renderizar la lista
-                addZonaInput.value = ''; // Limpiar input
-                alert(`Zona "${newZona}" añadida.`);
+                if (await guardarConfiguracionZonasSectores(zonaSectorMap)) {
+                    alert(`Zona "${newZona}" añadida.`);
+                    addNewZoneInput.value = '';
+                    // Re-poblar el select de zonas para sectores
+                    selectZoneForSector.innerHTML = `<option value="">-- Selecciona una Zona --</option>` + Object.keys(zonaSectorMap).map(zona => `<option value="${zona}">${zona}</option>`).join('');
+                } else {
+                    alert('Fallo al añadir zona.');
+                }
             } else if (zonaSectorMap[newZona]) {
                 alert(`La zona "${newZona}" ya existe.`);
             } else {
@@ -698,10 +676,139 @@ export async function renderClientesSection(container) {
             }
         });
 
-        // Event listener para el botón Volver
-        btnBackManageZonesSectors.addEventListener('click', showClientesMainButtons);
+        // Habilitar/deshabilitar input de sector basado en la selección de zona
+        selectZoneForSector.addEventListener('change', () => {
+            const selectedZone = selectZoneForSector.value;
+            if (selectedZone) {
+                addNewSectorInput.disabled = false;
+                btnAddNewSector.disabled = false;
+            } else {
+                addNewSectorInput.disabled = true;
+                btnAddNewSector.disabled = true;
+            }
+        });
 
-        // Cargar y renderizar la lista de zonas y sectores al abrir la sección
-        renderZonasSectoresList();
+        // Lógica para añadir nuevo sector
+        btnAddNewSector.addEventListener('click', async () => {
+            const selectedZone = selectZoneForSector.value;
+            const newSector = addNewSectorInput.value.trim();
+            if (selectedZone && newSector && !zonaSectorMap[selectedZone].includes(newSector)) {
+                zonaSectorMap[selectedZone].push(newSector);
+                if (await guardarConfiguracionZonasSectores(zonaSectorMap)) {
+                    alert(`Sector "${newSector}" añadido a "${selectedZone}".`);
+                    addNewSectorInput.value = '';
+                } else {
+                    alert('Fallo al añadir sector.');
+                }
+            } else if (zonaSectorMap[selectedZone].includes(newSector)) {
+                alert(`El sector "${newSector}" ya existe en "${selectedZone}".`);
+            } else {
+                alert('Por favor, selecciona una zona e ingresa un nombre para el nuevo sector.');
+            }
+        });
+
+        btnBack.addEventListener('click', backToMainMenuCallback);
+    }
+
+    // Función para renderizar el formulario de modificar/eliminar Zona o Sector
+    async function renderModifyDeleteZoneSectorForm(parentContainer, backToMainMenuCallback) {
+        parentContainer.innerHTML = `
+            <div class="p-4 bg-yellow-50 rounded-lg shadow-inner">
+                <h4 class="text-xl font-semibold text-yellow-800 mb-3">Modificar o Eliminar Zona o Sector</h4>
+
+                <input type="text" id="search-zone-sector-input" placeholder="Buscar Zona o Sector..." class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 mb-4">
+
+                <div id="zone-sector-list-container" class="max-h-60 overflow-y-auto bg-white p-3 rounded-md border border-gray-200">
+                    <!-- Las zonas y sectores se cargarán aquí -->
+                    <p class="text-gray-500">Cargando zonas y sectores...</p>
+                </div>
+
+                <button id="btn-back-from-modify-delete-form" class="mt-4 w-full bg-gray-400 text-white p-2 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
+                    Volver
+                </button>
+            </div>
+        `;
+
+        const searchInput = parentContainer.querySelector('#search-zone-sector-input');
+        const listContainer = parentContainer.querySelector('#zone-sector-list-container');
+        const btnBack = parentContainer.querySelector('#btn-back-from-modify-delete-form');
+
+        // Función interna para renderizar la lista de zonas y sectores con opciones de eliminar
+        const renderList = (filteredMap) => {
+            listContainer.innerHTML = '';
+            if (Object.keys(filteredMap).length === 0) {
+                listContainer.innerHTML = '<p class="text-gray-500">No hay resultados.</p>';
+                return;
+            }
+
+            for (const zona in filteredMap) {
+                const zonaDiv = document.createElement('div');
+                zonaDiv.className = 'mb-4 p-3 border border-gray-300 rounded-md bg-gray-50';
+                zonaDiv.innerHTML = `
+                    <div class="flex justify-between items-center mb-2">
+                        <h5 class="font-bold text-lg text-gray-800">${zona}</h5>
+                        <button class="bg-red-500 text-white px-3 py-1 rounded-md text-sm hover:bg-red-600 delete-zona-btn" data-zona="${zona}">Eliminar Zona</button>
+                    </div>
+                    <ul class="list-disc pl-5 text-gray-700">
+                        ${filteredMap[zona].map(sector => `
+                            <li class="flex justify-between items-center py-1">
+                                <span>${sector}</span>
+                                <button class="bg-red-400 text-white px-2 py-0.5 rounded-md text-xs hover:bg-red-500 delete-sector-btn" data-zona="${zona}" data-sector="${sector}">Eliminar</button>
+                            </li>
+                        `).join('')}
+                    </ul>
+                `;
+                listContainer.appendChild(zonaDiv);
+            }
+
+            // Añadir event listeners para eliminar zonas
+            listContainer.querySelectorAll('.delete-zona-btn').forEach(button => {
+                button.addEventListener('click', async (event) => {
+                    const zonaToDelete = event.target.dataset.zona;
+                    if (confirm(`¿Estás seguro de que quieres eliminar la zona "${zonaToDelete}" y todos sus sectores?`)) {
+                        delete zonaSectorMap[zonaToDelete];
+                        await guardarConfiguracionZonasSectores(zonaSectorMap);
+                        renderList(zonaSectorMap); // Re-renderizar la lista con el mapa actualizado
+                        alert(`Zona "${zonaToDelete}" eliminada.`);
+                    }
+                });
+            });
+
+            // Añadir event listeners para eliminar sectores
+            listContainer.querySelectorAll('.delete-sector-btn').forEach(button => {
+                button.addEventListener('click', async (event) => {
+                    const zona = event.target.dataset.zona;
+                    const sectorToDelete = event.target.dataset.sector;
+                    if (confirm(`¿Estás seguro de que quieres eliminar el sector "${sectorToDelete}" de "${zona}"?`)) {
+                        zonaSectorMap[zona] = zonaSectorMap[zona].filter(s => s !== sectorToDelete);
+                        await guardarConfiguracionZonasSectores(zonaSectorMap);
+                        renderList(zonaSectorMap); // Re-renderizar la lista con el mapa actualizado
+                        alert(`Sector "${sectorToDelete}" eliminado de "${zona}".`);
+                    }
+                });
+            });
+        };
+
+        // Renderizado inicial
+        renderList(zonaSectorMap);
+
+        // Funcionalidad de búsqueda
+        searchInput.addEventListener('input', () => {
+            const searchTerm = searchInput.value.toLowerCase();
+            const filteredMap = {};
+            for (const zona in zonaSectorMap) {
+                if (zona.toLowerCase().includes(searchTerm)) {
+                    filteredMap[zona] = zonaSectorMap[zona];
+                } else {
+                    const matchingSectors = zonaSectorMap[zona].filter(sector => sector.toLowerCase().includes(searchTerm));
+                    if (matchingSectors.length > 0) {
+                        filteredMap[zona] = matchingSectors;
+                    }
+                }
+            }
+            renderList(filteredMap);
+        });
+
+        btnBack.addEventListener('click', backToMainMenuCallback);
     }
 }
