@@ -5,6 +5,15 @@
 // Importa las funciones necesarias de Firebase Firestore.
 import { collection, addDoc, doc, updateDoc, deleteDoc, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+// Mapa de Zonas a Sectores para las listas desplegables
+const zonaSectorMap = {
+    "Santa Teresa": ["Barrio Bolivar", "Principal Santa Teresa", "Los Teques", "Calle 4", "La Villa"],
+    "Foraneo": ["No Aplica"],
+    "Zona Industrial": ["Zona Industrial"], // Corregido el typo "Indutrial"
+    "Machiri": ["Parte Alta", "Parte Baja", "Barrio el Lago"],
+    "Palo Gordo": ["Gallardin", "Gallardin Parte Baja", "Gallardin Parte Alta", "Principal Palo Gordo", "Calle Tachira", "Calle del Medio", "Toica", "Nazareno", "La Trinidad", "Calle del Hambre", "Puente/Cancha"]
+};
+
 // Función auxiliar para obtener la instancia de Firestore y el ID de usuario/appId
 // Esto asegura que las variables globales de Firebase estén disponibles antes de usarlas.
 async function getFirestoreInstances() {
@@ -184,8 +193,13 @@ export async function renderClientesSection(container) {
                     <input type="text" id="add-cep" placeholder="CEP" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <input type="text" id="add-nombre-comercial" placeholder="Nombre Comercial" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <input type="text" id="add-nombre-personal" placeholder="Nombre Personal" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <input type="text" id="add-zona" placeholder="Zona" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <input type="text" id="add-sector" placeholder="Sector" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <select id="add-zona" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">Selecciona Zona</option>
+                        ${Object.keys(zonaSectorMap).map(zona => `<option value="${zona}">${zona}</option>`).join('')}
+                    </select>
+                    <select id="add-sector" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" disabled>
+                        <option value="">Selecciona Sector</option>
+                    </select>
                     <input type="tel" id="add-tlf" placeholder="Teléfono" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <textarea id="add-observaciones" placeholder="Observaciones (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 col-span-full"></textarea>
                 </div>
@@ -194,6 +208,25 @@ export async function renderClientesSection(container) {
                 </button>
             </div>
         `;
+        // Lógica para actualizar el select de Sector cuando cambia la Zona
+        const addZonaSelect = container.querySelector('#add-zona');
+        const addSectorSelect = container.querySelector('#add-sector');
+        addZonaSelect.addEventListener('change', () => {
+            const selectedZona = addZonaSelect.value;
+            addSectorSelect.innerHTML = '<option value="">Selecciona Sector</option>'; // Limpiar opciones anteriores
+            if (selectedZona && zonaSectorMap[selectedZona]) {
+                zonaSectorMap[selectedZona].forEach(sector => {
+                    const option = document.createElement('option');
+                    option.value = sector;
+                    option.textContent = sector;
+                    addSectorSelect.appendChild(option);
+                });
+                addSectorSelect.disabled = false; // Habilitar el select de Sector
+            } else {
+                addSectorSelect.disabled = true; // Deshabilitar si no hay zona seleccionada
+            }
+        });
+
         // Conectar el botón de agregar cliente
         container.querySelector('#btn-submit-add-cliente').addEventListener('click', async () => {
             const cliente = {
@@ -220,7 +253,8 @@ export async function renderClientesSection(container) {
                 container.querySelector('#add-nombre-comercial').value = '';
                 container.querySelector('#add-nombre-personal').value = '';
                 container.querySelector('#add-zona').value = '';
-                container.querySelector('#add-sector').value = '';
+                container.querySelector('#add-sector').innerHTML = '<option value="">Selecciona Sector</option>'; // Limpiar y resetear sector
+                container.querySelector('#add-sector').disabled = true;
                 container.querySelector('#add-tlf').value = '';
                 container.querySelector('#add-observaciones').value = '';
             } else {
@@ -239,8 +273,13 @@ export async function renderClientesSection(container) {
                     <input type="text" id="mod-cep" placeholder="Nuevo CEP (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
                     <input type="text" id="mod-nombre-comercial" placeholder="Nuevo Nombre Comercial (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
                     <input type="text" id="mod-nombre-personal" placeholder="Nuevo Nombre Personal (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
-                    <input type="text" id="mod-zona" placeholder="Nueva Zona (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
-                    <input type="text" id="mod-sector" placeholder="Nuevo Sector (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                    <select id="mod-zona" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                        <option value="">Nueva Zona (opcional)</option>
+                        ${Object.keys(zonaSectorMap).map(zona => `<option value="${zona}">${zona}</option>`).join('')}
+                    </select>
+                    <select id="mod-sector" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" disabled>
+                        <option value="">Nuevo Sector (opcional)</option>
+                    </select>
                     <input type="tel" id="mod-tlf" placeholder="Nuevo Teléfono (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
                     <textarea id="mod-observaciones" placeholder="Nuevas Observaciones (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 col-span-full"></textarea>
                 </div>
@@ -254,6 +293,25 @@ export async function renderClientesSection(container) {
                 </div>
             </div>
         `;
+        // Lógica para actualizar el select de Sector cuando cambia la Zona en modificar
+        const modZonaSelect = container.querySelector('#mod-zona');
+        const modSectorSelect = container.querySelector('#mod-sector');
+        modZonaSelect.addEventListener('change', () => {
+            const selectedZona = modZonaSelect.value;
+            modSectorSelect.innerHTML = '<option value="">Nuevo Sector (opcional)</option>'; // Limpiar opciones anteriores
+            if (selectedZona && zonaSectorMap[selectedZona]) {
+                zonaSectorMap[selectedZona].forEach(sector => {
+                    const option = document.createElement('option');
+                    option.value = sector;
+                    option.textContent = sector;
+                    modSectorSelect.appendChild(option);
+                });
+                modSectorSelect.disabled = false; // Habilitar el select de Sector
+            } else {
+                modSectorSelect.disabled = true; // Deshabilitar si no hay zona seleccionada
+            }
+        });
+
         // Conectar los botones de modificar/eliminar cliente
         container.querySelector('#btn-submit-modify-cliente').addEventListener('click', async () => {
             const id = container.querySelector('#mod-del-cliente-id').value;
@@ -277,7 +335,8 @@ export async function renderClientesSection(container) {
                     container.querySelector('#mod-nombre-comercial').value = '';
                     container.querySelector('#mod-nombre-personal').value = '';
                     container.querySelector('#mod-zona').value = '';
-                    container.querySelector('#mod-sector').value = '';
+                    container.querySelector('#mod-sector').innerHTML = '<option value="">Nuevo Sector (opcional)</option>';
+                    container.querySelector('#mod-sector').disabled = true;
                     container.querySelector('#mod-tlf').value = '';
                     container.querySelector('#mod-observaciones').value = '';
                 } else {
@@ -343,4 +402,3 @@ export async function renderClientesSection(container) {
         listContainer.appendChild(ul);
     }
 }
-
