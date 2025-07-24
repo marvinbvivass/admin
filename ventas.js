@@ -145,13 +145,13 @@ export async function renderVentasSection(container) {
                 <h3 class="text-2xl font-semibold text-blue-800 mb-4">Realizar Nueva Venta</h3>
 
                 <!-- Sección de Selección de Cliente (más compacta) -->
-                <div class="mb-4 p-3 border border-blue-200 rounded-md">
-                    <h4 class="text-lg font-semibold text-blue-700 mb-2">1. Seleccionar Cliente</h4>
-                    <input type="text" id="search-cliente-venta-input" placeholder="Buscar cliente por nombre o CEP" class="w-full p-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2">
-                    <div id="clientes-venta-list" class="bg-white p-2 rounded-md border border-gray-200 max-h-32 overflow-y-auto mb-2 text-sm">
+                <div class="mb-3 p-2 border border-blue-200 rounded-md">
+                    <h4 class="text-base font-semibold text-blue-700 mb-1">1. Seleccionar Cliente</h4>
+                    <input type="text" id="search-cliente-venta-input" placeholder="Buscar cliente por nombre o CEP" class="w-full p-1 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-1">
+                    <div id="clientes-venta-list" class="bg-white p-1 rounded-md border border-gray-200 max-h-24 overflow-y-auto mb-1 text-xs">
                         <p class="text-gray-500">Busque un cliente para seleccionarlo.</p>
                     </div>
-                    <p id="selected-client-display" class="font-medium text-gray-800 text-sm">Cliente Seleccionado: Ninguno</p>
+                    <p id="selected-client-display" class="font-medium text-gray-800 text-xs">Cliente Seleccionado: Ninguno</p>
                 </div>
 
                 <!-- Sección de Productos Disponibles (Tabla Grande) -->
@@ -184,21 +184,9 @@ export async function renderVentasSection(container) {
                     </div>
                 </div>
 
-                <!-- Sección de Finalización Simplificada -->
-                <div class="mb-4 p-3 border border-blue-200 rounded-md">
-                    <h4 class="text-lg font-semibold text-blue-700 mb-2">Finalizar Venta</h4>
-                    <select id="metodo-pago-select" class="w-full p-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2">
-                        <option value="">-- Selecciona Método de Pago --</option>
-                        <option value="Efectivo">Efectivo</option>
-                        <option value="Transferencia">Transferencia</option>
-                        <option value="Punto de Venta">Punto de Venta</option>
-                        <option value="Credito">Crédito</option>
-                    </select>
-                    <textarea id="observaciones-venta-input" placeholder="Observaciones de la venta (opcional)" class="w-full p-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"></textarea>
-                    <button id="btn-finalizar-venta" class="w-full bg-green-600 text-white p-3 rounded-md font-semibold hover:bg-green-700 transition duration-200" disabled>
-                        Finalizar Venta
-                    </button>
-                </div>
+                <button id="btn-finalizar-venta" class="w-full bg-green-600 text-white p-3 rounded-md font-semibold hover:bg-green-700 transition duration-200" disabled>
+                    Finalizar Venta
+                </button>
 
                 <button id="btn-back-from-realizar-venta" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
                     Volver
@@ -213,8 +201,6 @@ export async function renderVentasSection(container) {
         const productosParaVentaSection = parentContainer.querySelector('#productos-para-venta-section');
         const filterRubroVentaSelect = parentContainer.querySelector('#filter-rubro-venta');
         const productosVentaTableBody = parentContainer.querySelector('#productos-venta-table-body');
-        const metodoPagoSelect = parentContainer.querySelector('#metodo-pago-select');
-        const observacionesVentaInput = parentContainer.querySelector('#observaciones-venta-input');
         const btnFinalizarVenta = parentContainer.querySelector('#btn-finalizar-venta');
         const btnBack = parentContainer.querySelector('#btn-back-from-realizar-venta');
 
@@ -300,11 +286,8 @@ export async function renderVentasSection(container) {
         const checkFinalizarVentaButtonStatus = () => {
             const hasClient = selectedClient !== null;
             const hasAnyQuantity = Array.from(productosVentaTableBody.querySelectorAll('.quantity-input')).some(input => parseInt(input.value) > 0);
-            const isPaymentMethodSelected = metodoPagoSelect.value !== '';
-            btnFinalizarVenta.disabled = !(hasClient && hasAnyQuantity && isPaymentMethodSelected);
+            btnFinalizarVenta.disabled = !(hasClient && hasAnyQuantity);
         };
-
-        metodoPagoSelect.addEventListener('change', checkFinalizarVentaButtonStatus);
 
         btnFinalizarVenta.addEventListener('click', async () => {
             if (!selectedClient) {
@@ -367,22 +350,14 @@ export async function renderVentasSection(container) {
                 return;
             }
 
-            const metodoPago = metodoPagoSelect.value;
-            if (!metodoPago) {
-                alert('Por favor, seleccione un método de pago.');
-                return;
-            }
-
-            const observaciones = observacionesVentaInput.value.trim();
-
+            // No hay método de pago ni observaciones en esta versión simplificada
             const ventaData = {
                 clienteId: selectedClient.id,
                 nombreCliente: selectedClient.NombreComercial,
                 fecha: new Date().toISOString(), // Fecha y hora actual
                 productos: productsToProcess,
                 totalVenta: totalVentaCalculado,
-                metodoPago: metodoPago,
-                observaciones: observaciones
+                // metodoPago y observaciones ya no se incluyen
             };
 
             // 1. Actualizar el stock en inventario para cada producto vendido
@@ -394,16 +369,10 @@ export async function renderVentasSection(container) {
                 }
             }
 
-            // 2. Actualizar la deuda del cliente si el método de pago es "Crédito"
-            if (metodoPago === 'Credito') {
-                const { db } = await getFirestoreInstances();
-                const clienteDocRef = doc(db, `datosClientes`, selectedClient.id); // Ruta modificada
-                const nuevaDeuda = (selectedClient.Deuda || 0) + totalVentaCalculado;
-                await updateDoc(clienteDocRef, { Deuda: nuevaDeuda });
-                selectedClient.Deuda = nuevaDeuda; // Actualizar el objeto cliente en memoria
-            }
+            // La lógica de actualización de deuda del cliente por "Crédito" se ha eliminado.
+            // Si necesitas gestionar deudas de alguna otra forma, deberás implementarlo aquí.
 
-            // 3. Registrar la venta
+            // 2. Registrar la venta
             const ventaId = await agregarVenta(ventaData);
 
             if (ventaId) {
@@ -412,14 +381,14 @@ export async function renderVentasSection(container) {
                 selectedClient = null;
                 selectedClientDisplay.textContent = 'Cliente Seleccionado: Ninguno';
                 searchClienteInput.value = '';
-                metodoPagoSelect.value = '';
-                observacionesVentaInput.value = '';
+                // metodoPagoSelect.value = ''; // Ya no existe
+                // observacionesVentaInput.value = ''; // Ya no existe
                 productosParaVentaSection.classList.add('hidden'); // Ocultar sección de productos
                 btnFinalizarVenta.disabled = true;
 
                 // Recargar todos los productos para reflejar el stock actualizado
                 allProducts = await verInventarioCompleto();
-                // Recargar clientes para reflejar la deuda actualizada
+                // Recargar clientes para reflejar la deuda actualizada (si se gestionara en otro lado)
                 allClients = await obtenerTodosLosClientes();
             } else {
                 alert('Fallo al finalizar la venta.');
@@ -490,14 +459,14 @@ export async function renderVentasSection(container) {
                 const querySnapshot = await getDocs(q);
 
                 let totalVentasDia = 0;
-                const ventasPorMetodoPago = {};
+                const ventasPorMetodoPago = {}; // Aún se mantiene para el reporte de cierre si existieran datos previos
                 const productosVendidos = {};
 
                 querySnapshot.forEach(docSnap => {
                     const venta = docSnap.data();
                     totalVentasDia += venta.totalVenta || 0;
 
-                    // Sumar por método de pago
+                    // Sumar por método de pago (si existiera en ventas antiguas)
                     const metodo = venta.metodoPago || 'No Especificado';
                     ventasPorMetodoPago[metodo] = (ventasPorMetodoPago[metodo] || 0) + venta.totalVenta;
 
