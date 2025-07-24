@@ -198,8 +198,8 @@ export async function renderClientesSection(container) {
                 <button id="btn-show-modify-delete-cliente" class="bg-yellow-600 text-white p-4 rounded-md font-semibold hover:bg-yellow-700 transition duration-200">
                     Modificar/Eliminar Cliente
                 </button>
-                <button id="btn-show-search-cliente" class="bg-green-600 text-white p-4 rounded-md font-semibold hover:bg-green-700 transition duration-200">
-                    Buscar Cliente
+                <button id="btn-show-ver-clientes" class="bg-green-600 text-white p-4 rounded-md font-semibold hover:bg-green-700 transition duration-200">
+                    Ver Lista de Clientes
                 </button>
                 <button id="btn-show-manage-zones-sectors" class="bg-purple-600 text-white p-4 rounded-md font-semibold hover:bg-purple-700 transition duration-200 col-span-full">
                     Gestionar Zonas y Sectores
@@ -475,15 +475,20 @@ export async function renderClientesSection(container) {
     // Lógica para mostrar la sección de modificar/eliminar cliente (ahora con búsqueda previa)
     container.querySelector('#btn-show-modify-delete-cliente').addEventListener('click', showModifyDeleteSearch);
 
+    // Lógica para mostrar la sección de ver lista de clientes
+    container.querySelector('#btn-show-ver-clientes').addEventListener('click', async () => {
+        clientesMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
+        await renderVerClientesSection(clientesSubSection, showClientesMainButtons);
+    });
 
-    // Lógica para mostrar la sección de buscar cliente (anteriormente listar)
+    // Lógica para mostrar la sección de buscar cliente
     container.querySelector('#btn-show-search-cliente').addEventListener('click', async () => {
         clientesMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
         clientesSubSection.innerHTML = `
             <div class="p-6 bg-green-50 rounded-lg shadow-inner">
                 <h3 class="text-2xl font-semibold text-green-800 mb-4">Buscar Cliente</h3>
                 <input type="text" id="search-cliente-input" placeholder="Buscar por Nombre, CEP, Zona, etc." class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 mb-4">
-                <div id="clientes-list" class="bg-white p-4 rounded-md border border-gray-200 max-h-60 overflow-y-auto">
+                <div id="clientes-list" class="bg-white p-4 rounded-md border border-gray-200 max-h-60 overflow-y-auto shadow-md">
                     <!-- Los clientes se mostrarán aquí -->
                     <p class="text-gray-500">Cargando clientes...</p>
                 </div>
@@ -527,6 +532,8 @@ export async function renderClientesSection(container) {
 
     /**
      * Función auxiliar para renderizar la lista de clientes.
+     * Esta función se usa en "Buscar Cliente" y "Modificar/Eliminar Cliente".
+     * No muestra el ID del cliente.
      * @param {Array<object>} clientes - Array de objetos de cliente.
      * @param {HTMLElement} listContainer - El elemento DOM donde se renderizará la lista.
      * @param {function(object): void} [actionCallback] - Función a ejecutar cuando se selecciona un cliente.
@@ -545,9 +552,9 @@ export async function renderClientesSection(container) {
             li.innerHTML = `
                 <div>
                     <p class="font-semibold">${cliente.NombreComercial || 'N/A'} (${cliente.NombrePersonal || 'N/A'})</p>
-                    <p class="text-sm text-gray-600">ID: ${cliente.id || 'N/A'} | CEP: ${cliente.CEP || 'N/A'}</p>
+                    <p class="text-sm text-gray-600">CEP: ${cliente.CEP || 'N/A'} | Teléfono: ${cliente.Tlf || 'N/A'}</p>
                     <p class="text-sm text-gray-600">Zona: ${cliente.Zona || 'N/A'} | Sector: ${cliente.Sector || 'N/A'}</p>
-                    <p class="text-sm text-gray-600">Teléfono: ${cliente.Tlf || 'N/A'} | Deuda: $${(cliente.Deuda || 0).toFixed(2)}</p>
+                    <p class="text-sm text-gray-600">Deuda: $${(cliente.Deuda || 0).toFixed(2)}</p>
                     <p class="text-sm text-gray-600">Observaciones: ${cliente.Observaciones || 'N/A'}</p>
                 </div>
                 ${actionCallback ? `<button class="mt-2 sm:mt-0 sm:ml-4 bg-blue-500 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-600 transition duration-200 select-client-btn" data-client-id="${cliente.id}">Seleccionar</button>` : ''}
@@ -569,6 +576,108 @@ export async function renderClientesSection(container) {
             });
         }
     }
+
+    /**
+     * Renderiza la sección para ver la lista completa de clientes en formato de tabla.
+     * @param {HTMLElement} parentContainer - El contenedor donde se renderizará esta sección.
+     * @param {function(): void} backToMainMenuCallback - Callback para volver al menú principal de clientes.
+     */
+    async function renderVerClientesSection(parentContainer, backToMainMenuCallback) {
+        parentContainer.innerHTML = `
+            <div class="p-6 bg-green-50 rounded-lg shadow-inner">
+                <h3 class="text-2xl font-semibold text-green-800 mb-4">Lista Completa de Clientes</h3>
+                <input type="text" id="search-ver-clientes-input" placeholder="Buscar cliente por nombre, CEP, zona, etc." class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 mb-4">
+                <div id="ver-clientes-list-table" class="bg-white p-4 rounded-md border border-gray-200 max-h-96 overflow-y-auto shadow-md">
+                    <!-- La tabla de clientes se mostrará aquí -->
+                    <p class="text-gray-500">Cargando clientes...</p>
+                </div>
+                <button id="btn-back-ver-clientes" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
+                    Volver
+                </button>
+            </div>
+        `;
+
+        const clientesListTableDiv = parentContainer.querySelector('#ver-clientes-list-table');
+        const searchInput = parentContainer.querySelector('#search-ver-clientes-input');
+        const btnBack = parentContainer.querySelector('#btn-back-ver-clientes');
+
+        let allClients = []; // Para almacenar todos los clientes y filtrar sobre ellos
+
+        // Función interna para renderizar la tabla de clientes
+        const renderClientsTable = (clientsToRender) => {
+            clientesListTableDiv.innerHTML = ''; // Limpiar tabla
+            if (clientsToRender.length === 0) {
+                clientesListTableDiv.innerHTML = '<p class="text-gray-500">No hay clientes para mostrar.</p>';
+                return;
+            }
+
+            const table = document.createElement('table');
+            table.className = 'min-w-full divide-y divide-gray-200';
+            table.innerHTML = `
+                <thead class="bg-gray-50 sticky top-0">
+                    <tr>
+                        <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre Comercial</th>
+                        <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre Personal</th>
+                        <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CEP</th>
+                        <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Zona</th>
+                        <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sector</th>
+                        <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Teléfono</th>
+                        <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deuda ($)</th>
+                        <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Observaciones</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    <!-- Filas de clientes se cargarán aquí -->
+                </tbody>
+            `;
+            const tbody = table.querySelector('tbody');
+
+            clientsToRender.forEach(cliente => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-100';
+                row.innerHTML = `
+                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-900">${cliente.NombreComercial || 'N/A'}</td>
+                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${cliente.NombrePersonal || 'N/A'}</td>
+                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${cliente.CEP || 'N/A'}</td>
+                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${cliente.Zona || 'N/A'}</td>
+                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${cliente.Sector || 'N/A'}</td>
+                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${cliente.Tlf || 'N/A'}</td>
+                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">$${(cliente.Deuda || 0).toFixed(2)}</td>
+                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${cliente.Observaciones || 'N/A'}</td>
+                `;
+                tbody.appendChild(row);
+            });
+            clientesListTableDiv.appendChild(table);
+        };
+
+        // Cargar todos los clientes al abrir la sección
+        try {
+            allClients = await obtenerTodosLosClientes();
+            renderClientsTable(allClients);
+        } catch (error) {
+            console.error('Error al obtener clientes para la lista:', error);
+            clientesListTableDiv.innerHTML = '<p class="text-red-600">Error al cargar clientes. Por favor, verifique los permisos.</p>';
+        }
+
+        // Lógica de filtrado en tiempo real
+        searchInput.addEventListener('input', () => {
+            const searchTerm = searchInput.value.toLowerCase();
+            const filteredClients = allClients.filter(cliente => {
+                return (cliente.NombreComercial && cliente.NombreComercial.toLowerCase().includes(searchTerm)) ||
+                       (cliente.NombrePersonal && cliente.NombrePersonal.toLowerCase().includes(searchTerm)) ||
+                       (cliente.CEP && cliente.CEP.toLowerCase().includes(searchTerm)) ||
+                       (cliente.Zona && cliente.Zona.toLowerCase().includes(searchTerm)) ||
+                       (cliente.Sector && cliente.Sector.toLowerCase().includes(searchTerm)) ||
+                       (cliente.Tlf && cliente.Tlf.toLowerCase().includes(searchTerm)) ||
+                       (cliente.Observaciones && cliente.Observaciones.toLowerCase().includes(searchTerm));
+            });
+            renderClientsTable(filteredClients);
+        });
+
+        // Conectar el botón Volver
+        btnBack.addEventListener('click', backToMainMenuCallback);
+    }
+
 
     // --- Funciones para gestionar Zonas y Sectores (Refactorizadas) ---
 
@@ -783,7 +892,7 @@ export async function renderClientesSection(container) {
                     const zona = event.target.dataset.zona;
                     const sectorToDelete = event.target.dataset.sector;
                     if (confirm(`¿Estás seguro de que quieres eliminar el sector "${sectorToDelete}" de "${zona}"?`)) {
-                        zonaSectorMap[zona] = zonaSectorMap[zona].filter(s => s !== sectorToDelete);
+                        zonaSectorMap[zona] = zonaSectorMap[zona].filter(s => s !== segmentoToDelete);
                         await guardarConfiguracionZonasSectores(zonaSectorMap);
                         renderList(zonaSectorMap); // Re-renderizar la lista con el mapa actualizado
                         alert(`Sector "${sectorToDelete}" eliminado de "${zona}".`);
