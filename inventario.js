@@ -472,7 +472,7 @@ export async function renderInventarioSection(container) {
             <div class="p-6 bg-green-50 rounded-lg shadow-inner">
                 <h3 class="text-2xl font-semibold text-green-800 mb-4">Ver Inventario Completo</h3>
                 <input type="text" id="search-inventario-input" placeholder="Buscar por SKU, Producto, Rubro, etc." class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 mb-4">
-                <div id="inventario-list" class="bg-white p-4 rounded-md border border-gray-200 max-h-96 overflow-y-auto">
+                <div id="inventario-list" class="bg-white p-4 rounded-md border border-gray-200 max-h-96 overflow-y-auto shadow-md">
                     <!-- Los productos se mostrarán aquí -->
                     <p class="text-gray-500">Cargando inventario...</p>
                 </div>
@@ -515,9 +515,10 @@ export async function renderInventarioSection(container) {
 
     /**
      * Función auxiliar para renderizar la lista de productos.
+     * Ahora renderiza una tabla HTML para una mejor visualización del inventario.
      * @param {Array<object>} productos - Array de objetos de producto.
      * @param {HTMLElement} listContainer - El elemento DOM donde se renderizará la lista.
-     * @param {function(object): void} [actionCallback] - Función a ejecutar cuando se selecciona un producto.
+     * @param {function(object): void} [actionCallback] - Función a ejecutar cuando se selecciona un producto (usado en modificar/eliminar).
      */
     function renderProductsList(productos, listContainer, actionCallback = null) {
         listContainer.innerHTML = ''; // Limpiar lista
@@ -525,23 +526,50 @@ export async function renderInventarioSection(container) {
             listContainer.innerHTML = '<p class="text-gray-500">No hay productos para mostrar aún.</p>';
             return;
         }
-        const ul = document.createElement('ul');
-        ul.className = 'divide-y divide-gray-200';
+
+        const table = document.createElement('table');
+        table.className = 'min-w-full divide-y divide-gray-200';
+        table.innerHTML = `
+            <thead class="bg-gray-50 sticky top-0">
+                <tr>
+                    <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
+                    <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Producto</th>
+                    <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Presentación</th>
+                    <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rubro</th>
+                    <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Segmento</th>
+                    <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio ($)</th>
+                    <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad</th>
+                    <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Observaciones</th>
+                    ${actionCallback ? `<th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acción</th>` : ''}
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                <!-- Filas de productos se cargarán aquí -->
+            </tbody>
+        `;
+        const tbody = table.querySelector('tbody');
+
         productos.forEach(producto => {
-            const li = document.createElement('li');
-            li.className = 'py-2 flex flex-col sm:flex-row justify-between items-start sm:items-center';
-            li.innerHTML = `
-                <div>
-                    <p class="font-semibold">${producto.Producto || 'N/A'} (${producto.Presentacion || 'N/A'})</p>
-                    <p class="text-sm text-gray-600">SKU: ${producto.Sku || 'N/A'} | Precio: $${(producto.Precio || 0).toFixed(2)} | Cantidad: ${producto.Cantidad || 0}</p>
-                    <p class="text-sm text-gray-600">Rubro: ${producto.Rubro || 'N/A'} | Segmento: ${producto.Segmento || 'N/A'}</p>
-                    <p class="text-sm text-gray-600">Observaciones: ${producto.Observaciones || 'N/A'}</p>
-                </div>
-                ${actionCallback ? `<button class="mt-2 sm:mt-0 sm:ml-4 bg-blue-500 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-600 transition duration-200 select-product-btn" data-product-id="${producto.id}">Seleccionar</button>` : ''}
+            const row = document.createElement('tr');
+            row.className = 'hover:bg-gray-100';
+            row.innerHTML = `
+                <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-900">${producto.Sku || 'N/A'}</td>
+                <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${producto.Producto || 'N/A'}</td>
+                <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${producto.Presentacion || 'N/A'}</td>
+                <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${producto.Rubro || 'N/A'}</td>
+                <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${producto.Segmento || 'N/A'}</td>
+                <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">$${(producto.Precio || 0).toFixed(2)}</td>
+                <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${producto.Cantidad || 0}</td>
+                <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${producto.Observaciones || 'N/A'}</td>
+                ${actionCallback ? `
+                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">
+                        <button class="bg-blue-500 text-white px-3 py-1 rounded-md text-xs hover:bg-blue-600 transition duration-200 select-product-btn" data-product-id="${producto.id}">Seleccionar</button>
+                    </td>
+                ` : ''}
             `;
-            ul.appendChild(li);
+            tbody.appendChild(row);
         });
-        listContainer.appendChild(ul);
+        listContainer.appendChild(table);
 
         // Adjuntar event listeners a los botones "Seleccionar" si existen
         if (actionCallback) {
@@ -759,7 +787,7 @@ export async function renderInventarioSection(container) {
                         delete rubroSegmentoMap[rubroToDelete];
                         await guardarConfiguracionRubrosSegmentos(rubroSegmentoMap);
                         renderList(rubroSegmentoMap); // Re-renderizar la lista con el mapa actualizado
-                        alert(`Rubro "${rubroToDelete}" eliminado.`);
+                        alert(`Rubro "${rubroToDelete}" eliminada.`);
                     }
                 });
             });
