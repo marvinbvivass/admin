@@ -1,9 +1,8 @@
 // archivos.js
-// Este archivo gestiona la visualización y posible gestión de metadatos de archivos
-// utilizando Firebase Firestore.
+// Este archivo gestiona la visualización y descarga de datos de las colecciones principales de Firebase Firestore.
 
 // Importa las funciones necesarias de Firebase Firestore.
-import { collection, getDocs, doc, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { collection, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // Función auxiliar para obtener la instancia de Firestore
 async function getFirestoreInstances() {
@@ -17,62 +16,129 @@ async function getFirestoreInstances() {
 }
 
 /**
- * Agrega un nuevo registro de metadatos de archivo a Firestore.
- * Ruta: /archivosMetadata
- * @param {object} fileMetadata - Objeto con los metadatos del archivo (ej. nombre, tipo, URL si aplica).
- * @returns {Promise<string|null>} El ID del documento agregado o null si hubo un error.
+ * Convierte un array de objetos JSON a formato CSV.
+ * Genera los encabezados a partir de todas las claves únicas encontradas en los datos.
+ * @param {Array<object>} data - Array de objetos a convertir.
+ * @returns {string} La cadena de texto en formato CSV.
  */
-export async function addFileMetadata(fileMetadata) {
-    try {
-        const { db } = await getFirestoreInstances();
-        const filesCollectionRef = collection(db, `archivosMetadata`); // Ruta modificada
-        const docRef = await addDoc(filesCollectionRef, fileMetadata);
-        console.log('Metadatos de archivo agregados con ID:', docRef.id);
-        return docRef.id;
-    } catch (error) {
-        console.error('Error al agregar metadatos de archivo:', error);
-        return null;
+function convertToCsv(data) {
+    if (data.length === 0) {
+        return '';
     }
-}
 
-/**
- * Obtiene todos los metadatos de archivos de Firestore.
- * Ruta: /archivosMetadata
- * @returns {Promise<Array<object>>} Un array de objetos de metadatos de archivo.
- */
-export async function getAllFileMetadata() {
-    try {
-        const { db } = await getFirestoreInstances();
-        const filesCollectionRef = collection(db, `archivosMetadata`); // Ruta modificada
-        const querySnapshot = await getDocs(filesCollectionRef);
-        const files = [];
-        querySnapshot.forEach((doc) => {
-            files.push({ id: doc.id, ...doc.data() });
+    // Recopilar todos los encabezados únicos de todos los objetos
+    const allKeys = new Set();
+    data.forEach(item => {
+        Object.keys(item).forEach(key => allKeys.add(key));
+    });
+
+    const headers = Array.from(allKeys);
+    const csvRows = [];
+
+    // Añadir la fila de encabezados
+    csvRows.push(headers.map(header => `"${header}"`).join(','));
+
+    // Añadir filas de datos
+    data.forEach(item => {
+        const values = headers.map(header => {
+            let value = item[header];
+            if (value === undefined || value === null) {
+                return ''; // Celdas vacías para datos no presentes
+            }
+            if (typeof value === 'object') {
+                // Si es un objeto o array, convertirlo a una cadena JSON
+                value = JSON.stringify(value);
+            }
+            // Escapar comillas dobles y encerrar el valor en comillas si contiene comas o comillas
+            value = String(value).replace(/"/g, '""');
+            return `"${value}"`;
         });
-        console.log('Todos los metadatos de archivos obtenidos:', files);
-        return files;
-    } catch (error) {
-        console.error('Error al obtener metadatos de archivos:', error);
-        return [];
+        csvRows.push(values.join(','));
+    });
+
+    return csvRows.join('\n');
+}
+
+/**
+ * Descarga una cadena de texto como un archivo CSV.
+ * @param {string} csvString - La cadena de texto CSV.
+ * @param {string} filename - El nombre del archivo a descargar.
+ */
+function downloadCsvFile(csvString, filename) {
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    if (link.download !== undefined) { // Feature detection
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url); // Limpiar URL del objeto
+    } else {
+        alert('Su navegador no soporta la descarga directa de archivos. Por favor, copie el texto CSV manualmente.');
+        console.log(csvString); // Para que el usuario pueda copiarlo de la consola
     }
 }
 
 /**
- * Elimina un registro de metadatos de archivo de Firestore.
- * Ruta: /archivosMetadata
- * @param {string} fileId - ID del documento de metadatos a eliminar.
- * @returns {Promise<boolean>} True si la eliminación fue exitosa, false en caso contrario.
+ * Descarga los datos de una colección o documento específico de Firestore como CSV.
+ * @param {string} path - La ruta de la colección o documento en Firestore.
+ * @param {boolean} isCollection - True si es una colección, false si es un documento.
+ * @param {string} filenamePrefix - Prefijo para el nombre del archivo CSV.
  */
-export async function deleteFileMetadata(fileId) {
+async function downloadFirestoreDataAsCsv(path, isCollection, filenamePrefix) {
+    const { db } = await getFirestoreInstances();
+    let dataToExport = [];
+    let filename = `${filenamePrefix}_${new Date().toISOString().slice(0,10)}.csv`; // Nombre de archivo con fecha
+
     try {
-        const { db } = await getFirestoreInstances();
-        const fileDocRef = doc(db, `archivosMetadata`, fileId); // Ruta modificada
-        await deleteDoc(fileDocRef);
-        console.log('Metadatos de archivo eliminados con éxito. ID:', fileId);
-        return true;
+        if (isCollection) {
+            const collectionRef = collection(db, path);
+            const querySnapshot = await getDocs(collectionRef);
+            querySnapshot.forEach(docSnap => {
+                dataToExport.push({ id: docSnap.id, ...docSnap.data() });
+            });
+            console.log(`Datos de la colección "${path}" obtenidos para exportar.`, dataToExport);
+        } else {
+            const docRef = doc(db, path);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                // Si es un documento de configuración, el mapa de datos suele estar en una propiedad 'mapa'
+                // o directamente en el documento. Adaptamos para 'mapa' si existe, o el documento completo.
+                const docData = docSnap.data();
+                if (docData.mapa && typeof docData.mapa === 'object') {
+                    // Si es un mapa (como rubrosSegmentos o zonasSectores)
+                    // Convertir el mapa en un formato tabular para CSV
+                    const mappedData = Object.keys(docData.mapa).map(key => ({
+                        Nombre: key,
+                        Elementos: docData.mapa[key].join('; ') // Unir elementos con punto y coma
+                    }));
+                    dataToExport = mappedData;
+                } else {
+                    // Si es un documento simple (como exchangeRates)
+                    dataToExport.push({ id: docSnap.id, ...docData });
+                }
+                console.log(`Datos del documento "${path}" obtenidos para exportar.`, dataToExport);
+            } else {
+                alert(`El documento "${path}" no existe.`);
+                return;
+            }
+        }
+
+        if (dataToExport.length === 0) {
+            alert(`No hay datos para exportar de "${filenamePrefix}".`);
+            return;
+        }
+
+        const csvString = convertToCsv(dataToExport);
+        downloadCsvFile(csvString, filename);
+        alert(`Datos de "${filenamePrefix}" exportados con éxito a ${filename}.`);
+
     } catch (error) {
-        console.error('Error al eliminar metadatos de archivo:', error);
-        return false;
+        console.error(`Error al descargar datos de "${path}":`, error);
+        alert(`Error al descargar datos de "${filenamePrefix}". Verifique la consola para más detalles.`);
     }
 }
 
@@ -83,28 +149,42 @@ export async function deleteFileMetadata(fileId) {
 export async function renderArchivosSection(container) {
     container.innerHTML = `
         <div class="modal-content">
-            <h2 class="text-4xl font-bold text-gray-900 mb-6 text-center">Gestión de Archivos</h2>
+            <h2 class="text-4xl font-bold text-gray-900 mb-6 text-center">Gestión de Datos de Firestore</h2>
 
             <div class="p-6 bg-yellow-50 rounded-lg shadow-inner">
-                <h3 class="text-2xl font-semibold text-yellow-800 mb-4">Listado de Archivos (Metadatos en Firestore)</h3>
+                <h3 class="text-2xl font-semibold text-yellow-800 mb-4">Exportar Datos a CSV</h3>
 
-                <div class="mb-4">
-                    <input type="text" id="file-name-input" placeholder="Nombre del archivo (ej. Informe Mensual)" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 mb-2">
-                    <input type="text" id="file-url-input" placeholder="URL del archivo (opcional)" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 mb-2">
-                    <textarea id="file-description-input" placeholder="Descripción (opcional)" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 mb-2"></textarea>
-                    <button id="btn-add-file-metadata" class="w-full bg-blue-600 text-white p-3 rounded-md font-semibold hover:bg-blue-700 transition duration-200">
-                        Añadir Metadatos de Archivo
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                    <button id="btn-export-clientes" class="bg-blue-600 text-white p-4 rounded-md font-semibold hover:bg-blue-700 transition duration-200">
+                        Exportar Clientes
+                    </button>
+                    <button id="btn-export-inventario" class="bg-green-600 text-white p-4 rounded-md font-semibold hover:bg-green-700 transition duration-200">
+                        Exportar Inventario
+                    </button>
+                    <button id="btn-export-ventas" class="bg-red-600 text-white p-4 rounded-md font-semibold hover:bg-red-700 transition duration-200">
+                        Exportar Ventas
+                    </button>
+                    <button id="btn-export-rubros-segmentos" class="bg-purple-600 text-white p-4 rounded-md font-semibold hover:bg-purple-700 transition duration-200">
+                        Exportar Rubros/Segmentos
+                    </button>
+                    <button id="btn-export-zonas-sectores" class="bg-indigo-600 text-white p-4 rounded-md font-semibold hover:bg-indigo-700 transition duration-200">
+                        Exportar Zonas/Sectores
+                    </button>
+                    <button id="btn-export-exchange-rates" class="bg-orange-600 text-white p-4 rounded-md font-semibold hover:bg-orange-700 transition duration-200">
+                        Exportar Valores de Cambio
+                    </button>
+                    <button id="btn-export-archivos-metadata" class="bg-teal-600 text-white p-4 rounded-md font-semibold hover:bg-teal-700 transition duration-200">
+                        Exportar Metadatos de Archivos
+                    </button>
+                    <button id="btn-export-users" class="bg-gray-600 text-white p-4 rounded-md font-semibold hover:bg-gray-700 transition duration-200">
+                        Exportar Usuarios (Cuidado)
                     </button>
                 </div>
 
-                <div id="archivos-list" class="bg-white p-4 rounded-md border border-gray-200 max-h-96 overflow-y-auto shadow-md mt-6">
-                    <!-- Los archivos se mostrarán aquí -->
-                    <p class="text-gray-500">Cargando metadatos de archivos...</p>
-                </div>
-
-                <button id="btn-back-archivos" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
-                    Volver
-                </button>
+                <p class="text-sm text-gray-600 mt-4">
+                    Haz clic en un botón para descargar un archivo CSV con los datos de la colección o documento correspondiente.
+                    Los datos de configuración (Rubros/Segmentos, Zonas/Sectores, Valores de Cambio) se exportarán como un solo documento.
+                </p>
             </div>
 
             <!-- Botón para cerrar el modal -->
@@ -116,110 +196,39 @@ export async function renderArchivosSection(container) {
         </div>
     `;
 
-    const archivosListDiv = container.querySelector('#archivos-list');
-    const fileNameInput = container.querySelector('#file-name-input');
-    const fileUrlInput = container.querySelector('#file-url-input');
-    const fileDescriptionInput = container.querySelector('#file-description-input');
-    const btnAddFileMetadata = container.querySelector('#btn-add-file-metadata');
-    const btnBack = container.querySelector('#btn-back-archivos');
     const closeArchivosModalBtn = container.querySelector('#close-archivos-modal');
 
-    let currentFiles = []; // Para almacenar los metadatos de archivos actuales
-
-    // Función para renderizar la lista de metadatos de archivos
-    const renderFilesList = (filesToRender) => {
-        archivosListDiv.innerHTML = ''; // Limpiar lista
-        if (filesToRender.length === 0) {
-            archivosListDiv.innerHTML = '<p class="text-gray-500">No hay metadatos de archivos para mostrar aún.</p>';
-            return;
-        }
-
-        const ul = document.createElement('ul');
-        ul.className = 'divide-y divide-gray-200';
-        filesToRender.forEach(file => {
-            const li = document.createElement('li');
-            li.className = 'py-2 flex flex-col sm:flex-row justify-between items-start sm:items-center';
-            li.innerHTML = `
-                <div>
-                    <p class="font-semibold">${file.name || 'Sin Nombre'}</p>
-                    <p class="text-sm text-gray-600">Descripción: ${file.description || 'N/A'}</p>
-                    ${file.url ? `<p class="text-sm text-blue-600 hover:underline"><a href="${file.url}" target="_blank" rel="noopener noreferrer">Ver Archivo</a></p>` : ''}
-                </div>
-                <button class="mt-2 sm:mt-0 sm:ml-4 bg-red-500 text-white px-3 py-1 rounded-md text-sm hover:bg-red-600 transition duration-200 delete-file-btn" data-file-id="${file.id}">Eliminar</button>
-            `;
-            ul.appendChild(li);
-        });
-        archivosListDiv.appendChild(ul);
-
-        // Añadir event listeners a los botones de eliminar
-        archivosListDiv.querySelectorAll('.delete-file-btn').forEach(button => {
-            button.addEventListener('click', async (event) => {
-                const fileId = event.target.dataset.fileId;
-                if (confirm('¿Estás seguro de que quieres eliminar este registro de archivo?')) {
-                    const deleted = await deleteFileMetadata(fileId);
-                    if (deleted) {
-                        alert('Registro de archivo eliminado con éxito.');
-                        await loadFiles(); // Recargar la lista
-                    } else {
-                        alert('Fallo al eliminar el registro de archivo.');
-                    }
-                }
-            });
-        });
-    };
-
-    // Función para cargar y renderizar los archivos
-    const loadFiles = async () => {
-        archivosListDiv.innerHTML = '<p class="text-gray-500">Cargando metadatos de archivos...</p>';
-        try {
-            currentFiles = await getAllFileMetadata();
-            renderFilesList(currentFiles);
-        } catch (error) {
-            console.error('Error al cargar metadatos de archivos:', error);
-            archivosListDiv.innerHTML = '<p class="text-red-600">Error al cargar metadatos de archivos. Verifique los permisos.</p>';
-        }
-    };
-
-    // Cargar archivos al abrir la sección
-    loadFiles();
-
-    // Lógica para añadir metadatos de archivo
-    btnAddFileMetadata.addEventListener('click', async () => {
-        const name = fileNameInput.value.trim();
-        const url = fileUrlInput.value.trim();
-        const description = fileDescriptionInput.value.trim();
-
-        if (!name) {
-            alert('Por favor, ingresa un nombre para el archivo.');
-            return;
-        }
-
-        const newFile = {
-            name: name,
-            url: url,
-            description: description,
-            createdAt: new Date().toISOString()
-        };
-
-        const id = await addFileMetadata(newFile);
-        if (id) {
-            alert('Metadatos de archivo añadidos con éxito, ID: ' + id);
-            fileNameInput.value = '';
-            fileUrlInput.value = '';
-            fileDescriptionInput.value = '';
-            await loadFiles(); // Recargar la lista para mostrar el nuevo archivo
-        } else {
-            alert('Fallo al añadir metadatos de archivo.');
+    // Asignar event listeners a los botones de exportación
+    container.querySelector('#btn-export-clientes').addEventListener('click', () =>
+        downloadFirestoreDataAsCsv('datosClientes', true, 'clientes')
+    );
+    container.querySelector('#btn-export-inventario').addEventListener('click', () =>
+        downloadFirestoreDataAsCsv('datosInventario', true, 'inventario')
+    );
+    container.querySelector('#btn-export-ventas').addEventListener('click', () =>
+        downloadFirestoreDataAsCsv('datosVentas', true, 'ventas')
+    );
+    container.querySelector('#btn-export-rubros-segmentos').addEventListener('click', () =>
+        downloadFirestoreDataAsCsv('configuracion/rubrosSegmentos', false, 'rubros_segmentos')
+    );
+    container.querySelector('#btn-export-zonas-sectores').addEventListener('click', () =>
+        downloadFirestoreDataAsCsv('configuracion/zonasSectores', false, 'zonas_sectores')
+    );
+    container.querySelector('#btn-export-exchange-rates').addEventListener('click', () =>
+        downloadFirestoreDataAsCsv('configuracion/exchangeRates', false, 'valores_cambio')
+    );
+    container.querySelector('#btn-export-archivos-metadata').addEventListener('click', () =>
+        downloadFirestoreDataAsCsv('archivosMetadata', true, 'archivos_metadata')
+    );
+    container.querySelector('#btn-export-users').addEventListener('click', () => {
+        if (confirm('Advertencia: La exportación de datos de usuarios puede contener información sensible. ¿Desea continuar?')) {
+            downloadFirestoreDataAsCsv('users', true, 'usuarios');
         }
     });
+
 
     // Lógica para cerrar el modal
     closeArchivosModalBtn.addEventListener('click', () => {
-        container.classList.add('hidden'); // Oculta el modal
-    });
-
-    // Lógica para el botón "Volver"
-    btnBack.addEventListener('click', () => {
         container.classList.add('hidden'); // Oculta el modal
     });
 }
