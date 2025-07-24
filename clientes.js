@@ -892,7 +892,7 @@ export async function renderClientesSection(container) {
                     const zona = event.target.dataset.zona;
                     const sectorToDelete = event.target.dataset.sector;
                     if (confirm(`¿Estás seguro de que quieres eliminar el sector "${sectorToDelete}" de "${zona}"?`)) {
-                        zonaSectorMap[zona] = zonaSectorMap[zona].filter(s => s !== segmentoToDelete);
+                        zonaSectorMap[zona] = zonaSectorMap[zona].filter(s => s !== sectorToDelete);
                         await guardarConfiguracionZonasSectores(zonaSectorMap);
                         renderList(zonaSectorMap); // Re-renderizar la lista con el mapa actualizado
                         alert(`Sector "${sectorToDelete}" eliminado de "${zona}".`);
