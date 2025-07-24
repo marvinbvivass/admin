@@ -21,6 +21,68 @@ async function getFirestoreInstances() {
 }
 
 /**
+ * Muestra un modal de confirmación personalizado.
+ * @param {string} message - El mensaje a mostrar en el modal.
+ * @returns {Promise<boolean>} Resuelve a true si el usuario confirma, false si cancela.
+ */
+function showCustomConfirm(message) {
+    return new Promise(resolve => {
+        const modalId = 'custom-confirm-modal';
+        let modal = document.getElementById(modalId);
+
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = modalId;
+            modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 p-4';
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-auto">
+                    <p class="text-lg font-semibold text-gray-800 mb-4" id="confirm-message"></p>
+                    <div class="flex justify-end space-x-3">
+                        <button id="confirm-no-btn" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 transition duration-200">No</button>
+                        <button id="confirm-yes-btn" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition duration-200">Sí</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        modal.querySelector('#confirm-message').textContent = message;
+        modal.classList.remove('hidden');
+
+        const yesBtn = modal.querySelector('#confirm-yes-btn');
+        const noBtn = modal.querySelector('#confirm-no-btn');
+
+        // Limpiar listeners previos para evitar duplicados si el modal se reutiliza
+        const oldYesBtn = yesBtn.cloneNode(true);
+        const oldNoBtn = noBtn.cloneNode(true);
+        yesBtn.parentNode.replaceChild(oldYesBtn, yesBtn);
+        noBtn.parentNode.replaceChild(oldNoBtn, noBtn);
+
+        const newYesBtn = document.getElementById('confirm-yes-btn');
+        const newNoBtn = document.getElementById('confirm-no-btn');
+
+
+        const cleanup = () => {
+            modal.classList.add('hidden');
+        };
+
+        const onYesClick = () => {
+            cleanup();
+            resolve(true);
+        };
+
+        const onNoClick = () => {
+            cleanup();
+            resolve(false);
+        };
+
+        newYesBtn.addEventListener('click', onYesClick);
+        newNoBtn.addEventListener('click', onNoClick);
+    });
+}
+
+
+/**
  * Obtiene la configuración de zonas y sectores desde Firebase.
  * @returns {Promise<object>} El mapa de zonas a sectores.
  */
@@ -237,12 +299,6 @@ export async function renderClientesSection(container) {
     const btnShowModifyDeleteCliente = container.querySelector('#btn-show-modify-delete-cliente');
     const btnShowVerClientes = container.querySelector('#btn-show-ver-clientes');
     const btnShowManageZonesSectors = container.querySelector('#btn-show-manage-zones-sectors');
-
-    console.log('renderClientesSection: Verificando referencias de botones:');
-    console.log('  btnShowAddCliente:', btnShowAddCliente ? 'Encontrado' : 'NO ENCONTRADO');
-    console.log('  btnShowModifyDeleteCliente:', btnShowModifyDeleteCliente ? 'Encontrado' : 'NO ENCONTRADO');
-    console.log('  btnShowVerClientes:', btnShowVerClientes ? 'Encontrado' : 'NO ENCONTRADO');
-    console.log('  btnShowManageZonesSectors:', btnShowManageZonesSectors ? 'Encontrado' : 'NO ENCONTRADO');
 
     // Cargar el mapa de zonas y sectores al inicio de la sección de clientes
     zonaSectorMap = await obtenerConfiguracionZonasSectores();
@@ -513,13 +569,16 @@ export async function renderClientesSection(container) {
         clientesSubSection.querySelector('#btn-submit-delete-cliente').addEventListener('click', async () => {
             const id = clientesSubSection.querySelector('#mod-del-cliente-id').value;
             if (id) {
-                const eliminado = await eliminarCliente(id);
-                if (eliminado) {
-                    alert('Cliente eliminado con éxito.');
-                    // Volver a la búsqueda
-                    showModifyDeleteSearch();
-                } else {
-                    alert('Fallo al eliminar cliente.');
+                const confirmado = await showCustomConfirm(`¿Estás seguro de que quieres eliminar el cliente con ID: ${id}?`);
+                if (confirmado) {
+                    const eliminado = await eliminarCliente(id);
+                    if (eliminado) {
+                        alert('Cliente eliminado con éxito.');
+                        // Volver a la búsqueda
+                        showModifyDeleteSearch();
+                    } else {
+                        alert('Fallo al eliminar cliente.');
+                    }
                 }
             } else {
                 alert('Por favor, ingresa el ID del cliente a eliminar.');
@@ -873,7 +932,8 @@ export async function renderClientesSection(container) {
             listContainer.querySelectorAll('.delete-zona-btn').forEach(button => {
                 button.addEventListener('click', async (event) => {
                     const zonaToDelete = event.target.dataset.zona;
-                    if (confirm(`¿Estás seguro de que quieres eliminar la zona "${zonaToDelete}" y todos sus sectores?`)) {
+                    const confirmado = await showCustomConfirm(`¿Estás seguro de que quieres eliminar la zona "${zonaToDelete}" y todos sus sectores?`);
+                    if (confirmado) {
                         delete zonaSectorMap[zonaToDelete];
                         await guardarConfiguracionZonasSectores(zonaSectorMap);
                         renderList(zonaSectorMap); // Re-renderizar la lista con el mapa actualizado
@@ -887,7 +947,8 @@ export async function renderClientesSection(container) {
                 button.addEventListener('click', async (event) => {
                     const zona = event.target.dataset.zona;
                     const sectorToDelete = event.target.dataset.sector;
-                    if (confirm(`¿Estás seguro de que quieres eliminar el sector "${sectorToDelete}" de "${zona}"?`)) {
+                    const confirmado = await showCustomConfirm(`¿Estás seguro de que quieres eliminar el sector "${sectorToDelete}" de "${zona}"?`);
+                    if (confirmado) {
                         zonaSectorMap[zona] = zonaSectorMap[zona].filter(s => s !== sectorToDelete);
                         await guardarConfiguracionZonasSectores(zonaSectorMap);
                         renderList(zonaSectorMap); // Re-renderizar la lista con el mapa actualizado
@@ -929,3 +990,4 @@ export async function renderClientesSection(container) {
         }
     }
 }
+
