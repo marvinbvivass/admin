@@ -144,18 +144,18 @@ export async function renderVentasSection(container) {
             <div class="p-6 bg-blue-50 rounded-lg shadow-inner">
                 <h3 class="text-2xl font-semibold text-blue-800 mb-4">Realizar Nueva Venta</h3>
 
-                <!-- Sección de Selección de Cliente -->
-                <div class="mb-6 p-4 border border-blue-200 rounded-md">
-                    <h4 class="text-xl font-semibold text-blue-700 mb-3">1. Seleccionar Cliente</h4>
-                    <input type="text" id="search-cliente-venta-input" placeholder="Buscar cliente por nombre o CEP" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3">
-                    <div id="clientes-venta-list" class="bg-white p-3 rounded-md border border-gray-200 max-h-40 overflow-y-auto mb-3">
+                <!-- Sección de Selección de Cliente (más compacta) -->
+                <div class="mb-4 p-3 border border-blue-200 rounded-md">
+                    <h4 class="text-lg font-semibold text-blue-700 mb-2">1. Seleccionar Cliente</h4>
+                    <input type="text" id="search-cliente-venta-input" placeholder="Buscar cliente por nombre o CEP" class="w-full p-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2">
+                    <div id="clientes-venta-list" class="bg-white p-2 rounded-md border border-gray-200 max-h-32 overflow-y-auto mb-2 text-sm">
                         <p class="text-gray-500">Busque un cliente para seleccionarlo.</p>
                     </div>
-                    <p id="selected-client-display" class="font-medium text-gray-800">Cliente Seleccionado: Ninguno</p>
+                    <p id="selected-client-display" class="font-medium text-gray-800 text-sm">Cliente Seleccionado: Ninguno</p>
                 </div>
 
                 <!-- Sección de Productos Disponibles (Tabla Grande) -->
-                <div class="mb-6 p-4 border border-blue-200 rounded-md" id="productos-para-venta-section">
+                <div class="mb-4 p-4 border border-blue-200 rounded-md" id="productos-para-venta-section">
                     <h4 class="text-xl font-semibold text-blue-700 mb-3">2. Productos Disponibles</h4>
                     <div class="mb-3">
                         <label for="filter-rubro-venta" class="block text-sm font-medium text-gray-700 mb-1">Filtrar por Rubro:</label>
@@ -184,17 +184,17 @@ export async function renderVentasSection(container) {
                     </div>
                 </div>
 
-                <!-- Detalles Finales de la Venta y Botón Finalizar -->
-                <div class="mb-6 p-4 border border-blue-200 rounded-md">
-                    <h4 class="text-xl font-semibold text-blue-700 mb-3">3. Detalles y Finalización</h4>
-                    <select id="metodo-pago-select" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3">
+                <!-- Sección de Finalización Simplificada -->
+                <div class="mb-4 p-3 border border-blue-200 rounded-md">
+                    <h4 class="text-lg font-semibold text-blue-700 mb-2">Finalizar Venta</h4>
+                    <select id="metodo-pago-select" class="w-full p-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2">
                         <option value="">-- Selecciona Método de Pago --</option>
                         <option value="Efectivo">Efectivo</option>
                         <option value="Transferencia">Transferencia</option>
                         <option value="Punto de Venta">Punto de Venta</option>
                         <option value="Credito">Crédito</option>
                     </select>
-                    <textarea id="observaciones-venta-input" placeholder="Observaciones de la venta (opcional)" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"></textarea>
+                    <textarea id="observaciones-venta-input" placeholder="Observaciones de la venta (opcional)" class="w-full p-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"></textarea>
                     <button id="btn-finalizar-venta" class="w-full bg-green-600 text-white p-3 rounded-md font-semibold hover:bg-green-700 transition duration-200" disabled>
                         Finalizar Venta
                     </button>
@@ -231,7 +231,7 @@ export async function renderVentasSection(container) {
             }
             clientsToRender.forEach(client => {
                 const clientDiv = document.createElement('div');
-                clientDiv.className = 'p-2 hover:bg-blue-100 cursor-pointer rounded-md';
+                clientDiv.className = 'p-1 hover:bg-blue-100 cursor-pointer rounded-md'; // Reduced padding
                 clientDiv.textContent = `${client.NombreComercial} (${client.NombrePersonal}) - ${client.Zona}, ${client.Sector}`;
                 clientDiv.addEventListener('click', () => {
                     selectedClient = client;
@@ -548,3 +548,4 @@ export async function renderVentasSection(container) {
         btnBack.addEventListener('click', backToMainMenuCallback);
     }
 }
+
