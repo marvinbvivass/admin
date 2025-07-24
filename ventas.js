@@ -8,6 +8,9 @@ import { collection, addDoc, getDocs, doc, updateDoc, query, where, getDoc } fro
 import { obtenerTodosLosClientes } from './clientes.js';
 import { verInventarioCompleto, modificarProducto } from './inventario.js';
 
+// ID fijo para el documento de configuración de valores de cambio (copiado de precios.js)
+const EXCHANGE_RATES_DOC_ID = 'exchangeRates';
+
 // Función auxiliar para obtener la instancia de Firestore
 async function getFirestoreInstances() {
     while (!window.firebaseDb) {
@@ -17,6 +20,33 @@ async function getFirestoreInstances() {
     return {
         db: window.firebaseDb,
     };
+}
+
+/**
+ * Obtiene los valores de cambio (COP y BS) desde Firestore.
+ * (Copiado de precios.js para evitar dependencias complejas)
+ * @returns {Promise<{cop: number, bs: number}>} Los valores de cambio o valores predeterminados.
+ */
+async function getExchangeRates() {
+    try {
+        const { db } = await getFirestoreInstances();
+        const configDocRef = doc(db, `configuracion`, EXCHANGE_RATES_DOC_ID);
+        const configSnap = await getDoc(configDocRef);
+
+        if (configSnap.exists()) {
+            const data = configSnap.data();
+            return {
+                cop: parseFloat(data.cop || 1),
+                bs: parseFloat(data.bs || 1)
+            };
+        } else {
+            console.log('No se encontraron valores de cambio. Usando predeterminados (1:1).');
+            return { cop: 1, bs: 1 };
+        }
+    } catch (error) {
+        console.error('Error al obtener valores de cambio:', error);
+        return { cop: 1, bs: 1 };
+    }
 }
 
 /**
@@ -127,6 +157,7 @@ export async function renderVentasSection(container) {
         let allClients = await obtenerTodosLosClientes();
         let allProducts = await verInventarioCompleto();
         let rubroSegmentoMap = {}; // Se cargará si es necesario para el filtro de rubro
+        let currentExchangeRates = { cop: 1, bs: 1 }; // Valores de cambio
 
         // Obtener la configuración de rubros y segmentos (similar a inventario.js)
         try {
@@ -136,8 +167,10 @@ export async function renderVentasSection(container) {
             if (configSnap.exists()) {
                 rubroSegmentoMap = configSnap.data().mapa || {};
             }
+            // Obtener valores de cambio
+            currentExchangeRates = await getExchangeRates();
         } catch (error) {
-            console.error('Error al obtener configuración de rubros y segmentos para ventas:', error);
+            console.error('Error al obtener configuración para ventas:', error);
         }
 
         parentContainer.innerHTML = `
@@ -156,7 +189,10 @@ export async function renderVentasSection(container) {
 
                 <!-- Sección de Productos Disponibles (Tabla Grande) -->
                 <div class="mb-4 p-4 border border-blue-200 rounded-md" id="productos-para-venta-section">
-                    <h4 class="text-xl font-semibold text-blue-700 mb-3">2. Productos Disponibles</h4>
+                    <h4 class="text-xl font-semibold text-blue-700 mb-3 flex justify-between items-center">
+                        <span>2. Productos Disponibles</span>
+                        <span class="text-lg font-bold text-gray-900">Total: $<span id="total-venta-display">0.00</span></span>
+                    </h4>
                     <div class="mb-3">
                         <label for="filter-rubro-venta" class="block text-sm font-medium text-gray-700 mb-1">Filtrar por Rubro:</label>
                         <select id="filter-rubro-venta" class="w-full p-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -168,17 +204,19 @@ export async function renderVentasSection(container) {
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50 sticky top-0">
                                 <tr>
-                                    <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
                                     <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Producto</th>
                                     <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Presentación</th>
                                     <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio ($)</th>
                                     <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
                                     <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad</th>
+                                    <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotal ($)</th>
+                                    <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">COP</th>
+                                    <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">BS</th>
                                 </tr>
                             </thead>
                             <tbody id="productos-venta-table-body" class="bg-white divide-y divide-gray-200">
                                 <!-- Filas de productos se cargarán aquí -->
-                                <tr><td colspan="6" class="px-2 py-1 whitespace-nowrap text-xs text-gray-500 text-center">Seleccione un cliente para ver los productos.</td></tr>
+                                <tr><td colspan="8" class="px-2 py-1 whitespace-nowrap text-xs text-gray-500 text-center">Seleccione un cliente para ver los productos.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -199,6 +237,7 @@ export async function renderVentasSection(container) {
         const clientesVentaListDiv = parentContainer.querySelector('#clientes-venta-list');
         const selectedClientDisplay = parentContainer.querySelector('#selected-client-display');
         const productosParaVentaSection = parentContainer.querySelector('#productos-para-venta-section');
+        const totalVentaDisplay = parentContainer.querySelector('#total-venta-display');
         const filterRubroVentaSelect = parentContainer.querySelector('#filter-rubro-venta');
         const productosVentaTableBody = parentContainer.querySelector('#productos-venta-table-body');
         const btnFinalizarVenta = parentContainer.querySelector('#btn-finalizar-venta');
@@ -226,7 +265,7 @@ export async function renderVentasSection(container) {
                     searchClienteInput.value = ''; // Limpiar input de búsqueda
                     productosParaVentaSection.classList.remove('hidden'); // Mostrar la sección de productos
                     renderProductTable(allProducts); // Renderizar todos los productos inicialmente
-                    checkFinalizarVentaButtonStatus();
+                    checkFinalizarVentaButtonStatus(); // Actualizar estado del botón y total
                 });
                 clientesVentaListDiv.appendChild(clientDiv);
             });
@@ -247,29 +286,41 @@ export async function renderVentasSection(container) {
             productosVentaTableBody.innerHTML = ''; // Limpiar tabla
 
             if (productsToRender.length === 0) {
-                productosVentaTableBody.innerHTML = `<tr><td colspan="6" class="px-2 py-1 whitespace-nowrap text-xs text-gray-500 text-center">No hay productos disponibles.</td></tr>`;
+                productosVentaTableBody.innerHTML = `<tr><td colspan="8" class="px-2 py-1 whitespace-nowrap text-xs text-gray-500 text-center">No hay productos disponibles.</td></tr>`;
                 return;
             }
 
             productsToRender.forEach(product => {
+                const precioUSD = product.Precio || 0;
+                const precioCOP = (precioUSD * currentExchangeRates.cop).toFixed(2);
+                const precioBS = (precioUSD * currentExchangeRates.bs).toFixed(2);
+
                 const row = document.createElement('tr');
                 row.className = 'hover:bg-gray-100';
                 row.innerHTML = `
-                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-900">${product.Sku || 'N/A'}</td>
-                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${product.Producto || 'N/A'}</td>
+                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-900">${product.Producto || 'N/A'}</td>
                     <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${product.Presentacion || 'N/A'}</td>
-                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">$${(product.Precio || 0).toFixed(2)}</td>
+                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">$${precioUSD.toFixed(2)}</td>
                     <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500" data-stock="${product.Cantidad || 0}">${product.Cantidad || 0}</td>
                     <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">
-                        <input type="number" min="0" value="0" class="w-20 p-1 border border-gray-300 rounded-md text-center quantity-input" data-product-id="${product.id}">
+                        <input type="number" min="0" value="0" class="w-20 p-1 border border-gray-300 rounded-md text-center quantity-input" data-product-id="${product.id}" data-product-price="${precioUSD}">
                     </td>
+                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500 subtotal-display">$0.00</td>
+                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">COP ${precioCOP}</td>
+                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">BS ${precioBS}</td>
                 `;
                 productosVentaTableBody.appendChild(row);
             });
 
-            // Añadir event listeners para los inputs de cantidad para actualizar el estado del botón Finalizar Venta
+            // Añadir event listeners para los inputs de cantidad para actualizar el estado del botón Finalizar Venta y el subtotal/total
             productosVentaTableBody.querySelectorAll('.quantity-input').forEach(input => {
-                input.addEventListener('input', checkFinalizarVentaButtonStatus);
+                input.addEventListener('input', (event) => {
+                    const quantity = parseInt(event.target.value) || 0;
+                    const price = parseFloat(event.target.dataset.productPrice);
+                    const subtotal = quantity * price;
+                    event.target.closest('tr').querySelector('.subtotal-display').textContent = `$${subtotal.toFixed(2)}`;
+                    checkFinalizarVentaButtonStatus(); // Recalcular total y habilitar/deshabilitar botón
+                });
             });
         };
 
@@ -285,7 +336,19 @@ export async function renderVentasSection(container) {
         // --- Lógica de Finalizar Venta ---
         const checkFinalizarVentaButtonStatus = () => {
             const hasClient = selectedClient !== null;
-            const hasAnyQuantity = Array.from(productosVentaTableBody.querySelectorAll('.quantity-input')).some(input => parseInt(input.value) > 0);
+            let totalCurrentSale = 0;
+            let hasAnyQuantity = false;
+
+            productosVentaTableBody.querySelectorAll('.quantity-input').forEach(input => {
+                const quantity = parseInt(input.value) || 0;
+                const price = parseFloat(input.dataset.productPrice);
+                totalCurrentSale += (quantity * price);
+                if (quantity > 0) {
+                    hasAnyQuantity = true;
+                }
+            });
+
+            totalVentaDisplay.textContent = totalCurrentSale.toFixed(2);
             btnFinalizarVenta.disabled = !(hasClient && hasAnyQuantity);
         };
 
@@ -308,6 +371,8 @@ export async function renderVentasSection(container) {
                 const cantidad = parseInt(quantityInput.value);
                 const stockElement = row.querySelector('td[data-stock]');
                 const availableStock = parseInt(stockElement.dataset.stock);
+                const productPrice = parseFloat(quantityInput.dataset.productPrice);
+
 
                 if (cantidad > 0) {
                     const productData = allProducts.find(p => p.id === productId);
@@ -327,7 +392,7 @@ export async function renderVentasSection(container) {
                         return;
                     }
 
-                    const subtotal = cantidad * productData.Precio;
+                    const subtotal = cantidad * productPrice;
                     totalVentaCalculado += subtotal;
 
                     productsToProcess.push({
@@ -336,7 +401,7 @@ export async function renderVentasSection(container) {
                         presentacion: productData.Presentacion,
                         sku: productData.Sku,
                         cantidad: cantidad,
-                        precioUnitario: productData.Precio,
+                        precioUnitario: productPrice,
                         subtotal: subtotal
                     });
                 }
@@ -357,7 +422,6 @@ export async function renderVentasSection(container) {
                 fecha: new Date().toISOString(), // Fecha y hora actual
                 productos: productsToProcess,
                 totalVenta: totalVentaCalculado,
-                // metodoPago y observaciones ya no se incluyen
             };
 
             // 1. Actualizar el stock en inventario para cada producto vendido
@@ -369,9 +433,6 @@ export async function renderVentasSection(container) {
                 }
             }
 
-            // La lógica de actualización de deuda del cliente por "Crédito" se ha eliminado.
-            // Si necesitas gestionar deudas de alguna otra forma, deberás implementarlo aquí.
-
             // 2. Registrar la venta
             const ventaId = await agregarVenta(ventaData);
 
@@ -381,14 +442,13 @@ export async function renderVentasSection(container) {
                 selectedClient = null;
                 selectedClientDisplay.textContent = 'Cliente Seleccionado: Ninguno';
                 searchClienteInput.value = '';
-                // metodoPagoSelect.value = ''; // Ya no existe
-                // observacionesVentaInput.value = ''; // Ya no existe
                 productosParaVentaSection.classList.add('hidden'); // Ocultar sección de productos
                 btnFinalizarVenta.disabled = true;
+                totalVentaDisplay.textContent = '0.00'; // Resetear el total
 
                 // Recargar todos los productos para reflejar el stock actualizado
                 allProducts = await verInventarioCompleto();
-                // Recargar clientes para reflejar la deuda actualizada (si se gestionara en otro lado)
+                // Recargar clientes (si fuera necesario por cambios de deuda, etc., aunque aquí no se gestiona)
                 allClients = await obtenerTodosLosClientes();
             } else {
                 alert('Fallo al finalizar la venta.');
@@ -466,9 +526,15 @@ export async function renderVentasSection(container) {
                     const venta = docSnap.data();
                     totalVentasDia += venta.totalVenta || 0;
 
-                    // Sumar por método de pago (si existiera en ventas antiguas)
-                    const metodo = venta.metodoPago || 'No Especificado';
-                    ventasPorMetodoPago[metodo] = (ventasPorMetodoPago[metodo] || 0) + venta.totalVenta;
+                    // Sumar por método de pago (si existiera en ventas antiguas, aunque ya no se registra)
+                    const metodo = venta.metodoPago || 'No Especificado'; // Podría ser undefined si no se registra
+                    if (venta.metodoPago) { // Solo si el campo existe en la venta
+                        ventasPorMetodoPago[metodo] = (ventasPorMetodoPago[metodo] || 0) + venta.totalVenta;
+                    } else {
+                        // Si no hay método de pago, se puede agrupar como "Venta Directa" o similar
+                        ventasPorMetodoPago['Venta Directa'] = (ventasPorMetodoPago['Venta Directa'] || 0) + venta.totalVenta;
+                    }
+
 
                     // Sumar productos vendidos
                     venta.productos.forEach(item => {
