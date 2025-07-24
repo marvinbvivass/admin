@@ -187,6 +187,12 @@ export async function obtenerTodosLosClientes() {
  * @param {HTMLElement} container - El elemento DOM donde se renderizará el modal de clientes.
  */
 export async function renderClientesSection(container) {
+    console.log('renderClientesSection: Iniciando. Contenedor recibido:', container);
+    if (!container) {
+        console.error('renderClientesSection: ERROR - El elemento contenedor es nulo o indefinido.');
+        return; // Detener la ejecución si no hay contenedor
+    }
+
     container.innerHTML = `
         <div class="modal-content">
             <h2 class="text-4xl font-bold text-gray-900 mb-6 text-center">Gestión de Clientes</h2>
@@ -220,10 +226,23 @@ export async function renderClientesSection(container) {
         </div>
     `;
 
+    console.log('renderClientesSection: HTML inyectado en el contenedor.');
     // Obtener referencias a los elementos del DOM después de que se hayan renderizado
     const clientesMainButtonsContainer = container.querySelector('#clientes-main-buttons-container');
     const clientesSubSection = container.querySelector('#clientes-sub-section');
     const closeClientesModalBtn = container.querySelector('#close-clientes-modal');
+
+    // Referencias a los botones principales
+    const btnShowAddCliente = container.querySelector('#btn-show-add-cliente');
+    const btnShowModifyDeleteCliente = container.querySelector('#btn-show-modify-delete-cliente');
+    const btnShowVerClientes = container.querySelector('#btn-show-ver-clientes');
+    const btnShowManageZonesSectors = container.querySelector('#btn-show-manage-zones-sectors');
+
+    console.log('renderClientesSection: Verificando referencias de botones:');
+    console.log('  btnShowAddCliente:', btnShowAddCliente ? 'Encontrado' : 'NO ENCONTRADO');
+    console.log('  btnShowModifyDeleteCliente:', btnShowModifyDeleteCliente ? 'Encontrado' : 'NO ENCONTRADO');
+    console.log('  btnShowVerClientes:', btnShowVerClientes ? 'Encontrado' : 'NO ENCONTRADO'); // Este es el que nos interesa
+    console.log('  btnShowManageZonesSectors:', btnShowManageZonesSectors ? 'Encontrado' : 'NO ENCONTRADO');
 
     // Cargar el mapa de zonas y sectores al inicio de la sección de clientes
     zonaSectorMap = await obtenerConfiguracionZonasSectores();
@@ -235,300 +254,57 @@ export async function renderClientesSection(container) {
     };
 
     // Lógica para cerrar el modal
-    closeClientesModalBtn.addEventListener('click', () => {
-        container.classList.add('hidden'); // Oculta el modal
-        showClientesMainButtons(); // Vuelve a la vista de botones principales al cerrar
-    });
-
-    // Función para renderizar el formulario de modificar/eliminar
-    const renderModifyDeleteForm = (clientData = null) => {
-        clientesSubSection.innerHTML = `
-            <div class="p-6 bg-yellow-50 rounded-lg shadow-inner">
-                <h3 class="text-2xl font-semibold text-yellow-800 mb-4">Modificar o Eliminar Cliente</h3>
-                <input type="hidden" id="mod-del-cliente-id" value="${clientData ? clientData.id : ''}">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input type="text" id="mod-cep" placeholder="Nuevo CEP (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${clientData?.CEP || ''}">
-                    <input type="text" id="mod-nombre-comercial" placeholder="Nuevo Nombre Comercial (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${clientData?.NombreComercial || ''}">
-                    <input type="text" id="mod-nombre-personal" placeholder="Nuevo Nombre Personal (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${clientData?.NombrePersonal || ''}">
-                    <select id="mod-zona" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
-                        <option value="">Nueva Zona (opcional)</option>
-                        ${Object.keys(zonaSectorMap).map(zona => `<option value="${zona}" ${clientData?.Zona === zona ? 'selected' : ''}>${zona}</option>`).join('')}
-                    </select>
-                    <select id="mod-sector" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" ${clientData?.Zona ? '' : 'disabled'}>
-                        <option value="">Nuevo Sector (opcional)</option>
-                        ${clientData?.Zona && zonaSectorMap[clientData.Zona] ? zonaSectorMap[clientData.Zona].map(sector => `<option value="${sector}" ${clientData?.Sector === sector ? 'selected' : ''}>${sector}</option>`).join('') : ''}
-                    </select>
-                    <input type="tel" id="mod-tlf" placeholder="Nuevo Teléfono (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${clientData?.Tlf || ''}">
-                    <input type="number" step="0.01" id="mod-deuda" placeholder="Nueva Deuda (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${clientData?.Deuda || ''}">
-                    <textarea id="mod-observaciones" placeholder="Nuevas Observaciones (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 col-span-full">${clientData?.Observaciones || ''}</textarea>
-                </div>
-                <div class="flex flex-col md:flex-row gap-4 mt-6">
-                    <button id="btn-submit-modify-cliente" class="flex-1 bg-yellow-600 text-white p-3 rounded-md font-semibold hover:bg-yellow-700 transition duration-200">
-                        Confirmar Modificar
-                    </button>
-                    <button id="btn-submit-delete-cliente" class="flex-1 bg-red-600 text-white p-3 rounded-md font-semibold hover:bg-red-700 transition duration-200">
-                        Confirmar Eliminar
-                    </button>
-                </div>
-                <button id="btn-back-modify-delete-cliente" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
-                    Volver
-                </button>
-            </div>
-        `;
-
-        // Lógica para actualizar el select de Sector cuando cambia la Zona en modificar
-        const modZonaSelect = container.querySelector('#mod-zona');
-        const modSectorSelect = container.querySelector('#mod-sector');
-        modZonaSelect.addEventListener('change', () => {
-            const selectedZona = modZonaSelect.value;
-            modSectorSelect.innerHTML = '<option value="">Nuevo Sector (opcional)</option>'; // Limpiar opciones anteriores
-            if (selectedZona && zonaSectorMap[selectedZona]) {
-                zonaSectorMap[selectedZona].forEach(sector => {
-                    const option = document.createElement('option');
-                    option.value = sector;
-                    option.textContent = sector;
-                    modSectorSelect.appendChild(option);
-                });
-                modSectorSelect.disabled = false; // Habilitar el select de Sector
-            } else {
-                modSectorSelect.disabled = true; // Deshabilitar si no hay zona seleccionada
-            }
+    if (closeClientesModalBtn) {
+        closeClientesModalBtn.addEventListener('click', () => {
+            container.classList.add('hidden'); // Oculta el modal
+            showClientesMainButtons(); // Vuelve a la vista de botones principales al cerrar
         });
-
-        // Conectar los botones de modificar/eliminar cliente
-        container.querySelector('#btn-submit-modify-cliente').addEventListener('click', async () => {
-            const id = container.querySelector('#mod-del-cliente-id').value;
-            const nuevosDatos = {};
-            if (container.querySelector('#mod-cep').value !== (clientData?.CEP || '')) nuevosDatos.CEP = container.querySelector('#mod-cep').value;
-            if (container.querySelector('#mod-nombre-comercial').value !== (clientData?.NombreComercial || '')) nuevosDatos.NombreComercial = container.querySelector('#mod-nombre-comercial').value;
-            if (container.querySelector('#mod-nombre-personal').value !== (clientData?.NombrePersonal || '')) nuevosDatos.NombrePersonal = container.querySelector('#mod-nombre-personal').value;
-            if (container.querySelector('#mod-zona').value) nuevosDatos.Zona = container.querySelector('#mod-zona').value;
-            if (container.querySelector('#mod-sector').value) nuevosDatos.Sector = container.querySelector('#mod-sector').value;
-            if (container.querySelector('#mod-tlf').value !== (clientData?.Tlf || '')) nuevosDatos.Tlf = container.querySelector('#mod-tlf').value;
-            if (container.querySelector('#mod-deuda').value !== (clientData?.Deuda || '')) nuevosDatos.Deuda = parseFloat(container.querySelector('#mod-deuda').value); // Capturar Deuda
-            if (container.querySelector('#mod-observaciones').value !== (clientData?.Observaciones || '')) nuevosDatos.Observaciones = container.querySelector('#mod-observaciones').value;
-
-
-            if (id && Object.keys(nuevosDatos).length > 0) {
-                const modificado = await modificarCliente(id, nuevosDatos);
-                if (modificado) {
-                    alert('Cliente modificado con éxito.');
-                    // Limpiar campos y volver a la búsqueda
-                    showModifyDeleteSearch();
-                } else {
-                    alert('Fallo al modificar cliente.');
-                }
-            } else {
-                alert('Por favor, ingresa el ID del cliente y al menos un campo para modificar.');
-            }
-        });
-
-        container.querySelector('#btn-submit-delete-cliente').addEventListener('click', async () => {
-            const id = container.querySelector('#mod-del-cliente-id').value;
-            if (id) {
-                const eliminado = await eliminarCliente(id);
-                if (eliminado) {
-                    alert('Cliente eliminado con éxito.');
-                    // Volver a la búsqueda
-                    showModifyDeleteSearch();
-                } else {
-                    alert('Fallo al eliminar cliente.');
-                }
-            } else {
-                alert('Por favor, ingresa el ID del cliente a eliminar.');
-            }
-        });
-
-        // Conectar el botón Volver
-        container.querySelector('#btn-back-modify-delete-cliente').addEventListener('click', showModifyDeleteSearch);
-    };
-
-    // Función para mostrar la interfaz de búsqueda para modificar/eliminar
-    const showModifyDeleteSearch = async () => {
-        clientesMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
-        clientesSubSection.innerHTML = `
-            <div class="p-6 bg-yellow-50 rounded-lg shadow-inner">
-                <h3 class="text-2xl font-semibold text-yellow-800 mb-4">Buscar Cliente para Modificar/Eliminar</h3>
-                <input type="text" id="search-modify-delete-input" placeholder="Buscar por Nombre, CEP, Zona, etc." class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 mb-4">
-                <div id="modify-delete-client-list" class="bg-white p-4 rounded-md border border-gray-200 max-h-60 overflow-y-auto">
-                    <!-- Los clientes se mostrarán aquí -->
-                    <p class="text-gray-500">Cargando clientes...</p>
-                </div>
-                <button id="btn-back-modify-delete-search" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
-                    Volver al Menú Principal
-                </button>
-            </div>
-        `;
-
-        const clientListDiv = container.querySelector('#modify-delete-client-list');
-        const searchInput = container.querySelector('#search-modify-delete-input');
-        let allClients = [];
-
-        allClients = await obtenerTodosLosClientes();
-        renderClientesList(allClients, clientListDiv, (selectedClient) => {
-            renderModifyDeleteForm(selectedClient); // Pasa el cliente seleccionado al formulario de modificar/eliminar
-        });
-
-        searchInput.addEventListener('input', () => {
-            const searchTerm = searchInput.value.toLowerCase();
-            const filteredClients = allClients.filter(cliente => {
-                return (cliente.NombreComercial && cliente.NombreComercial.toLowerCase().includes(searchTerm)) ||
-                       (cliente.NombrePersonal && cliente.NombrePersonal.toLowerCase().includes(searchTerm)) ||
-                       (cliente.CEP && cliente.CEP.toLowerCase().includes(searchTerm)) ||
-                       (cliente.Zona && cliente.Zona.toLowerCase().includes(searchTerm)) ||
-                       (cliente.Sector && cliente.Sector.toLowerCase().includes(searchTerm)) ||
-                       (cliente.Tlf && cliente.Tlf.toLowerCase().includes(searchTerm)) ||
-                       (cliente.Observaciones && cliente.Observaciones.toLowerCase().includes(searchTerm));
-            });
-            renderClientesList(filteredClients, clientListDiv, (selectedClient) => {
-                renderModifyDeleteForm(selectedClient);
-            });
-        });
-
-        container.querySelector('#btn-back-modify-delete-search').addEventListener('click', showClientesMainButtons);
-    };
+    } else {
+        console.error('renderClientesSection: Botón #close-clientes-modal no encontrado.');
+    }
 
 
     // Lógica para mostrar la sección de agregar cliente
-    container.querySelector('#btn-show-add-cliente').addEventListener('click', () => {
-        clientesMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
-        clientesSubSection.innerHTML = `
-            <div class="p-6 bg-blue-50 rounded-lg shadow-inner">
-                <h3 class="text-2xl font-semibold text-blue-800 mb-4">Agregar Nuevo Cliente</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input type="text" id="add-cep" placeholder="CEP" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <input type="text" id="add-nombre-comercial" placeholder="Nombre Comercial" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <input type="text" id="add-nombre-personal" placeholder="Nombre Personal" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <select id="add-zona" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="">Selecciona Zona</option>
-                        ${Object.keys(zonaSectorMap).map(zona => `<option value="${zona}">${zona}</option>`).join('')}
-                    </select>
-                    <select id="add-sector" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" disabled>
-                        <option value="">Selecciona Sector</option>
-                    </select>
-                    <input type="tel" id="add-tlf" placeholder="Teléfono" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <input type="number" step="0.01" id="add-deuda" placeholder="Deuda" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <textarea id="add-observaciones" placeholder="Observaciones (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 col-span-full"></textarea>
-                </div>
-                <button id="btn-submit-add-cliente" class="mt-6 w-full bg-blue-600 text-white p-3 rounded-md font-semibold hover:bg-blue-700 transition duration-200">
-                    Confirmar Agregar Cliente
-                </button>
-                <button id="btn-back-add-cliente" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
-                    Volver
-                </button>
-            </div>
-        `;
-        // Lógica para actualizar el select de Sector cuando cambia la Zona
-        const addZonaSelect = container.querySelector('#add-zona');
-        const addSectorSelect = container.querySelector('#add-sector');
-        addZonaSelect.addEventListener('change', () => {
-            const selectedZona = addZonaSelect.value;
-            addSectorSelect.innerHTML = '<option value="">Selecciona Sector</option>'; // Limpiar opciones anteriores
-            if (selectedZona && zonaSectorMap[selectedZona]) {
-                zonaSectorMap[selectedZona].forEach(sector => {
-                    const option = document.createElement('option');
-                    option.value = sector;
-                    option.textContent = sector;
-                    addSectorSelect.appendChild(option);
-                });
-                addSectorSelect.disabled = false; // Habilitar el select de Sector
-            } else {
-                addSectorSelect.disabled = true; // Deshabilitar si no hay zona seleccionada
-            }
+    if (btnShowAddCliente) {
+        btnShowAddCliente.addEventListener('click', () => {
+            clientesMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
+            renderAddClienteForm(clientesSubSection, showClientesMainButtons);
         });
+    } else {
+        console.error('renderClientesSection: Botón #btn-show-add-cliente no encontrado.');
+    }
 
-        // Conectar el botón de agregar cliente
-        container.querySelector('#btn-submit-add-cliente').addEventListener('click', async () => {
-            const cliente = {
-                CEP: container.querySelector('#add-cep').value,
-                NombreComercial: container.querySelector('#add-nombre-comercial').value,
-                NombrePersonal: container.querySelector('#add-nombre-personal').value,
-                Zona: container.querySelector('#add-zona').value,
-                Sector: container.querySelector('#add-sector').value,
-                Tlf: container.querySelector('#add-tlf').value,
-                Deuda: parseFloat(container.querySelector('#add-deuda').value) || 0, // Capturar Deuda
-                Observaciones: container.querySelector('#add-observaciones').value
-            };
-
-            const id = await agregarCliente(cliente);
-            if (id) {
-                alert('Cliente agregado con éxito, ID: ' + id);
-                // Limpiar campos
-                container.querySelector('#add-cep').value = '';
-                container.querySelector('#add-nombre-comercial').value = '';
-                container.querySelector('#add-nombre-personal').value = '';
-                container.querySelector('#add-zona').value = '';
-                container.querySelector('#add-sector').innerHTML = '<option value="">Selecciona Sector</option>'; // Limpiar y resetear sector
-                container.querySelector('#add-sector').disabled = true;
-                container.querySelector('#add-tlf').value = '';
-                container.querySelector('#add-deuda').value = ''; // Limpiar Deuda
-                container.querySelector('#add-observaciones').value = '';
-            } else {
-                alert('Fallo al agregar cliente.');
-            }
-        });
-
-        // Conectar el botón Volver
-        container.querySelector('#btn-back-add-cliente').addEventListener('click', showClientesMainButtons);
-    });
 
     // Lógica para mostrar la sección de modificar/eliminar cliente (ahora con búsqueda previa)
-    container.querySelector('#btn-show-modify-delete-cliente').addEventListener('click', showModifyDeleteSearch);
+    if (btnShowModifyDeleteCliente) {
+        btnShowModifyDeleteCliente.addEventListener('click', showModifyDeleteSearch);
+    } else {
+        console.error('renderClientesSection: Botón #btn-show-modify-delete-cliente no encontrado.');
+    }
+
 
     // Lógica para mostrar la sección de ver lista de clientes
-    container.querySelector('#btn-show-ver-clientes').addEventListener('click', async () => {
-        clientesMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
-        await renderVerClientesSection(clientesSubSection, showClientesMainButtons);
-    });
-
-    // Lógica para mostrar la sección de buscar cliente
-    container.querySelector('#btn-show-search-cliente').addEventListener('click', async () => {
-        clientesMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
-        clientesSubSection.innerHTML = `
-            <div class="p-6 bg-green-50 rounded-lg shadow-inner">
-                <h3 class="text-2xl font-semibold text-green-800 mb-4">Buscar Cliente</h3>
-                <input type="text" id="search-cliente-input" placeholder="Buscar por Nombre, CEP, Zona, etc." class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 mb-4">
-                <div id="clientes-list" class="bg-white p-4 rounded-md border border-gray-200 max-h-60 overflow-y-auto shadow-md">
-                    <!-- Los clientes se mostrarán aquí -->
-                    <p class="text-gray-500">Cargando clientes...</p>
-                </div>
-                <button id="btn-back-search-cliente" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
-                    Volver
-                </button>
-            </div>
-        `;
-        const clientesListDiv = container.querySelector('#clientes-list');
-        const searchInput = container.querySelector('#search-cliente-input');
-        let allClients = []; // Para almacenar todos los clientes y filtrar sobre ellos
-
-        // Cargar todos los clientes al abrir la sección
-        allClients = await obtenerTodosLosClientes();
-        renderClientesList(allClients, clientesListDiv); // No se pasa callback para "Seleccionar" aquí
-
-        // Lógica de filtrado en tiempo real
-        searchInput.addEventListener('input', () => {
-            const searchTerm = searchInput.value.toLowerCase();
-            const filteredClients = allClients.filter(cliente => {
-                return (cliente.NombreComercial && cliente.NombreComercial.toLowerCase().includes(searchTerm)) ||
-                       (cliente.NombrePersonal && cliente.NombrePersonal.toLowerCase().includes(searchTerm)) ||
-                       (cliente.CEP && cliente.CEP.toLowerCase().includes(searchTerm)) ||
-                       (cliente.Zona && cliente.Zona.toLowerCase().includes(searchTerm)) ||
-                       (cliente.Sector && cliente.Sector.toLowerCase().includes(searchTerm)) ||
-                       (cliente.Tlf && cliente.Tlf.toLowerCase().includes(searchTerm)) ||
-                       (cliente.Observaciones && cliente.Observaciones.toLowerCase().includes(searchTerm));
-            });
-            renderClientesList(filteredClients, clientesListDiv);
+    // Línea 485 original, ahora con verificación
+    if (btnShowVerClientes) {
+        btnShowVerClientes.addEventListener('click', async () => {
+            clientesMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
+            await renderVerClientesSection(clientesSubSection, showClientesMainButtons);
         });
+    } else {
+        console.error('renderClientesSection: Botón #btn-show-ver-clientes no encontrado. El error original está aquí.');
+    }
 
-        // Conectar el botón Volver
-        container.querySelector('#btn-back-search-cliente').addEventListener('click', showClientesMainButtons);
-    });
 
     // Lógica para mostrar la sección de gestionar zonas y sectores
-    container.querySelector('#btn-show-manage-zones-sectors').addEventListener('click', async () => {
-        clientesMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
-        await renderGestionarZonasSectoresForm(); // Llama a la nueva función para gestionar zonas/sectores
-    });
+    if (btnShowManageZonesSectors) {
+        btnShowManageZonesSectors.addEventListener('click', async () => {
+            clientesMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
+            await renderGestionarZonasSectoresForm(); // Llama a la nueva función para gestionar zonas/sectores
+        });
+    } else {
+        console.error('renderClientesSection: Botón #btn-show-manage-zones-sectors no encontrado.');
+    }
+
 
     /**
      * Función auxiliar para renderizar la lista de clientes.
@@ -718,15 +494,29 @@ export async function renderClientesSection(container) {
         };
 
         // Event Listeners para los botones del menú de gestión de zonas/sectores
-        btnAdd.addEventListener('click', () => {
-            clientesSubSection.querySelector('#zones-sectors-management-buttons').classList.add('hidden'); // Oculta los botones del menú
-            renderAddZoneSectorForm(zonesSectorsSubSection, showZonesSectorsMainButtons);
-        });
-        btnModifyDelete.addEventListener('click', () => {
-            clientesSubSection.querySelector('#zones-sectors-management-buttons').classList.add('hidden'); // Oculta los botones del menú
-            renderModifyDeleteZoneSectorForm(zonesSectorsSubSection, showZonesSectorsMainButtons);
-        });
-        btnBack.addEventListener('click', showClientesMainButtons); // Vuelve al menú principal de clientes
+        if (btnAdd) {
+            btnAdd.addEventListener('click', () => {
+                clientesSubSection.querySelector('#zones-sectors-management-buttons').classList.add('hidden'); // Oculta los botones del menú
+                renderAddZoneSectorForm(zonesSectorsSubSection, showZonesSectorsMainButtons);
+            });
+        } else {
+            console.error('renderGestionarZonasSectoresForm: Botón #btn-add-zone-sector no encontrado.');
+        }
+
+        if (btnModifyDelete) {
+            btnModifyDelete.addEventListener('click', () => {
+                clientesSubSection.querySelector('#zones-sectors-management-buttons').classList.add('hidden'); // Oculta los botones del menú
+                renderModifyDeleteZoneSectorForm(zonesSectorsSubSection, showZonesSectorsMainButtons);
+            });
+        } else {
+            console.error('renderGestionarZonasSectoresForm: Botón #btn-modify-delete-zone-sector no encontrado.');
+        }
+
+        if (btnBack) {
+            btnBack.addEventListener('click', showClientesMainButtons); // Vuelve al menú principal de clientes
+        } else {
+            console.error('renderGestionarZonasSectoresForm: Botón #btn-back-from-zones-sectors-management no encontrado.');
+        }
     }
 
     // Función para renderizar el formulario de añadir Zona o Sector
@@ -769,57 +559,76 @@ export async function renderClientesSection(container) {
         const btnBack = parentContainer.querySelector('#btn-back-from-add-form');
 
         // Lógica para añadir nueva zona
-        btnAddNewZone.addEventListener('click', async () => {
-            const newZona = addNewZoneInput.value.trim();
-            if (newZona && !zonaSectorMap[newZona]) {
-                zonaSectorMap[newZona] = []; // Inicializa la nueva zona con un array vacío de sectores
-                if (await guardarConfiguracionZonasSectores(zonaSectorMap)) {
-                    alert(`Zona "${newZona}" añadida.`);
-                    addNewZoneInput.value = '';
-                    // Re-poblar el select de zonas para sectores
-                    selectZoneForSector.innerHTML = `<option value="">-- Selecciona una Zona --</option>` + Object.keys(zonaSectorMap).map(zona => `<option value="${zona}">${zona}</option>`).join('');
+        if (btnAddNewZone) {
+            btnAddNewZone.addEventListener('click', async () => {
+                const newZona = addNewZoneInput.value.trim();
+                if (newZona && !zonaSectorMap[newZona]) {
+                    zonaSectorMap[newZona] = []; // Inicializa la nueva zona con un array vacío de sectores
+                    if (await guardarConfiguracionZonasSectores(zonaSectorMap)) {
+                        alert(`Zona "${newZona}" añadida.`);
+                        addNewZoneInput.value = '';
+                        // Re-poblar el select de zonas para sectores
+                        selectZoneForSector.innerHTML = `<option value="">-- Selecciona una Zona --</option>` + Object.keys(zonaSectorMap).map(zona => `<option value="${zona}">${zona}</option>`).join('');
+                    } else {
+                        alert('Fallo al añadir zona.');
+                    }
+                } else if (zonaSectorMap[newZona]) {
+                    alert(`La zona "${newZona}" ya existe.`);
                 } else {
-                    alert('Fallo al añadir zona.');
+                    alert('Por favor, ingresa un nombre para la nueva zona.');
                 }
-            } else if (zonaSectorMap[newZona]) {
-                alert(`La zona "${newZona}" ya existe.`);
-            } else {
-                alert('Por favor, ingresa un nombre para la nueva zona.');
-            }
-        });
+            });
+        } else {
+            console.error('renderAddZoneSectorForm: Botón #btn-add-new-zone no encontrado.');
+        }
+
 
         // Habilitar/deshabilitar input de sector basado en la selección de zona
-        selectZoneForSector.addEventListener('change', () => {
-            const selectedZone = selectZoneForSector.value;
-            if (selectedZone) {
-                addNewSectorInput.disabled = false;
-                btnAddNewSector.disabled = false;
-            } else {
-                addNewSectorInput.disabled = true;
-                btnAddNewSector.disabled = true;
-            }
-        });
+        if (selectZoneForSector) {
+            selectZoneForSector.addEventListener('change', () => {
+                const selectedZone = selectZoneForSector.value;
+                if (selectedZone) {
+                    addNewSectorInput.disabled = false;
+                    btnAddNewSector.disabled = false;
+                } else {
+                    addNewSectorInput.disabled = true;
+                    btnAddNewSector.disabled = true;
+                }
+            });
+        } else {
+            console.error('renderAddZoneSectorForm: Select #select-zone-for-sector no encontrado.');
+        }
+
 
         // Lógica para añadir nuevo sector
-        btnAddNewSector.addEventListener('click', async () => {
-            const selectedZone = selectZoneForSector.value;
-            const newSector = addNewSectorInput.value.trim();
-            if (selectedZone && newSector && !zonaSectorMap[selectedZone].includes(newSector)) {
-                zonaSectorMap[selectedZone].push(newSector);
-                if (await guardarConfiguracionZonasSectores(zonaSectorMap)) {
-                    alert(`Sector "${newSector}" añadido a "${selectedZone}".`);
-                    addNewSectorInput.value = '';
+        if (btnAddNewSector) {
+            btnAddNewSector.addEventListener('click', async () => {
+                const selectedZone = selectZoneForSector.value;
+                const newSector = addNewSectorInput.value.trim();
+                if (selectedZone && newSector && !zonaSectorMap[selectedZone].includes(newSector)) {
+                    zonaSectorMap[selectedZone].push(newSector);
+                    if (await guardarConfiguracionZonasSectores(zonaSectorMap)) {
+                        alert(`Sector "${newSector}" añadido a "${selectedZone}".`);
+                        addNewSectorInput.value = '';
+                    } else {
+                        alert('Fallo al añadir sector.');
+                    }
+                } else if (zonaSectorMap[selectedZone].includes(newSector)) {
+                    alert(`El sector "${newSector}" ya existe en "${selectedZone}".`);
                 } else {
-                    alert('Fallo al añadir sector.');
+                    alert('Por favor, selecciona una zona e ingresa un nombre para el nuevo sector.');
                 }
-            } else if (zonaSectorMap[selectedZone].includes(newSector)) {
-                alert(`El sector "${newSector}" ya existe en "${selectedZone}".`);
-            } else {
-                alert('Por favor, selecciona una zona e ingresa un nombre para el nuevo sector.');
-            }
-        });
+            });
+        } else {
+            console.error('renderAddZoneSectorForm: Botón #btn-add-new-sector no encontrado.');
+        }
 
-        btnBack.addEventListener('click', backToMainMenuCallback);
+
+        if (btnBack) {
+            btnBack.addEventListener('click', backToMainMenuCallback);
+        } else {
+            console.error('renderAddZoneSectorForm: Botón #btn-back-from-add-form no encontrado.');
+        }
     }
 
     // Función para renderizar el formulario de modificar/eliminar Zona o Sector
@@ -905,22 +714,31 @@ export async function renderClientesSection(container) {
         renderList(zonaSectorMap);
 
         // Funcionalidad de búsqueda
-        searchInput.addEventListener('input', () => {
-            const searchTerm = searchInput.value.toLowerCase();
-            const filteredMap = {};
-            for (const zona in zonaSectorMap) {
-                if (zona.toLowerCase().includes(searchTerm)) {
-                    filteredMap[zona] = zonaSectorMap[zona];
-                } else {
-                    const matchingSectors = zonaSectorMap[zona].filter(sector => sector.toLowerCase().includes(searchTerm));
-                    if (matchingSectors.length > 0) {
-                        filteredMap[zona] = matchingSectors;
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                const searchTerm = searchInput.value.toLowerCase();
+                const filteredMap = {};
+                for (const zona in zonaSectorMap) {
+                    if (zona.toLowerCase().includes(searchTerm)) {
+                        filteredMap[zona] = zonaSectorMap[zona];
+                    } else {
+                        const matchingSectors = zonaSectorMap[zona].filter(sector => sector.toLowerCase().includes(searchTerm));
+                        if (matchingSectors.length > 0) {
+                            filteredMap[zona] = matchingSectors;
+                        }
                     }
                 }
-            }
-            renderList(filteredMap);
-        });
+                renderList(filteredMap);
+            });
+        } else {
+            console.error('renderModifyDeleteZoneSectorForm: Input #search-zone-sector-input no encontrado.');
+        }
 
-        btnBack.addEventListener('click', backToMainMenuCallback);
+
+        if (btnBack) {
+            btnBack.addEventListener('click', backToMainMenuCallback);
+        } else {
+            console.error('renderModifyDeleteZoneSectorForm: Botón #btn-back-from-modify-delete-form no encontrado.');
+        }
     }
 }
