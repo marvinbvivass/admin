@@ -81,6 +81,45 @@ function showCustomConfirm(message) {
     });
 }
 
+/**
+ * Muestra un modal de alerta personalizado.
+ * @param {string} message - El mensaje a mostrar en el modal.
+ */
+function showCustomAlert(message) {
+    const modalId = 'custom-alert-modal';
+    let modal = document.getElementById(modalId);
+
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = modalId;
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 p-4';
+        modal.innerHTML = `
+            <div class="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-auto">
+                <p class="text-lg font-semibold text-gray-800 mb-4" id="alert-message"></p>
+                <div class="flex justify-end">
+                    <button id="alert-ok-btn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-200">OK</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    modal.querySelector('#alert-message').textContent = message;
+    modal.classList.remove('hidden');
+
+    const okBtn = modal.querySelector('#alert-ok-btn');
+    // Clonar y reemplazar el botón para limpiar listeners previos
+    const oldOkBtn = okBtn.cloneNode(true);
+    okBtn.parentNode.replaceChild(oldOkBtn, okBtn);
+    const newOkBtn = document.getElementById('alert-ok-btn');
+
+    const cleanup = () => {
+        modal.classList.add('hidden');
+    };
+
+    newOkBtn.addEventListener('click', cleanup);
+}
+
 
 /**
  * Obtiene la configuración de zonas y sectores desde Firebase.
@@ -418,7 +457,7 @@ export async function renderClientesSection(container) {
 
             const id = await agregarCliente(cliente);
             if (id) {
-                alert('Cliente agregado con éxito, ID: ' + id);
+                showCustomAlert('Cliente agregado con éxito, ID: ' + id);
                 // Limpiar campos
                 parentContainer.querySelector('#add-cep').value = '';
                 parentContainer.querySelector('#add-nombre-comercial').value = '';
@@ -430,7 +469,7 @@ export async function renderClientesSection(container) {
                 parentContainer.querySelector('#add-deuda').value = ''; // Limpiar Deuda
                 parentContainer.querySelector('#add-observaciones').value = '';
             } else {
-                alert('Fallo al agregar cliente.');
+                showCustomAlert('Fallo al agregar cliente.');
             }
         });
 
@@ -503,7 +542,7 @@ export async function renderClientesSection(container) {
                     </select>
                     <input type="tel" id="mod-tlf" placeholder="Nuevo Teléfono (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${clientData?.Tlf || ''}">
                     <input type="number" step="0.01" id="mod-deuda" placeholder="Nueva Deuda (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${clientData?.Deuda || ''}">
-                    <textarea id="mod-observaciones" placeholder="Nuevas Observaciones (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 col-span-full">${clientData?.Observaciones || ''}</textarea>
+                    <textarea id="mod-observaciones" placeholder="Nuevas Observaciones (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 col-span-full"></textarea>
                 </div>
                 <div class="flex flex-col md:flex-row gap-4 mt-6">
                     <button id="btn-submit-modify-cliente" class="flex-1 bg-yellow-600 text-white p-3 rounded-md font-semibold hover:bg-yellow-700 transition duration-200">
@@ -555,14 +594,14 @@ export async function renderClientesSection(container) {
             if (id && Object.keys(nuevosDatos).length > 0) {
                 const modificado = await modificarCliente(id, nuevosDatos);
                 if (modificado) {
-                    alert('Cliente modificado con éxito.');
+                    showCustomAlert('Cliente modificado con éxito.');
                     // Limpiar campos y volver a la búsqueda
                     showModifyDeleteSearch();
                 } else {
-                    alert('Fallo al modificar cliente.');
+                    showCustomAlert('Fallo al modificar cliente.');
                 }
             } else {
-                alert('Por favor, ingresa el ID del cliente y al menos un campo para modificar.');
+                showCustomAlert('Por favor, ingresa el ID del cliente y al menos un campo para modificar.');
             }
         });
 
@@ -573,15 +612,15 @@ export async function renderClientesSection(container) {
                 if (confirmado) {
                     const eliminado = await eliminarCliente(id);
                     if (eliminado) {
-                        alert('Cliente eliminado con éxito.');
+                        showCustomAlert('Cliente eliminado con éxito.');
                         // Volver a la búsqueda
                         showModifyDeleteSearch();
                     } else {
-                        alert('Fallo al eliminar cliente.');
+                        showCustomAlert('Fallo al eliminar cliente.');
                     }
                 }
             } else {
-                alert('Por favor, ingresa el ID del cliente a eliminar.');
+                showCustomAlert('Por favor, ingresa el ID del cliente a eliminar.');
             }
         });
 
@@ -811,17 +850,17 @@ export async function renderClientesSection(container) {
                 if (newZona && !zonaSectorMap[newZona]) {
                     zonaSectorMap[newZona] = []; // Inicializa la nueva zona con un array vacío de sectores
                     if (await guardarConfiguracionZonasSectores(zonaSectorMap)) {
-                        alert(`Zona "${newZona}" añadida.`);
+                        showCustomAlert(`Zona "${newZona}" añadida.`);
                         addNewZoneInput.value = '';
                         // Re-poblar el select de zonas para sectores
                         selectZoneForSector.innerHTML = `<option value="">-- Selecciona una Zona --</option>` + Object.keys(zonaSectorMap).map(zona => `<option value="${zona}">${zona}</option>`).join('');
                     } else {
-                        alert('Fallo al añadir zona.');
+                        showCustomAlert('Fallo al añadir zona.');
                     }
                 } else if (zonaSectorMap[newZona]) {
-                    alert(`La zona "${newZona}" ya existe.`);
+                    showCustomAlert(`La zona "${newZona}" ya existe.`);
                 } else {
-                    alert('Por favor, ingresa un nombre para la nueva zona.');
+                    showCustomAlert('Por favor, ingresa un nombre para la nueva zona.');
                 }
             });
         } else {
@@ -854,15 +893,15 @@ export async function renderClientesSection(container) {
                 if (selectedZone && newSector && !zonaSectorMap[selectedZone].includes(newSector)) {
                     zonaSectorMap[selectedZone].push(newSector);
                     if (await guardarConfiguracionZonasSectores(zonaSectorMap)) {
-                        alert(`Sector "${newSector}" añadido a "${selectedZone}".`);
+                        showCustomAlert(`Sector "${newSector}" añadido a "${selectedZone}".`);
                         addNewSectorInput.value = '';
                     } else {
-                        alert('Fallo al añadir sector.');
+                        showCustomAlert('Fallo al añadir sector.');
                     }
                 } else if (zonaSectorMap[selectedZone].includes(newSector)) {
-                    alert(`El sector "${newSector}" ya existe en "${selectedZone}".`);
+                    showCustomAlert(`El sector "${newSector}" ya existe en "${selectedZone}".`);
                 } else {
-                    alert('Por favor, selecciona una zona e ingresa un nombre para el nuevo sector.');
+                    showCustomAlert('Por favor, selecciona una zona e ingresa un nombre para el nuevo sector.');
                 }
             });
         } else {
@@ -937,7 +976,7 @@ export async function renderClientesSection(container) {
                         delete zonaSectorMap[zonaToDelete];
                         await guardarConfiguracionZonasSectores(zonaSectorMap);
                         renderList(zonaSectorMap); // Re-renderizar la lista con el mapa actualizado
-                        alert(`Zona "${zonaToDelete}" eliminada.`);
+                        showCustomAlert(`Zona "${zonaToDelete}" eliminada.`);
                     }
                 });
             });
@@ -952,7 +991,7 @@ export async function renderClientesSection(container) {
                         zonaSectorMap[zona] = zonaSectorMap[zona].filter(s => s !== sectorToDelete);
                         await guardarConfiguracionZonasSectores(zonaSectorMap);
                         renderList(zonaSectorMap); // Re-renderizar la lista con el mapa actualizado
-                        alert(`Sector "${sectorToDelete}" eliminado de "${zona}".`);
+                        showCustomAlert(`Sector "${sectorToDelete}" eliminado de "${zona}".`);
                     }
                 });
             });
