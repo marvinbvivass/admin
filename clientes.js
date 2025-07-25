@@ -386,62 +386,10 @@ export async function renderClientesSection(container) {
 
 
     // Función para mostrar los botones principales y limpiar la sub-sección
-    const showClientesMainButtons = () => {
+    function showClientesMainButtons() { // Cambiado a function declaration
         clientesSubSection.innerHTML = ''; // Limpia el contenido de la sub-sección
         clientesMainButtonsContainer.classList.remove('hidden'); // Muestra los botones principales
-    };
-
-    // Lógica para cerrar el modal
-    if (closeClientesModalBtn) {
-        closeClientesModalBtn.addEventListener('click', () => {
-            container.classList.add('hidden'); // Oculta el modal
-            showClientesMainButtons(); // Vuelve a la vista de botones principales al cerrar
-        });
-    } else {
-        console.error('renderClientesSection: Botón #close-clientes-modal no encontrado.');
     }
-
-
-    // Lógica para mostrar la sección de agregar cliente
-    if (btnShowAddCliente) {
-        btnShowAddCliente.addEventListener('click', () => {
-            clientesMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
-            renderAddClienteForm(clientesSubSection, showClientesMainButtons);
-        });
-    } else {
-        console.error('renderClientesSection: Botón #btn-show-add-cliente no encontrado.');
-    }
-
-
-    // Lógica para mostrar la sección de modificar/eliminar cliente (ahora con búsqueda previa)
-    if (btnShowModifyDeleteCliente) {
-        btnShowModifyDeleteCliente.addEventListener('click', showModifyDeleteSearch);
-    } else {
-        console.error('renderClientesSection: Botón #btn-show-modify-delete-cliente no encontrado.');
-    }
-
-
-    // Lógica para mostrar la sección de ver clientes
-    if (btnShowVerClientes) {
-        btnShowVerClientes.addEventListener('click', async () => {
-            clientesMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
-            await renderVerClientesSection(clientesSubSection, showClientesMainButtons);
-        });
-    } else {
-        console.error('renderClientesSection: Botón #btn-show-ver-clientes no encontrado.');
-    }
-
-
-    // Lógica para mostrar la sección de gestionar zonas y sectores
-    if (btnShowManageZonesSectors) {
-        btnShowManageZonesSectors.addEventListener('click', async () => {
-            clientesMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
-            await renderGestionarZonasSectoresForm(); // Llama a la nueva función para gestionar zonas/sectores
-        });
-    } else {
-        console.error('renderClientesSection: Botón #btn-show-manage-zones-sectors no encontrado.');
-    }
-
 
     /**
      * Función auxiliar para renderizar la lista de clientes.
@@ -491,7 +439,7 @@ export async function renderClientesSection(container) {
     }
 
     // Función para renderizar el formulario de agregar cliente
-    const renderAddClienteForm = (parentContainer, backToMainMenuCallback) => {
+    function renderAddClienteForm(parentContainer, backToMainMenuCallback) { // Cambiado a function declaration
         parentContainer.innerHTML = `
             <div class="p-6 bg-blue-50 rounded-lg shadow-inner">
                 <h3 class="text-2xl font-semibold text-blue-800 mb-4">Agregar Nuevo Cliente</h3>
@@ -588,10 +536,10 @@ export async function renderClientesSection(container) {
         } else {
             console.error('renderAddClienteForm: Botón #btn-back-add-cliente no encontrado.');
         }
-    };
+    }
 
     // Función para mostrar la interfaz de búsqueda para modificar/eliminar
-    const showModifyDeleteSearch = async () => {
+    async function showModifyDeleteSearch() { // Cambiado a function declaration
         console.log('showModifyDeleteSearch: Iniciando...');
         clientesMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
         clientesSubSection.innerHTML = `
@@ -655,10 +603,10 @@ export async function renderClientesSection(container) {
             console.error('showModifyDeleteSearch: Botón #btn-back-modify-delete-search no encontrado.');
         }
         console.log('showModifyDeleteSearch: Finalizado.');
-    };
+    }
 
     // Función para renderizar el formulario de modificar/eliminar
-    const renderModifyDeleteForm = (clientData = null) => {
+    function renderModifyDeleteForm(clientData = null) { // Cambiado a function declaration
         console.log('renderModifyDeleteForm: Iniciando con datos:', clientData);
         clientesSubSection.innerHTML = `
             <div class="p-6 bg-yellow-50 rounded-lg shadow-inner">
@@ -785,7 +733,7 @@ export async function renderClientesSection(container) {
             console.error('renderModifyDeleteForm: Botón #btn-back-modify-delete-cliente no encontrado.');
         }
         console.log('renderModifyDeleteForm: Finalizado.');
-    };
+    }
 
 
     /**
@@ -793,7 +741,7 @@ export async function renderClientesSection(container) {
      * @param {HTMLElement} parentContainer - El contenedor donde se renderizará esta sección.
      * @param {function(): void} backToMainMenuCallback - Callback para volver al menú principal de clientes.
      */
-    async function renderVerClientesSection(parentContainer, backToMainMenuCallback) {
+    async function renderVerClientesSection(parentContainer, backToMainMenuCallback) { // Cambiado a function declaration
         console.log('renderVerClientesSection: Iniciando...');
         parentContainer.innerHTML = `
             <div class="p-6 bg-green-50 rounded-lg shadow-inner">
@@ -906,7 +854,7 @@ export async function renderClientesSection(container) {
     // --- Funciones para gestionar Zonas y Sectores (Refactorizadas) ---
 
     // Función principal para el menú de gestión de Zonas y Sectores
-    async function renderGestionarZonasSectoresForm() {
+    async function renderGestionarZonasSectoresForm() { // Cambiado a function declaration
         console.log('renderGestionarZonasSectoresForm: Iniciando...');
         clientesSubSection.innerHTML = `
             <div class="p-6 bg-purple-50 rounded-lg shadow-inner">
@@ -981,7 +929,7 @@ export async function renderClientesSection(container) {
     }
 
     // Función para renderizar el formulario de añadir Zona o Sector
-    async function renderAddZoneSectorForm(parentContainer, backToMainMenuCallback) {
+    async function renderAddZoneSectorForm(parentContainer, backToMainMenuCallback) { // Cambiado a function declaration
         console.log('renderAddZoneSectorForm: Iniciando...');
         parentContainer.innerHTML = `
             <div class="p-4 bg-blue-50 rounded-lg shadow-inner">
@@ -1103,7 +1051,7 @@ export async function renderClientesSection(container) {
     }
 
     // Función para renderizar el formulario de modificar/eliminar Zona o Sector
-    async function renderModifyDeleteZoneSectorForm(parentContainer, backToMainMenuCallback) {
+    async function renderModifyDeleteZoneSectorForm(parentContainer, backToMainMenuCallback) { // Cambiado a function declaration
         console.log('renderModifyDeleteZoneSectorForm: Iniciando...');
         parentContainer.innerHTML = `
             <div class="p-4 bg-yellow-50 rounded-lg shadow-inner">
@@ -1218,3 +1166,4 @@ export async function renderClientesSection(container) {
     }
     console.log('renderClientesSection: Función completada.'); // Log al final de la función
 }
+
