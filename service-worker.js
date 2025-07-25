@@ -2,17 +2,18 @@
 // Este script se encarga de la gestión de caché para el funcionamiento offline
 // y la mejora del rendimiento de la aplicación.
 
-const CACHE_NAME = 'gestionapp-cache-v1'; // Nombre de la caché y versión
+const CACHE_NAME = 'gestionapp-cache-v2'; // Nombre de la caché y versión (¡INCREMENTADO LA VERSIÓN!)
 const urlsToCache = [
     '/admin/', // La raíz de la aplicación en GitHub Pages
     '/admin/index.html', // La página principal
     '/admin/clientes.js', // El archivo JavaScript de clientes
+    '/admin/inventario.js', // ¡Añadido!
+    '/admin/ventas.js',     // ¡Añadido!
     '/admin/manifest.json', // El manifiesto de la aplicación
     '/admin/cervezas.jpeg', // La imagen de fondo
     // Asegúrate de incluir las rutas a tus iconos si los tienes en una carpeta 'icons'
     '/admin/icons/icon-192x192.png',
     '/admin/icons/icon-512x512.png',
-    // Puedes añadir más archivos aquí a medida que los crees (ej. ventas.js, inventario.js, etc.)
 ];
 
 // Evento 'install': Se ejecuta cuando el Service Worker se instala por primera vez.
@@ -78,3 +79,4 @@ self.addEventListener('fetch', (event) => {
         })
     );
 });
+
