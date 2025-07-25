@@ -15,9 +15,16 @@ const EXCHANGE_RATES_DOC_ID = 'exchangeRates';
 
 // Función auxiliar para obtener la instancia de Firestore
 async function getFirestoreInstances() {
-    while (!window.firebaseDb) {
-        console.log('Esperando inicialización de Firebase en ventas.js...');
+    let attempts = 0;
+    const maxAttempts = 50; // Intentar por 5 segundos (50 * 100ms)
+    while (!window.firebaseDb && attempts < maxAttempts) {
+        console.log(`Esperando inicialización de Firebase en ventas.js... Intento ${attempts + 1}`);
         await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+    }
+    if (!window.firebaseDb) {
+        console.error('ERROR: Firebase DB no inicializado después de múltiples intentos en ventas.js.');
+        throw new Error('Firebase DB no disponible.');
     }
     return {
         db: window.firebaseDb,
@@ -30,6 +37,7 @@ async function getFirestoreInstances() {
  * @returns {Promise<{cop: number, bs: number}>} Los valores de cambio o valores predeterminados.
  */
 async function getExchangeRates() {
+    console.log('getExchangeRates: Iniciando...');
     try {
         const { db } = await getFirestoreInstances();
         const configDocRef = doc(db, `configuracion`, EXCHANGE_RATES_DOC_ID);
@@ -37,6 +45,7 @@ async function getExchangeRates() {
 
         if (configSnap.exists()) {
             const data = configSnap.data();
+            console.log('Valores de cambio obtenidos:', data);
             return {
                 cop: parseFloat(data.cop || 1),
                 bs: parseFloat(data.bs || 1)
@@ -48,6 +57,8 @@ async function getExchangeRates() {
     } catch (error) {
         console.error('Error al obtener valores de cambio:', error);
         return { cop: 1, bs: 1 };
+    } finally {
+        console.log('getExchangeRates: Finalizado.');
     }
 }
 
@@ -59,6 +70,7 @@ async function getExchangeRates() {
  * @returns {Promise<string|null>} El ID del documento de la venta agregada o null si hubo un error.
  */
 export async function agregarVenta(venta) {
+    console.log('agregarVenta: Iniciando...');
     try {
         const { db } = await getFirestoreInstances();
         const ventasCollectionRef = collection(db, `datosVentas`); // Ruta modificada
@@ -68,6 +80,8 @@ export async function agregarVenta(venta) {
     } catch (error) {
         console.error('Error al agregar venta:', error);
         return null;
+    } finally {
+        console.log('agregarVenta: Finalizado.');
     }
 }
 
@@ -76,6 +90,7 @@ export async function agregarVenta(venta) {
  * @returns {Promise<Array<object>>} Un array de objetos de venta.
  */
 export async function obtenerTodasLasVentas() {
+    console.log('obtenerTodasLasVentas: Iniciando...');
     try {
         const { db } = await getFirestoreInstances();
         const ventasCollectionRef = collection(db, `datosVentas`); // Ruta modificada
@@ -89,6 +104,8 @@ export async function obtenerTodasLasVentas() {
     } catch (error) {
         console.error('Error al obtener todas las ventas:', error);
         return [];
+    } finally {
+        console.log('obtenerTodasLasVentas: Finalizado.');
     }
 }
 
@@ -97,6 +114,12 @@ export async function obtenerTodasLasVentas() {
  * @param {HTMLElement} container - El elemento DOM donde se renderizará el modal de ventas.
  */
 export async function renderVentasSection(container) {
+    console.log('renderVentasSection: Iniciando. Contenedor recibido:', container);
+    if (!container) {
+        console.error('renderVentasSection: ERROR - El elemento contenedor es nulo o indefinido.');
+        return;
+    }
+
     container.innerHTML = `
         <div class="modal-content">
             <h2 class="text-4xl font-bold text-gray-900 mb-6 text-center">Gestión de Ventas</h2>
@@ -130,31 +153,49 @@ export async function renderVentasSection(container) {
     const closeVentasModalBtn = container.querySelector('#close-ventas-modal');
 
     // Función para mostrar los botones principales y limpiar la sub-sección
-    const showVentasMainButtons = () => {
+    function showVentasMainButtons() { // Cambiado a function declaration
         ventasSubSection.innerHTML = ''; // Limpia el contenido de la sub-sección
         ventasMainButtonsContainer.classList.remove('hidden'); // Muestra los botones principales
-    };
+    }
 
     // Lógica para cerrar el modal
-    closeVentasModalBtn.addEventListener('click', () => {
-        container.classList.add('hidden'); // Oculta el modal
-        showVentasMainButtons(); // Vuelve a la vista de botones principales al cerrar
-    });
+    if (closeVentasModalBtn) {
+        closeVentasModalBtn.addEventListener('click', () => {
+            container.classList.add('hidden'); // Oculta el modal
+            showVentasMainButtons(); // Vuelve a la vista de botones principales al cerrar
+        });
+    } else {
+        console.error('renderVentasSection: Botón #close-ventas-modal no encontrado.');
+    }
+
 
     // Lógica para mostrar la sección de realizar venta
-    container.querySelector('#btn-show-realizar-venta').addEventListener('click', async () => {
-        ventasMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
-        await renderRealizarVentaForm(ventasSubSection, showVentasMainButtons);
-    });
+    const btnShowRealizarVenta = container.querySelector('#btn-show-realizar-venta');
+    if (btnShowRealizarVenta) {
+        btnShowRealizarVenta.addEventListener('click', async () => {
+            ventasMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
+            await renderRealizarVentaForm(ventasSubSection, showVentasMainButtons);
+        });
+    } else {
+        console.error('renderVentasSection: Botón #btn-show-realizar-venta no encontrado.');
+    }
+
 
     // Lógica para mostrar la sección de cierre de venta diaria
-    container.querySelector('#btn-show-cierre-venta-diaria').addEventListener('click', async () => {
-        ventasMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
-        await renderCierreVentaDiariaSection(ventasSubSection, showVentasMainButtons);
-    });
+    const btnShowCierreVentaDiaria = container.querySelector('#btn-show-cierre-venta-diaria');
+    if (btnShowCierreVentaDiaria) {
+        btnShowCierreVentaDiaria.addEventListener('click', async () => {
+            ventasMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
+            await renderCierreVentaDiariaSection(ventasSubSection, showVentasMainButtons);
+        });
+    } else {
+        console.error('renderVentasSection: Botón #btn-show-cierre-venta-diaria no encontrado.');
+    }
+
 
     // --- Funciones para Realizar Venta (Modificadas) ---
-    async function renderRealizarVentaForm(parentContainer, backToMainMenuCallback) {
+    async function renderRealizarVentaForm(parentContainer, backToMainMenuCallback) { // Cambiado a function declaration
+        console.log('renderRealizarVentaForm: Iniciando...');
         let selectedClient = null;
         let allClients = await obtenerTodosLosClientes();
         let allProducts = await verInventarioCompleto();
@@ -162,6 +203,7 @@ export async function renderVentasSection(container) {
         let currentExchangeRates = { cop: 1, bs: 1 }; // Valores de cambio
 
         // Obtener la configuración de rubros y segmentos (similar a inventario.js)
+        console.log('renderRealizarVentaForm: Obteniendo configuración de rubros y segmentos...');
         try {
             const { db } = await getFirestoreInstances();
             const configDocRef = doc(db, `configuracion`, 'rubrosSegmentos'); // Ruta modificada
@@ -171,8 +213,9 @@ export async function renderVentasSection(container) {
             }
             // Obtener valores de cambio
             currentExchangeRates = await getExchangeRates();
+            console.log('renderRealizarVentaForm: Valores de cambio obtenidos:', currentExchangeRates);
         } catch (error) {
-            console.error('Error al obtener configuración para ventas:', error);
+            console.error('renderRealizarVentaForm: Error al obtener configuración para ventas:', error);
         }
 
         parentContainer.innerHTML = `
@@ -273,15 +316,20 @@ export async function renderVentasSection(container) {
             });
         };
 
-        searchClienteInput.addEventListener('input', () => {
-            const searchTerm = searchClienteInput.value.toLowerCase();
-            const filteredClients = allClients.filter(client =>
-                (client.NombreComercial && client.NombreComercial.toLowerCase().includes(searchTerm)) ||
-                (client.NombrePersonal && client.NombrePersonal.toLowerCase().includes(searchTerm)) ||
-                (client.CEP && client.CEP.toLowerCase().includes(searchTerm))
-            );
-            renderClientList(filteredClients);
-        });
+        if (searchClienteInput) {
+            searchClienteInput.addEventListener('input', () => {
+                const searchTerm = searchClienteInput.value.toLowerCase();
+                const filteredClients = allClients.filter(client =>
+                    (client.NombreComercial && client.NombreComercial.toLowerCase().includes(searchTerm)) ||
+                    (client.NombrePersonal && client.NombrePersonal.toLowerCase().includes(searchTerm)) ||
+                    (client.CEP && client.CEP.toLowerCase().includes(searchTerm))
+                );
+                renderClientList(filteredClients);
+            });
+        } else {
+            console.error('renderRealizarVentaForm: Input #search-cliente-venta-input no encontrado.');
+        }
+
 
         // --- Lógica de Tabla de Productos y Cantidades ---
         const renderProductTable = (productsToRender) => {
@@ -326,14 +374,19 @@ export async function renderVentasSection(container) {
             });
         };
 
-        filterRubroVentaSelect.addEventListener('change', () => {
-            const selectedRubro = filterRubroVentaSelect.value;
-            let filteredProducts = allProducts;
-            if (selectedRubro) {
-                filteredProducts = allProducts.filter(p => p.Rubro === selectedRubro);
-            }
-            renderProductTable(filteredProducts);
-        });
+        if (filterRubroVentaSelect) {
+            filterRubroVentaSelect.addEventListener('change', () => {
+                const selectedRubro = filterRubroVentaSelect.value;
+                let filteredProducts = allProducts;
+                if (selectedRubro) {
+                    filteredProducts = allProducts.filter(p => p.Rubro === selectedRubro);
+                }
+                renderProductTable(filteredProducts);
+            });
+        } else {
+            console.error('renderRealizarVentaForm: Select #filter-rubro-venta no encontrado.');
+        }
+
 
         // --- Lógica de Finalizar Venta ---
         const checkFinalizarVentaButtonStatus = () => {
@@ -354,114 +407,125 @@ export async function renderVentasSection(container) {
             btnFinalizarVenta.disabled = !(hasClient && hasAnyQuantity);
         };
 
-        btnFinalizarVenta.addEventListener('click', async () => {
-            if (!selectedClient) {
-                showCustomAlert('Por favor, seleccione un cliente.');
-                return;
-            }
+        if (btnFinalizarVenta) {
+            btnFinalizarVenta.addEventListener('click', async () => {
+                if (!selectedClient) {
+                    showCustomAlert('Por favor, seleccione un cliente.');
+                    return;
+                }
 
-            const productsToProcess = [];
-            let totalVentaCalculado = 0;
-            let validationError = false;
+                const productsToProcess = [];
+                let totalVentaCalculado = 0;
+                let validationError = false;
 
-            // Recopilar productos y cantidades de la tabla
-            productosVentaTableBody.querySelectorAll('tr').forEach(row => {
-                const quantityInput = row.querySelector('.quantity-input');
-                if (!quantityInput) return; // Skip header row or empty message rows
+                // Recopilar productos y cantidades de la tabla
+                productosVentaTableBody.querySelectorAll('tr').forEach(row => {
+                    const quantityInput = row.querySelector('.quantity-input');
+                    if (!quantityInput) return; // Skip header row or empty message rows
 
-                const productId = quantityInput.dataset.productId;
-                const cantidad = parseInt(quantityInput.value);
-                const stockElement = row.querySelector('td[data-stock]');
-                const availableStock = parseInt(stockElement.dataset.stock);
-                const productPrice = parseFloat(quantityInput.dataset.productPrice);
+                    const productId = quantityInput.dataset.productId;
+                    const cantidad = parseInt(quantityInput.value);
+                    const stockElement = row.querySelector('td[data-stock]');
+                    const availableStock = parseInt(stockElement.dataset.stock);
+                    const productPrice = parseFloat(quantityInput.dataset.productPrice);
 
 
-                if (cantidad > 0) {
-                    const productData = allProducts.find(p => p.id === productId);
-                    if (!productData) {
-                        showCustomAlert(`Error: Producto con ID ${productId} no encontrado.`);
-                        validationError = true;
-                        return;
+                    if (cantidad > 0) {
+                        const productData = allProducts.find(p => p.id === productId);
+                        if (!productData) {
+                            showCustomAlert(`Error: Producto con ID ${productId} no encontrado.`);
+                            validationError = true;
+                            return;
+                        }
+                        if (isNaN(cantidad) || cantidad <= 0) {
+                            showCustomAlert(`Error: Cantidad inválida para ${productData.Producto}.`);
+                            validationError = true;
+                            return;
+                        }
+                        if (cantidad > availableStock) {
+                            showCustomAlert(`Error: Cantidad de ${productData.Producto} (${cantidad}) excede el stock disponible (${availableStock}).`);
+                            validationError = true;
+                            return;
+                        }
+
+                        const subtotal = cantidad * productPrice;
+                        totalVentaCalculado += subtotal;
+
+                        productsToProcess.push({
+                            productId: productData.id,
+                            nombre: productData.Producto,
+                            presentacion: productData.Presentacion,
+                            sku: productData.Sku,
+                            cantidad: cantidad,
+                            precioUnitario: productPrice,
+                            subtotal: subtotal
+                        });
                     }
-                    if (isNaN(cantidad) || cantidad <= 0) {
-                        showCustomAlert(`Error: Cantidad inválida para ${productData.Producto}.`);
-                        validationError = true;
-                        return;
-                    }
-                    if (cantidad > availableStock) {
-                        showCustomAlert(`Error: Cantidad de ${productData.Producto} (${cantidad}) excede el stock disponible (${availableStock}).`);
-                        validationError = true;
-                        return;
-                    }
+                });
 
-                    const subtotal = cantidad * productPrice;
-                    totalVentaCalculado += subtotal;
+                if (validationError) {
+                    return; // Detener si hubo errores de validación
+                }
+                if (productsToProcess.length === 0) {
+                    showCustomAlert('No hay productos con cantidad seleccionada para la venta.');
+                    return;
+                }
 
-                    productsToProcess.push({
-                        productId: productData.id,
-                        nombre: productData.Producto,
-                        presentacion: productData.Presentacion,
-                        sku: productData.Sku,
-                        cantidad: cantidad,
-                        precioUnitario: productPrice,
-                        subtotal: subtotal
-                    });
+                // No hay método de pago ni observaciones en esta versión simplificada
+                const ventaData = {
+                    clienteId: selectedClient.id,
+                    nombreCliente: selectedClient.NombreComercial,
+                    fecha: new Date().toISOString(), // Fecha y hora actual
+                    productos: productsToProcess,
+                    totalVenta: totalVentaCalculado,
+                };
+
+                // 1. Actualizar el stock en inventario para cada producto vendido
+                for (const item of productsToProcess) {
+                    const productInDb = allProducts.find(p => p.id === item.productId);
+                    if (productInDb) {
+                        const newCantidad = productInDb.Cantidad - item.cantidad;
+                        await modificarProducto(item.productId, { Cantidad: newCantidad });
+                    }
+                }
+
+                // 2. Registrar la venta
+                const ventaId = await agregarVenta(ventaData);
+
+                if (ventaId) {
+                    showCustomAlert('Venta realizada con éxito! ID: ' + ventaId);
+                    // Resetear el formulario
+                    selectedClient = null;
+                    selectedClientDisplay.textContent = 'Cliente Seleccionado: Ninguno';
+                    searchClienteInput.value = '';
+                    productosParaVentaSection.classList.add('hidden'); // Ocultar sección de productos
+                    btnFinalizarVenta.disabled = true;
+                    totalVentaDisplay.textContent = '0.00'; // Resetear el total
+
+                    // Recargar todos los productos para reflejar el stock actualizado
+                    allProducts = await verInventarioCompleto();
+                    // Recargar clientes (si fuera necesario por cambios de deuda, etc., aunque aquí no se gestiona)
+                    allClients = await obtenerTodosLosClientes();
+                } else {
+                    showCustomAlert('Fallo al finalizar la venta.');
                 }
             });
+        } else {
+            console.error('renderRealizarVentaForm: Botón #btn-finalizar-venta no encontrado.');
+        }
 
-            if (validationError) {
-                return; // Detener si hubo errores de validación
-            }
-            if (productsToProcess.length === 0) {
-                showCustomAlert('No hay productos con cantidad seleccionada para la venta.');
-                return;
-            }
 
-            // No hay método de pago ni observaciones en esta versión simplificada
-            const ventaData = {
-                clienteId: selectedClient.id,
-                nombreCliente: selectedClient.NombreComercial,
-                fecha: new Date().toISOString(), // Fecha y hora actual
-                productos: productsToProcess,
-                totalVenta: totalVentaCalculado,
-            };
-
-            // 1. Actualizar el stock en inventario para cada producto vendido
-            for (const item of productsToProcess) {
-                const productInDb = allProducts.find(p => p.id === item.productId);
-                if (productInDb) {
-                    const newCantidad = productInDb.Cantidad - item.cantidad;
-                    await modificarProducto(item.productId, { Cantidad: newCantidad });
-                }
-            }
-
-            // 2. Registrar la venta
-            const ventaId = await agregarVenta(ventaData);
-
-            if (ventaId) {
-                showCustomAlert('Venta realizada con éxito! ID: ' + ventaId);
-                // Resetear el formulario
-                selectedClient = null;
-                selectedClientDisplay.textContent = 'Cliente Seleccionado: Ninguno';
-                searchClienteInput.value = '';
-                productosParaVentaSection.classList.add('hidden'); // Ocultar sección de productos
-                btnFinalizarVenta.disabled = true;
-                totalVentaDisplay.textContent = '0.00'; // Resetear el total
-
-                // Recargar todos los productos para reflejar el stock actualizado
-                allProducts = await verInventarioCompleto();
-                // Recargar clientes (si fuera necesario por cambios de deuda, etc., aunque aquí no se gestiona)
-                allClients = await obtenerTodosLosClientes();
-            } else {
-                showCustomAlert('Fallo al finalizar la venta.');
-            }
-        });
-
-        btnBack.addEventListener('click', backToMainMenuCallback);
+        if (btnBack) {
+            btnBack.addEventListener('click', backToMainMenuCallback);
+        } else {
+            console.error('renderRealizarVentaForm: Botón #btn-back-from-realizar-venta no encontrado.');
+        }
+        console.log('renderRealizarVentaForm: Finalizado.');
     }
 
     // --- Funciones para Cierre de Venta Diaria (Sin cambios) ---
-    async function renderCierreVentaDiariaSection(parentContainer, backToMainMenuCallback) {
+    async function renderCierreVentaDiariaSection(parentContainer, backToMainMenuCallback) { // Cambiado a function declaration
+        console.log('renderCierreVentaDiariaSection: Iniciando...');
         parentContainer.innerHTML = `
             <div class="p-6 bg-green-50 rounded-lg shadow-inner">
                 <h3 class="text-2xl font-semibold text-green-800 mb-4">Cierre de Venta Diaria</h3>
@@ -491,97 +555,121 @@ export async function renderVentasSection(container) {
         const btnBack = parentContainer.querySelector('#btn-back-from-cierre');
 
         // Establecer la fecha actual por defecto
-        cierreFechaInput.valueAsDate = new Date();
-
-        btnGenerarCierre.addEventListener('click', async () => {
-            const selectedDate = cierreFechaInput.value;
-            if (!selectedDate) {
-                showCustomAlert('Por favor, seleccione una fecha.');
-                return;
-            }
-
-            cierreResultadosDiv.innerHTML = '<p class="text-gray-500">Generando cierre...</p>';
-
-            try {
-                const { db } = await getFirestoreInstances();
-                const ventasCollectionRef = collection(db, `datosVentas`); // Ruta modificada
-
-                // Rango de fechas para el día seleccionado
-                const startOfDay = new Date(selectedDate);
-                startOfDay.setHours(0, 0, 0, 0);
-                const endOfDay = new Date(selectedDate);
-                endOfDay.setHours(23, 59, 59, 999);
-
-                // Consulta para ventas en el rango de fecha
-                const q = query(
-                    ventasCollectionRef,
-                    where('fecha', '>=', startOfDay.toISOString()),
-                    where('fecha', '<=', endOfDay.toISOString())
-                );
-                const querySnapshot = await getDocs(q);
-
-                let totalVentasDia = 0;
-                const ventasPorMetodoPago = {}; // Aún se mantiene para el reporte de cierre si existieran datos previos
-                const productosVendidos = {};
-
-                querySnapshot.forEach(docSnap => {
-                    const venta = docSnap.data();
-                    totalVentasDia += venta.totalVenta || 0;
-
-                    // Sumar por método de pago (si existiera en ventas antiguas)
-                    const metodo = venta.metodoPago || 'No Especificado'; // Podría ser undefined si no se registra
-                    if (venta.metodoPago) { // Solo si el campo existe en la venta
-                        ventasPorMetodoPago[metodo] = (ventasPorMetodoPago[metodo] || 0) + venta.totalVenta;
-                    } else {
-                        // Si no hay método de pago, se puede agrupar como "Venta Directa" o similar
-                        ventasPorMetodoPago['Venta Directa'] = (ventasPorMetodoPago['Venta Directa'] || 0) + venta.totalVenta;
-                    }
+        if (cierreFechaInput) {
+            cierreFechaInput.valueAsDate = new Date();
+        } else {
+            console.error('renderCierreVentaDiariaSection: Input #cierre-fecha-input no encontrado.');
+        }
 
 
-                    // Sumar productos vendidos
-                    venta.productos.forEach(item => {
-                        const key = `${item.nombre} (${item.presentacion}) - ${item.sku}`;
-                        productosVendidos[key] = (productosVendidos[key] || 0) + item.cantidad;
+        if (btnGenerarCierre) {
+            btnGenerarCierre.addEventListener('click', async () => {
+                const selectedDate = cierreFechaInput?.value;
+                if (!selectedDate) {
+                    showCustomAlert('Por favor, seleccione una fecha.');
+                    return;
+                }
+
+                if (cierreResultadosDiv) {
+                    cierreResultadosDiv.innerHTML = '<p class="text-gray-500">Generando cierre...</p>';
+                }
+
+
+                try {
+                    const { db } = await getFirestoreInstances();
+                    const ventasCollectionRef = collection(db, `datosVentas`); // Ruta modificada
+
+                    // Rango de fechas para el día seleccionado
+                    const startOfDay = new Date(selectedDate);
+                    startOfDay.setHours(0, 0, 0, 0);
+                    const endOfDay = new Date(selectedDate);
+                    endOfDay.setHours(23, 59, 59, 999);
+
+                    // Consulta para ventas en el rango de fecha
+                    const q = query(
+                        ventasCollectionRef,
+                        where('fecha', '>=', startOfDay.toISOString()),
+                        where('fecha', '<=', endOfDay.toISOString())
+                    );
+                    const querySnapshot = await getDocs(q);
+
+                    let totalVentasDia = 0;
+                    const ventasPorMetodoPago = {}; // Aún se mantiene para el reporte de cierre si existieran datos previos
+                    const productosVendidos = {};
+
+                    querySnapshot.forEach(docSnap => {
+                        const venta = docSnap.data();
+                        totalVentasDia += venta.totalVenta || 0;
+
+                        // Sumar por método de pago (si existiera en ventas antiguas)
+                        const metodo = venta.metodoPago || 'No Especificado'; // Podría ser undefined si no se registra
+                        if (venta.metodoPago) { // Solo si el campo existe en la venta
+                            ventasPorMetodoPago[metodo] = (ventasPorMetodoPago[metodo] || 0) + venta.totalVenta;
+                        } else {
+                            // Si no hay método de pago, se puede agrupar como "Venta Directa" o similar
+                            ventasPorMetodoPago['Venta Directa'] = (ventasPorMetodoPago['Venta Directa'] || 0) + venta.totalVenta;
+                        }
+
+
+                        // Sumar productos vendidos
+                        venta.productos.forEach(item => {
+                            const key = `${item.nombre} (${item.presentacion}) - ${item.sku}`;
+                            productosVendidos[key] = (productosVendidos[key] || 0) + item.cantidad;
+                        });
                     });
-                });
 
-                let resultadosHTML = `
-                    <h4 class="text-xl font-semibold text-gray-800 mb-3">Resumen del Día: ${selectedDate}</h4>
-                    <p class="text-lg font-bold text-gray-900 mb-3">Total de Ventas: $${totalVentasDia.toFixed(2)}</p>
+                    let resultadosHTML = `
+                        <h4 class="text-xl font-semibold text-gray-800 mb-3">Resumen del Día: ${selectedDate}</h4>
+                        <p class="text-lg font-bold text-gray-900 mb-3">Total de Ventas: $${totalVentasDia.toFixed(2)}</p>
 
-                    <h5 class="font-semibold text-gray-700 mb-2">Ventas por Método de Pago:</h5>
-                    <ul class="list-disc pl-5 mb-3">
-                `;
-                if (Object.keys(ventasPorMetodoPago).length > 0) {
-                    for (const metodo in ventasPorMetodoPago) {
-                        resultadosHTML += `<li>${metodo}: $${ventasPorMetodoPago[metodo].toFixed(2)}</li>`;
+                        <h5 class="font-semibold text-gray-700 mb-2">Ventas por Método de Pago:</h5>
+                        <ul class="list-disc pl-5 mb-3">
+                    `;
+                    if (Object.keys(ventasPorMetodoPago).length > 0) {
+                        for (const metodo in ventasPorMetodoPago) {
+                            resultadosHTML += `<li>${metodo}: $${ventasPorMetodoPago[metodo].toFixed(2)}</li>`;
+                        }
+                    } else {
+                        resultadosHTML += `<li>No hay ventas registradas con método de pago para esta fecha.</li>`;
                     }
-                } else {
-                    resultadosHTML += `<li>No hay ventas registradas con método de pago para esta fecha.</li>`;
-                }
-                resultadosHTML += `</ul>`;
+                    resultadosHTML += `</ul>`;
 
-                resultadosHTML += `
-                    <h5 class="font-semibold text-gray-700 mb-2">Productos Vendidos:</h5>
-                    <ul class="list-disc pl-5">
-                `;
-                if (Object.keys(productosVendidos).length > 0) {
-                    for (const producto in productosVendidos) {
-                        resultadosHTML += `<li>${producto}: ${productosVendidos[producto]} unidades</li>`;
+                    resultadosHTML += `
+                        <h5 class="font-semibold text-gray-700 mb-2">Productos Vendidos:</h5>
+                        <ul class="list-disc pl-5">
+                    `;
+                    if (Object.keys(productosVendidos).length > 0) {
+                        for (const producto in productosVendidos) {
+                            resultadosHTML += `<li>${producto}: ${productosVendidos[producto]} unidades</li>`;
+                        }
+                    } else {
+                        resultadosHTML += `<li>No hay productos vendidos para esta fecha.</li>`;
                     }
-                } else {
-                    resultadosHTML += `<li>No hay productos vendidos para esta fecha.</li>`;
+                    resultadosHTML += `</ul>`;
+
+                    if (cierreResultadosDiv) {
+                        cierreResultadosDiv.innerHTML = resultadosHTML;
+                    }
+
+                } catch (error) {
+                    console.error('Error al generar cierre de venta:', error);
+                    if (cierreResultadosDiv) {
+                        cierreResultadosDiv.innerHTML = '<p class="text-red-600">Error al generar el cierre. Verifique la consola para más detalles.</p>';
+                    }
                 }
-                resultadosHTML += `</ul>`;
+            });
+        } else {
+            console.error('renderCierreVentaDiariaSection: Botón #btn-generar-cierre no encontrado.');
+        }
 
-                cierreResultadosDiv.innerHTML = resultadosHTML;
 
-            } catch (error) {
-                console.error('Error al generar cierre de venta:', error);
-                cierreResultadosDiv.innerHTML = '<p class="text-red-600">Error al generar el cierre. Verifique la consola para más detalles.</p>';
-            }
-        });
-
-        btnBack.addEventListener('click', backToMainMenuCallback);
+        if (btnBack) {
+            btnBack.addEventListener('click', backToMainMenuCallback);
+        } else {
+            console.error('renderCierreVentaDiariaSection: Botón #btn-back-from-cierre no encontrado.');
+        }
+        console.log('renderCierreVentaDiariaSection: Finalizado.');
     }
+    console.log('renderVentasSection: Función completada.');
 }
+
