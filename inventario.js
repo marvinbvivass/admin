@@ -14,9 +14,16 @@ const RUBRO_SEGMENTO_CONFIG_DOC_ID = 'rubrosSegmentos'; // ID fijo para el docum
 
 // Función auxiliar para obtener la instancia de Firestore
 async function getFirestoreInstances() {
-    while (!window.firebaseDb) {
-        console.log('Esperando inicialización de Firebase en inventario.js...');
+    let attempts = 0;
+    const maxAttempts = 50; // Intentar por 5 segundos (50 * 100ms)
+    while (!window.firebaseDb && attempts < maxAttempts) {
+        console.log(`Esperando inicialización de Firebase en inventario.js... Intento ${attempts + 1}`);
         await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+    }
+    if (!window.firebaseDb) {
+        console.error('ERROR: Firebase DB no inicializado después de múltiples intentos en inventario.js.');
+        throw new Error('Firebase DB no disponible.');
     }
     return {
         db: window.firebaseDb,
@@ -28,9 +35,9 @@ async function getFirestoreInstances() {
  * @returns {Promise<object>} El mapa de rubros a segmentos.
  */
 async function obtenerConfiguracionRubrosSegmentos() {
+    console.log('obtenerConfiguracionRubrosSegmentos: Iniciando...');
     try {
         const { db } = await getFirestoreInstances();
-        // Las configuraciones ahora están en la raíz
         const configDocRef = doc(db, `configuracion`, RUBRO_SEGMENTO_CONFIG_DOC_ID);
         const configSnap = await getDoc(configDocRef);
 
@@ -39,7 +46,6 @@ async function obtenerConfiguracionRubrosSegmentos() {
             return configSnap.data().mapa || {};
         } else {
             console.log('No se encontró configuración de rubros y segmentos. Usando mapa predeterminado.');
-            // Si no existe, inicializa con un mapa predeterminado o vacío
             return {
                 "Cervezas": ["Nacionales", "Importadas", "Artesanales"],
                 "Licores": ["Ron", "Whisky", "Vodka", "Ginebra", "Tequila", "Vino", "Espumante"],
@@ -49,8 +55,9 @@ async function obtenerConfiguracionRubrosSegmentos() {
         }
     } catch (error) {
         console.error('Error al obtener configuración de rubros y segmentos:', error);
-        // En caso de error, devuelve un mapa vacío para evitar que la app falle.
         return {};
+    } finally {
+        console.log('obtenerConfiguracionRubrosSegmentos: Finalizado.');
     }
 }
 
@@ -60,16 +67,19 @@ async function obtenerConfiguracionRubrosSegmentos() {
  * @returns {Promise<boolean>} True si se guardó con éxito, false en caso contrario.
  */
 async function guardarConfiguracionRubrosSegmentos(newMap) {
+    console.log('guardarConfiguracionRubrosSegmentos: Iniciando...');
     try {
         const { db } = await getFirestoreInstances();
         const configDocRef = doc(db, `configuracion`, RUBRO_SEGMENTO_CONFIG_DOC_ID);
-        await setDoc(configDocRef, { mapa: newMap }); // Usa setDoc para sobrescribir o crear
+        await setDoc(configDocRef, { mapa: newMap });
         console.log('Configuración de rubros y segmentos guardada con éxito.');
-        rubroSegmentoMap = newMap; // Actualiza la variable global
+        rubroSegmentoMap = newMap;
         return true;
     } catch (error) {
         console.error('Error al guardar configuración de rubros y segmentos:', error);
         return false;
+    } finally {
+        console.log('guardarConfiguracionRubrosSegmentos: Finalizado.');
     }
 }
 
@@ -81,15 +91,18 @@ async function guardarConfiguracionRubrosSegmentos(newMap) {
  * @returns {Promise<string|null>} El ID del documento del producto agregado o null si hubo un error.
  */
 export async function agregarProducto(producto) {
+    console.log('agregarProducto: Iniciando...');
     try {
         const { db } = await getFirestoreInstances();
-        const inventarioCollectionRef = collection(db, `datosInventario`); // Ruta modificada
+        const inventarioCollectionRef = collection(db, `datosInventario`);
         const docRef = await addDoc(inventarioCollectionRef, producto);
         console.log('Producto agregado con ID:', docRef.id);
         return docRef.id;
     } catch (error) {
         console.error('Error al agregar producto:', error);
         return null;
+    } finally {
+        console.log('agregarProducto: Finalizado.');
     }
 }
 
@@ -100,15 +113,18 @@ export async function agregarProducto(producto) {
  * @returns {Promise<boolean>} True si la modificación fue exitosa, false en caso contrario.
  */
 export async function modificarProducto(idProducto, nuevosDatos) {
+    console.log('modificarProducto: Iniciando...');
     try {
         const { db } = await getFirestoreInstances();
-        const productoDocRef = doc(db, `datosInventario`, idProducto); // Ruta modificada
+        const productoDocRef = doc(db, `datosInventario`, idProducto);
         await updateDoc(productoDocRef, nuevosDatos);
         console.log('Producto modificado con éxito. ID:', idProducto);
         return true;
     } catch (error) {
         console.error('Error al modificar producto:', error);
         return false;
+    } finally {
+        console.log('modificarProducto: Finalizado.');
     }
 }
 
@@ -118,15 +134,18 @@ export async function modificarProducto(idProducto, nuevosDatos) {
  * @returns {Promise<boolean>} True si la eliminación fue exitosa, false en caso contrario.
  */
 export async function eliminarProducto(idProducto) {
+    console.log('eliminarProducto: Iniciando...');
     try {
         const { db } = await getFirestoreInstances();
-        const productoDocRef = doc(db, `datosInventario`, idProducto); // Ruta modificada
+        const productoDocRef = doc(db, `datosInventario`, idProducto);
         await deleteDoc(productoDocRef);
         console.log('Producto eliminado con éxito. ID:', idProducto);
         return true;
     } catch (error) {
         console.error('Error al eliminar producto:', error);
         return false;
+    } finally {
+        console.log('eliminarProducto: Finalizado.');
     }
 }
 
@@ -136,9 +155,10 @@ export async function eliminarProducto(idProducto) {
  * @returns {Promise<object|null>} Los datos del producto o null si no se encuentra o hay un error.
  */
 export async function obtenerProducto(idProducto) {
+    console.log('obtenerProducto: Iniciando...');
     try {
         const { db } = await getFirestoreInstances();
-        const productoDocRef = doc(db, `datosInventario`, idProducto); // Ruta modificada
+        const productoDocRef = doc(db, `datosInventario`, idProducto);
         const productoSnap = await getDoc(productoDocRef);
 
         if (productoSnap.exists()) {
@@ -151,6 +171,8 @@ export async function obtenerProducto(idProducto) {
     } catch (error) {
         console.error('Error al obtener producto:', error);
         return null;
+    } finally {
+        console.log('obtenerProducto: Finalizado.');
     }
 }
 
@@ -159,9 +181,10 @@ export async function obtenerProducto(idProducto) {
  * @returns {Promise<Array<object>>} Un array de objetos de producto.
  */
 export async function verInventarioCompleto() {
+    console.log('verInventarioCompleto: Iniciando...');
     try {
         const { db } = await getFirestoreInstances();
-        const inventarioCollectionRef = collection(db, `datosInventario`); // Ruta modificada
+        const inventarioCollectionRef = collection(db, `datosInventario`);
         const querySnapshot = await getDocs(inventarioCollectionRef);
         const productos = [];
         querySnapshot.forEach((doc) => {
@@ -172,6 +195,8 @@ export async function verInventarioCompleto() {
     } catch (error) {
         console.error('Error al obtener inventario completo:', error);
         return [];
+    } finally {
+        console.log('verInventarioCompleto: Finalizado.');
     }
 }
 
@@ -180,6 +205,12 @@ export async function verInventarioCompleto() {
  * @param {HTMLElement} container - El elemento DOM donde se renderizará el modal de inventario.
  */
 export async function renderInventarioSection(container) {
+    console.log('renderInventarioSection: Iniciando. Contenedor recibido:', container);
+    if (!container) {
+        console.error('renderInventarioSection: ERROR - El elemento contenedor es nulo o indefinido.');
+        return;
+    }
+
     container.innerHTML = `
         <div class="modal-content">
             <h2 class="text-4xl font-bold text-gray-900 mb-6 text-center">Gestión de Inventario</h2>
@@ -218,41 +249,16 @@ export async function renderInventarioSection(container) {
     const inventarioSubSection = container.querySelector('#inventario-sub-section');
     const closeInventarioModalBtn = container.querySelector('#close-inventario-modal');
 
+    console.log('renderInventarioSection: Llamando a obtenerConfiguracionRubrosSegmentos...');
     // Cargar el mapa de rubros y segmentos al inicio de la sección de inventario
     rubroSegmentoMap = await obtenerConfiguracionRubrosSegmentos();
+    console.log('renderInventarioSection: obtenerConfiguracionRubrosSegmentos completado. rubroSegmentoMap:', rubroSegmentoMap);
 
     // Función para mostrar los botones principales y limpiar la sub-sección
-    const showInventarioMainButtons = () => {
+    function showInventarioMainButtons() { // Cambiado a function declaration
         inventarioSubSection.innerHTML = ''; // Limpia el contenido de la sub-sección
         inventarioMainButtonsContainer.classList.remove('hidden'); // Muestra los botones principales
-    };
-
-    // Lógica para cerrar el modal
-    closeInventarioModalBtn.addEventListener('click', () => {
-        container.classList.add('hidden'); // Oculta el modal
-        showInventarioMainButtons(); // Vuelve a la vista de botones principales al cerrar
-    });
-
-    // Lógica para mostrar la sección de agregar producto
-    container.querySelector('#btn-show-add-producto').addEventListener('click', () => {
-        inventarioMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
-        renderAddProductoForm(inventarioSubSection, showInventarioMainButtons);
-    });
-
-    // Lógica para mostrar la sección de modificar/eliminar producto (ahora con búsqueda previa)
-    container.querySelector('#btn-show-modify-delete-producto').addEventListener('click', showModifyDeleteSearch);
-
-    // Lógica para mostrar la sección de ver inventario completo
-    container.querySelector('#btn-show-ver-inventario').addEventListener('click', async () => {
-        inventarioMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
-        await renderVerInventarioSection(inventarioSubSection, showInventarioMainButtons);
-    });
-
-    // Lógica para mostrar la sección de gestionar rubros y segmentos
-    container.querySelector('#btn-show-manage-rubros-segmentos').addEventListener('click', async () => {
-        inventarioMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
-        await renderGestionarRubrosSegmentosForm(); // Llama a la nueva función para gestionar rubros/segmentos
-    });
+    }
 
     /**
      * Función auxiliar para renderizar la lista de productos.
@@ -300,7 +306,7 @@ export async function renderInventarioSection(container) {
     }
 
     // Función para renderizar el formulario de agregar producto
-    const renderAddProductoForm = (parentContainer, backToMainMenuCallback) => {
+    function renderAddProductoForm(parentContainer, backToMainMenuCallback) { // Cambiado a function declaration
         parentContainer.innerHTML = `
             <div class="p-6 bg-blue-50 rounded-lg shadow-inner">
                 <h3 class="text-2xl font-semibold text-blue-800 mb-4">Agregar Nuevo Producto</h3>
@@ -329,57 +335,76 @@ export async function renderInventarioSection(container) {
         // Lógica para actualizar el select de Segmento cuando cambia el Rubro
         const addRubroSelect = parentContainer.querySelector('#add-rubro');
         const addSegmentoSelect = parentContainer.querySelector('#add-segmento');
-        addRubroSelect.addEventListener('change', () => {
-            const selectedRubro = addRubroSelect.value;
-            addSegmentoSelect.innerHTML = '<option value="">Selecciona Segmento</option>'; // Limpiar opciones anteriores
-            if (selectedRubro && rubroSegmentoMap[selectedRubro]) {
-                rubroSegmentoMap[selectedRubro].forEach(segmento => {
-                    const option = document.createElement('option');
-                    option.value = segmento;
-                    option.textContent = segmento;
-                    addSegmentoSelect.appendChild(option);
-                });
-                addSegmentoSelect.disabled = false; // Habilitar el select de Segmento
-            } else {
-                addSegmentoSelect.disabled = true; // Deshabilitar si no hay rubro seleccionado
-            }
-        });
+        if (addRubroSelect && addSegmentoSelect) {
+            addRubroSelect.addEventListener('change', () => {
+                const selectedRubro = addRubroSelect.value;
+                addSegmentoSelect.innerHTML = '<option value="">Selecciona Segmento</option>'; // Limpiar opciones anteriores
+                if (selectedRubro && rubroSegmentoMap[selectedRubro]) {
+                    rubroSegmentoMap[selectedRubro].forEach(segmento => {
+                        const option = document.createElement('option');
+                        option.value = segmento;
+                        option.textContent = segmento;
+                        addSegmentoSelect.appendChild(option);
+                    });
+                    addSegmentoSelect.disabled = false; // Habilitar el select de Segmento
+                } else {
+                    addSegmentoSelect.disabled = true; // Deshabilitar si no hay rubro seleccionado
+                }
+            });
+        } else {
+            console.error('renderAddProductoForm: Selects de rubro/segmento no encontrados.');
+        }
+
 
         // Conectar el botón de agregar producto
-        parentContainer.querySelector('#btn-submit-add-producto').addEventListener('click', async () => {
-            const producto = {
-                Sku: parentContainer.querySelector('#add-sku').value,
-                Producto: parentContainer.querySelector('#add-producto').value,
-                Presentacion: parentContainer.querySelector('#add-presentacion').value,
-                Rubro: parentContainer.querySelector('#add-rubro').value,
-                Segmento: parentContainer.querySelector('#add-segmento').value,
-                Precio: parseFloat(parentContainer.querySelector('#add-precio').value),
-                Cantidad: parseInt(parentContainer.querySelector('#add-cantidad').value)
-            };
+        const btnSubmitAddProducto = parentContainer.querySelector('#btn-submit-add-producto');
+        if (btnSubmitAddProducto) {
+            btnSubmitAddProducto.addEventListener('click', async () => {
+                const producto = {
+                    Sku: parentContainer.querySelector('#add-sku')?.value || '',
+                    Producto: parentContainer.querySelector('#add-producto')?.value || '',
+                    Presentacion: parentContainer.querySelector('#add-presentacion')?.value || '',
+                    Rubro: parentContainer.querySelector('#add-rubro')?.value || '',
+                    Segmento: parentContainer.querySelector('#add-segmento')?.value || '',
+                    Precio: parseFloat(parentContainer.querySelector('#add-precio')?.value) || 0,
+                    Cantidad: parseInt(parentContainer.querySelector('#add-cantidad')?.value) || 0
+                };
 
-            const id = await agregarProducto(producto);
-            if (id) {
-                showCustomAlert('Producto agregado con éxito, ID: ' + id);
-                // Limpiar campos
-                parentContainer.querySelector('#add-sku').value = '';
-                parentContainer.querySelector('#add-producto').value = '';
-                parentContainer.querySelector('#add-presentacion').value = '';
-                parentContainer.querySelector('#add-rubro').value = '';
-                parentContainer.querySelector('#add-segmento').innerHTML = '<option value="">Selecciona Segmento</option>'; // Limpiar y resetear segmento
-                parentContainer.querySelector('#add-segmento').disabled = true;
-                parentContainer.querySelector('#add-precio').value = '';
-                parentContainer.querySelector('#add-cantidad').value = '';
-            } else {
-                showCustomAlert('Fallo al agregar producto.');
-            }
-        });
+                const id = await agregarProducto(producto);
+                if (id) {
+                    showCustomAlert('Producto agregado con éxito, ID: ' + id);
+                    // Limpiar campos
+                    if (parentContainer.querySelector('#add-sku')) parentContainer.querySelector('#add-sku').value = '';
+                    if (parentContainer.querySelector('#add-producto')) parentContainer.querySelector('#add-producto').value = '';
+                    if (parentContainer.querySelector('#add-presentacion')) parentContainer.querySelector('#add-presentacion').value = '';
+                    if (parentContainer.querySelector('#add-rubro')) parentContainer.querySelector('#add-rubro').value = '';
+                    if (parentContainer.querySelector('#add-segmento')) {
+                        parentContainer.querySelector('#add-segmento').innerHTML = '<option value="">Selecciona Segmento</option>';
+                        parentContainer.querySelector('#add-segmento').disabled = true;
+                    }
+                    if (parentContainer.querySelector('#add-precio')) parentContainer.querySelector('#add-precio').value = '';
+                    if (parentContainer.querySelector('#add-cantidad')) parentContainer.querySelector('#add-cantidad').value = '';
+                } else {
+                    showCustomAlert('Fallo al agregar producto.');
+                }
+            });
+        } else {
+            console.error('renderAddProductoForm: Botón #btn-submit-add-producto no encontrado.');
+        }
+
 
         // Conectar el botón Volver
-        parentContainer.querySelector('#btn-back-add-producto').addEventListener('click', backToMainMenuCallback);
-    };
+        const btnBackAddProducto = parentContainer.querySelector('#btn-back-add-producto');
+        if (btnBackAddProducto) {
+            btnBackAddProducto.addEventListener('click', backToMainMenuCallback);
+        } else {
+            console.error('renderAddProductoForm: Botón #btn-back-add-producto no encontrado.');
+        }
+    }
 
     // Función para mostrar la interfaz de búsqueda para modificar/eliminar
-    const showModifyDeleteSearch = async () => {
+    async function showModifyDeleteSearch() { // Cambiado a function declaration
+        console.log('showModifyDeleteSearch: Iniciando...');
         inventarioMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
         inventarioSubSection.innerHTML = `
             <div class="p-6 bg-yellow-50 rounded-lg shadow-inner">
@@ -399,30 +424,52 @@ export async function renderInventarioSection(container) {
         const searchInput = inventarioSubSection.querySelector('#search-modify-delete-input');
         let allProducts = [];
 
-        allProducts = await verInventarioCompleto();
+        console.log('showModifyDeleteSearch: Llamando a verInventarioCompleto...');
+        try {
+            allProducts = await verInventarioCompleto();
+            console.log('showModifyDeleteSearch: verInventarioCompleto completado. Productos:', allProducts);
+        } catch (error) {
+            console.error('showModifyDeleteSearch: Error al obtener todos los productos:', error);
+            productListDiv.innerHTML = '<p class="text-red-600">Error al cargar productos. Verifique la consola.</p>';
+            return;
+        }
+
+
         renderProductosList(allProducts, productListDiv, (selectedProduct) => {
             renderModifyDeleteForm(selectedProduct); // Pasa el producto seleccionado al formulario de modificar/eliminar
         });
 
-        searchInput.addEventListener('input', () => {
-            const searchTerm = searchInput.value.toLowerCase();
-            const filteredProducts = allProducts.filter(product =>
-                (product.Sku && product.Sku.toLowerCase().includes(searchTerm)) ||
-                (product.Producto && product.Producto.toLowerCase().includes(searchTerm)) ||
-                (product.Presentacion && product.Presentacion.toLowerCase().includes(searchTerm)) ||
-                (product.Rubro && product.Rubro.toLowerCase().includes(searchTerm)) ||
-                (product.Segmento && product.Segmento.toLowerCase().includes(searchTerm))
-            );
-            renderProductosList(filteredProducts, productListDiv, (selectedProduct) => {
-                renderModifyDeleteForm(selectedProduct);
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                const searchTerm = searchInput.value.toLowerCase();
+                const filteredProducts = allProducts.filter(product =>
+                    (product.Sku && product.Sku.toLowerCase().includes(searchTerm)) ||
+                    (product.Producto && product.Producto.toLowerCase().includes(searchTerm)) ||
+                    (product.Presentacion && product.Presentacion.toLowerCase().includes(searchTerm)) ||
+                    (product.Rubro && product.Rubro.toLowerCase().includes(searchTerm)) ||
+                    (product.Segmento && product.Segmento.toLowerCase().includes(searchTerm))
+                );
+                renderProductosList(filteredProducts, productListDiv, (selectedProduct) => {
+                    renderModifyDeleteForm(selectedProduct);
+                });
             });
-        });
+        } else {
+            console.error('showModifyDeleteSearch: Input #search-modify-delete-input no encontrado.');
+        }
 
-        inventarioSubSection.querySelector('#btn-back-modify-delete-search').addEventListener('click', showInventarioMainButtons);
-    };
+
+        const btnBackModifyDeleteSearch = inventarioSubSection.querySelector('#btn-back-modify-delete-search');
+        if (btnBackModifyDeleteSearch) {
+            btnBackModifyDeleteSearch.addEventListener('click', showInventarioMainButtons);
+        } else {
+            console.error('showModifyDeleteSearch: Botón #btn-back-modify-delete-search no encontrado.');
+        }
+        console.log('showModifyDeleteSearch: Finalizado.');
+    }
 
     // Función para renderizar el formulario de modificar/eliminar
-    const renderModifyDeleteForm = (productData = null) => {
+    function renderModifyDeleteForm(productData = null) { // Cambiado a function declaration
+        console.log('renderModifyDeleteForm: Iniciando con datos:', productData);
         inventarioSubSection.innerHTML = `
             <div class="p-6 bg-yellow-50 rounded-lg shadow-inner">
                 <h3 class="text-2xl font-semibold text-yellow-800 mb-4">Modificar o Eliminar Producto</h3>
@@ -459,77 +506,101 @@ export async function renderInventarioSection(container) {
         // Lógica para actualizar el select de Segmento cuando cambia el Rubro en modificar
         const modRubroSelect = inventarioSubSection.querySelector('#mod-rubro');
         const modSegmentoSelect = inventarioSubSection.querySelector('#mod-segmento');
-        modRubroSelect.addEventListener('change', () => {
-            const selectedRubro = modRubroSelect.value;
-            modSegmentoSelect.innerHTML = '<option value="">Nuevo Segmento (opcional)</option>'; // Limpiar opciones anteriores
-            if (selectedRubro && rubroSegmentoMap[selectedRubro]) {
-                rubroSegmentoMap[selectedRubro].forEach(segmento => {
-                    const option = document.createElement('option');
-                    option.value = segmento;
-                    option.textContent = segmento;
-                    modSegmentoSelect.appendChild(option);
-                });
-                modSegmentoSelect.disabled = false; // Habilitar el select de Segmento
-            } else {
-                modSegmentoSelect.disabled = true; // Deshabilitar si no hay rubro seleccionado
-            }
-        });
+        if (modRubroSelect && modSegmentoSelect) {
+            modRubroSelect.addEventListener('change', () => {
+                const selectedRubro = modRubroSelect.value;
+                modSegmentoSelect.innerHTML = '<option value="">Nuevo Segmento (opcional)</option>'; // Limpiar opciones anteriores
+                if (selectedRubro && rubroSegmentoMap[selectedRubro]) {
+                    rubroSegmentoMap[selectedRubro].forEach(segmento => {
+                        const option = document.createElement('option');
+                        option.value = segmento;
+                        option.textContent = segmento;
+                        modSegmentoSelect.appendChild(option);
+                    });
+                    modSegmentoSelect.disabled = false; // Habilitar el select de Segmento
+                } else {
+                    modSegmentoSelect.disabled = true; // Deshabilitar si no hay rubro seleccionado
+                }
+            });
+        } else {
+            console.error('renderModifyDeleteForm: Selects de rubro/segmento no encontrados.');
+        }
+
 
         // Conectar los botones de modificar/eliminar producto
-        inventarioSubSection.querySelector('#btn-submit-modify-producto').addEventListener('click', async () => {
-            const id = inventarioSubSection.querySelector('#mod-del-producto-id').value;
-            const nuevosDatos = {};
-            if (inventarioSubSection.querySelector('#mod-sku').value !== (productData?.Sku || '')) nuevosDatos.Sku = inventarioSubSection.querySelector('#mod-sku').value;
-            if (inventarioSubSection.querySelector('#mod-producto').value !== (productData?.Producto || '')) nuevosDatos.Producto = inventarioSubSection.querySelector('#mod-producto').value;
-            if (inventarioSubSection.querySelector('#mod-presentacion').value !== (productData?.Presentacion || '')) nuevosDatos.Presentacion = inventarioSubSection.querySelector('#mod-presentacion').value;
-            if (inventarioSubSection.querySelector('#mod-rubro').value) nuevosDatos.Rubro = inventarioSubSection.querySelector('#mod-rubro').value;
-            if (inventarioSubSection.querySelector('#mod-segmento').value) nuevosDatos.Segmento = inventarioSubSection.querySelector('#mod-segmento').value;
-            if (inventarioSubSection.querySelector('#mod-precio').value !== (productData?.Precio || '')) nuevosDatos.Precio = parseFloat(inventarioSubSection.querySelector('#mod-precio').value);
-            if (inventarioSubSection.querySelector('#mod-cantidad').value !== (productData?.Cantidad || '')) nuevosDatos.Cantidad = parseInt(inventarioSubSection.querySelector('#mod-cantidad').value);
+        const btnSubmitModifyProducto = inventarioSubSection.querySelector('#btn-submit-modify-producto');
+        if (btnSubmitModifyProducto) {
+            btnSubmitModifyProducto.addEventListener('click', async () => {
+                const id = inventarioSubSection.querySelector('#mod-del-producto-id')?.value;
+                const nuevosDatos = {};
+                if (inventarioSubSection.querySelector('#mod-sku')?.value !== (productData?.Sku || '')) nuevosDatos.Sku = inventarioSubSection.querySelector('#mod-sku')?.value;
+                if (inventarioSubSection.querySelector('#mod-producto')?.value !== (productData?.Producto || '')) nuevosDatos.Producto = inventarioSubSection.querySelector('#mod-producto')?.value;
+                if (inventarioSubSection.querySelector('#mod-presentacion')?.value !== (productData?.Presentacion || '')) nuevosDatos.Presentacion = inventarioSubSection.querySelector('#mod-presentacion')?.value;
+                if (inventarioSubSection.querySelector('#mod-rubro')?.value) nuevosDatos.Rubro = inventarioSubSection.querySelector('#mod-rubro')?.value;
+                if (inventarioSubSection.querySelector('#mod-segmento')?.value) nuevosDatos.Segmento = inventarioSubSection.querySelector('#mod-segmento')?.value;
+                if (inventarioSubSection.querySelector('#mod-precio')?.value !== (productData?.Precio || '')) nuevosDatos.Precio = parseFloat(inventarioSubSection.querySelector('#mod-precio')?.value);
+                if (inventarioSubSection.querySelector('#mod-cantidad')?.value !== (productData?.Cantidad || '')) nuevosDatos.Cantidad = parseInt(inventarioSubSection.querySelector('#mod-cantidad')?.value);
 
-            if (id && Object.keys(nuevosDatos).length > 0) {
-                const modificado = await modificarProducto(id, nuevosDatos);
-                if (modificado) {
-                    showCustomAlert('Producto modificado con éxito.');
-                    // Limpiar campos y volver a la búsqueda
-                    showModifyDeleteSearch();
-                } else {
-                    showCustomAlert('Fallo al modificar producto.');
-                }
-            } else {
-                showCustomAlert('Por favor, ingresa el ID del producto y al menos un campo para modificar.');
-            }
-        });
-
-        inventarioSubSection.querySelector('#btn-submit-delete-producto').addEventListener('click', async () => {
-            const id = inventarioSubSection.querySelector('#mod-del-producto-id').value;
-            if (id) {
-                const confirmado = await showCustomConfirm(`¿Estás seguro de que quieres eliminar el producto con ID: ${id}?`);
-                if (confirmado) {
-                    const eliminado = await eliminarProducto(id);
-                    if (eliminado) {
-                        showCustomAlert('Producto eliminado con éxito.');
-                        // Volver a la búsqueda
+                if (id && Object.keys(nuevosDatos).length > 0) {
+                    const modificado = await modificarProducto(id, nuevosDatos);
+                    if (modificado) {
+                        showCustomAlert('Producto modificado con éxito.');
+                        // Limpiar campos y volver a la búsqueda
                         showModifyDeleteSearch();
                     } else {
-                        showCustomAlert('Fallo al eliminar producto.');
+                        showCustomAlert('Fallo al modificar producto.');
                     }
+                } else {
+                    showCustomAlert('Por favor, ingresa el ID del producto y al menos un campo para modificar.');
                 }
-            } else {
-                showCustomAlert('Por favor, ingresa el ID del producto a eliminar.');
-            }
-        });
+            });
+        } else {
+            console.error('renderModifyDeleteForm: Botón #btn-submit-modify-producto no encontrado.');
+        }
+
+
+        const btnSubmitDeleteProducto = inventarioSubSection.querySelector('#btn-submit-delete-producto');
+        if (btnSubmitDeleteProducto) {
+            btnSubmitDeleteProducto.addEventListener('click', async () => {
+                const id = inventarioSubSection.querySelector('#mod-del-producto-id')?.value;
+                if (id) {
+                    const confirmado = await showCustomConfirm(`¿Estás seguro de que quieres eliminar el producto con ID: ${id}?`);
+                    if (confirmado) {
+                        const eliminado = await eliminarProducto(id);
+                        if (eliminado) {
+                            showCustomAlert('Producto eliminado con éxito.');
+                            // Volver a la búsqueda
+                            showModifyDeleteSearch();
+                        } else {
+                            showCustomAlert('Fallo al eliminar producto.');
+                        }
+                    }
+                } else {
+                    showCustomAlert('Por favor, ingresa el ID del producto a eliminar.');
+                }
+            });
+        } else {
+            console.error('renderModifyDeleteForm: Botón #btn-submit-delete-producto no encontrado.');
+        }
+
 
         // Conectar el botón Volver
-        inventarioSubSection.querySelector('#btn-back-modify-delete-producto').addEventListener('click', showModifyDeleteSearch);
-    };
+        const btnBackModifyDeleteProducto = inventarioSubSection.querySelector('#btn-back-modify-delete-producto');
+        if (btnBackModifyDeleteProducto) {
+            btnBackModifyDeleteProducto.addEventListener('click', showModifyDeleteSearch);
+        } else {
+            console.error('renderModifyDeleteForm: Botón #btn-back-modify-delete-producto no encontrado.');
+        }
+        console.log('renderModifyDeleteForm: Finalizado.');
+    }
 
     /**
      * Renderiza la sección para ver la lista completa de productos en formato de tabla.
      * @param {HTMLElement} parentContainer - El contenedor donde se renderizará esta sección.
      * @param {function(): void} backToMainMenuCallback - Callback para volver al menú principal de inventario.
      */
-    async function renderVerInventarioSection(parentContainer, backToMainMenuCallback) {
+    async function renderVerInventarioSection(parentContainer, backToMainMenuCallback) { // Cambiado a function declaration
+        console.log('renderVerInventarioSection: Iniciando...');
         parentContainer.innerHTML = `
             <div class="p-6 bg-green-50 rounded-lg shadow-inner">
                 <h3 class="text-2xl font-semibold text-green-800 mb-4">Inventario Completo</h3>
@@ -596,35 +667,48 @@ export async function renderInventarioSection(container) {
         };
 
         // Cargar todos los productos al abrir la sección
+        console.log('renderVerInventarioSection: Llamando a verInventarioCompleto...');
         try {
             allProducts = await verInventarioCompleto();
+            console.log('renderVerInventarioSection: verInventarioCompleto completado. Productos:', allProducts);
             renderProductsTable(allProducts);
         } catch (error) {
-            console.error('Error al obtener productos para la lista:', error);
+            console.error('renderVerInventarioSection: Error al obtener productos para la lista:', error);
             inventarioListTableDiv.innerHTML = '<p class="text-red-600">Error al cargar productos. Por favor, verifique los permisos.</p>';
         }
 
         // Lógica de filtrado en tiempo real
-        searchInput.addEventListener('input', () => {
-            const searchTerm = searchInput.value.toLowerCase();
-            const filteredProducts = allProducts.filter(producto => {
-                return (producto.Sku && producto.Sku.toLowerCase().includes(searchTerm)) ||
-                       (producto.Producto && producto.Producto.toLowerCase().includes(searchTerm)) ||
-                       (producto.Presentacion && producto.Presentacion.toLowerCase().includes(searchTerm)) ||
-                       (producto.Rubro && producto.Rubro.toLowerCase().includes(searchTerm)) ||
-                       (producto.Segmento && producto.Segmento.toLowerCase().includes(searchTerm));
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                const searchTerm = searchInput.value.toLowerCase();
+                const filteredProducts = allProducts.filter(producto => {
+                    return (producto.Sku && producto.Sku.toLowerCase().includes(searchTerm)) ||
+                           (producto.Producto && producto.Producto.toLowerCase().includes(searchTerm)) ||
+                           (producto.Presentacion && producto.Presentacion.toLowerCase().includes(searchTerm)) ||
+                           (producto.Rubro && producto.Rubro.toLowerCase().includes(searchTerm)) ||
+                           (producto.Segmento && producto.Segmento.toLowerCase().includes(searchTerm));
+                });
+                renderProductsTable(filteredProducts);
             });
-            renderProductsTable(filteredProducts);
-        });
+        } else {
+            console.error('renderVerInventarioSection: Input #search-ver-inventario-input no encontrado.');
+        }
+
 
         // Conectar el botón Volver
-        btnBack.addEventListener('click', backToMainMenuCallback);
+        if (btnBack) {
+            btnBack.addEventListener('click', backToMainMenuCallback);
+        } else {
+            console.error('renderVerInventarioSection: Botón #btn-back-ver-inventario no encontrado.');
+        }
+        console.log('renderVerInventarioSection: Finalizado.');
     }
 
     // --- Funciones para gestionar Rubros y Segmentos (Refactorizadas) ---
 
     // Función principal para el menú de gestión de Rubros y Segmentos
-    async function renderGestionarRubrosSegmentosForm() {
+    async function renderGestionarRubrosSegmentosForm() { // Cambiado a function declaration
+        console.log('renderGestionarRubrosSegmentosForm: Iniciando...');
         inventarioSubSection.innerHTML = `
             <div class="p-6 bg-purple-50 rounded-lg shadow-inner">
                 <h3 class="text-2xl font-semibold text-purple-800 mb-4">Gestionar Rubros y Segmentos</h3>
@@ -656,25 +740,52 @@ export async function renderInventarioSection(container) {
         // Función para mostrar los botones principales de gestión de rubros/segmentos
         const showRubrosSegmentosMainButtons = () => {
             rubrosSegmentosSubSection.innerHTML = ''; // Limpiar el contenido de la sub-sección
-            inventarioSubSection.querySelector('#rubros-segmentos-management-buttons').classList.remove('hidden'); // Mostrar los botones principales
+            const managementButtons = inventarioSubSection.querySelector('#rubros-segmentos-management-buttons');
+            if (managementButtons) {
+                managementButtons.classList.remove('hidden'); // Mostrar los botones principales
+            } else {
+                console.error('showRubrosSegmentosMainButtons: Contenedor de botones de gestión no encontrado.');
+            }
         };
 
         // Event Listeners para los botones del menú de gestión de rubros/segmentos
-        btnAdd.addEventListener('click', () => {
-            inventarioSubSection.querySelector('#rubros-segmentos-management-buttons').classList.add('hidden'); // Oculta los botones del menú
-            renderAddRubroSegmentoForm(rubrosSegmentosSubSection, showRubrosSegmentosMainButtons);
-        });
+        if (btnAdd) {
+            btnAdd.addEventListener('click', () => {
+                const managementButtons = inventarioSubSection.querySelector('#rubros-segmentos-management-buttons');
+                if (managementButtons) {
+                    managementButtons.classList.add('hidden'); // Oculta los botones del menú
+                }
+                renderAddRubroSegmentoForm(rubrosSegmentosSubSection, showRubrosSegmentosMainButtons);
+            });
+        } else {
+            console.error('renderGestionarRubrosSegmentosForm: Botón #btn-add-rubro-segmento no encontrado.');
+        }
 
-        btnModifyDelete.addEventListener('click', () => {
-            inventarioSubSection.querySelector('#rubros-segmentos-management-buttons').classList.add('hidden'); // Oculta los botones del menú
-            renderModifyDeleteRubroSegmentoForm(rubrosSegmentosSubSection, showRubrosSegmentosMainButtons);
-        });
 
-        btnBack.addEventListener('click', showInventarioMainButtons); // Vuelve al menú principal de inventario
+        if (btnModifyDelete) {
+            btnModifyDelete.addEventListener('click', () => {
+                const managementButtons = inventarioSubSection.querySelector('#rubros-segmentos-management-buttons');
+                if (managementButtons) {
+                    managementButtons.classList.add('hidden'); // Oculta los botones del menú
+                }
+                renderModifyDeleteRubroSegmentoForm(rubrosSegmentosSubSection, showRubrosSegmentosMainButtons);
+            });
+        } else {
+            console.error('renderGestionarRubrosSegmentosForm: Botón #btn-modify-delete-rubro-segmento no encontrado.');
+        }
+
+
+        if (btnBack) {
+            btnBack.addEventListener('click', showInventarioMainButtons); // Vuelve al menú principal de inventario
+        } else {
+            console.error('renderGestionarRubrosSegmentosForm: Botón #btn-back-from-rubros-segmentos-management no encontrado.');
+        }
+        console.log('renderGestionarRubrosSegmentosForm: Finalizado.');
     }
 
     // Función para renderizar el formulario de añadir Rubro o Segmento
-    async function renderAddRubroSegmentoForm(parentContainer, backToMainMenuCallback) {
+    async function renderAddRubroSegmentoForm(parentContainer, backToMainMenuCallback) { // Cambiado a function declaration
+        console.log('renderAddRubroSegmentoForm: Iniciando...');
         parentContainer.innerHTML = `
             <div class="p-4 bg-blue-50 rounded-lg shadow-inner">
                 <h4 class="text-xl font-semibold text-blue-800 mb-3">Añadir Rubro o Segmento</h4>
@@ -713,61 +824,90 @@ export async function renderInventarioSection(container) {
         const btnBack = parentContainer.querySelector('#btn-back-from-add-form');
 
         // Lógica para añadir nuevo rubro
-        btnAddNewRubro.addEventListener('click', async () => {
-            const newRubro = addNewRubroInput.value.trim();
-            if (newRubro && !rubroSegmentoMap[newRubro]) {
-                rubroSegmentoMap[newRubro] = []; // Inicializa el nuevo rubro con un array vacío de segmentos
-                if (await guardarConfiguracionRubrosSegmentos(rubroSegmentoMap)) {
-                    showCustomAlert(`Rubro "${newRubro}" añadido.`);
-                    addNewRubroInput.value = '';
-                    // Re-poblar el select de rubros para segmentos
-                    selectRubroForSegmento.innerHTML = `<option value="">-- Selecciona un Rubro --</option>` + Object.keys(rubroSegmentoMap).map(rubro => `<option value="${rubro}">${rubro}</option>`).join('');
+        if (btnAddNewRubro) {
+            btnAddNewRubro.addEventListener('click', async () => {
+                const newRubro = addNewRubroInput.value.trim();
+                if (newRubro) {
+                    if (!rubroSegmentoMap[newRubro]) {
+                        rubroSegmentoMap[newRubro] = []; // Inicializa el nuevo rubro con un array vacío de segmentos
+                        if (await guardarConfiguracionRubrosSegmentos(rubroSegmentoMap)) {
+                            showCustomAlert(`Rubro "${newRubro}" añadido.`);
+                            addNewRubroInput.value = '';
+                            // Re-poblar el select de rubros para segmentos
+                            if (selectRubroForSegmento) {
+                                selectRubroForSegmento.innerHTML = `<option value="">-- Selecciona un Rubro --</option>` + Object.keys(rubroSegmentoMap).map(rubro => `<option value="${rubro}">${rubro}</option>`).join('');
+                            }
+                        } else {
+                            showCustomAlert('Fallo al añadir rubro.');
+                        }
+                    } else {
+                        showCustomAlert(`El rubro "${newRubro}" ya existe.`);
+                    }
                 } else {
-                    showCustomAlert('Fallo al añadir rubro.');
+                    showCustomAlert('Por favor, ingresa un nombre para el nuevo rubro.');
                 }
-            } else if (rubroSegmentoMap[newRubro]) {
-                showCustomAlert(`El rubro "${newRubro}" ya existe.`);
-            } else {
-                showCustomAlert('Por favor, ingresa un nombre para el nuevo rubro.');
-            }
-        });
+            });
+        } else {
+            console.error('renderAddRubroSegmentoForm: Botón #btn-add-new-rubro no encontrado.');
+        }
+
 
         // Habilitar/deshabilitar input de segmento basado en la selección de rubro
-        selectRubroForSegmento.addEventListener('change', () => {
-            const selectedRubro = selectRubroForSegmento.value;
-            if (selectedRubro) {
-                addNewSegmentoInput.disabled = false;
-                btnAddNewSegmento.disabled = false;
-            } else {
-                addNewSegmentoInput.disabled = true;
-                btnAddNewSegmento.disabled = true;
-            }
-        });
+        if (selectRubroForSegmento) {
+            selectRubroForSegmento.addEventListener('change', () => {
+                const selectedRubro = selectRubroForSegmento.value;
+                if (selectedRubro) {
+                    if (addNewSegmentoInput) addNewSegmentoInput.disabled = false;
+                    if (btnAddNewSegmento) btnAddNewSegmento.disabled = false;
+                } else {
+                    if (addNewSegmentoInput) addNewSegmentoInput.disabled = true;
+                    if (btnAddNewSegmento) btnAddNewSegmento.disabled = true;
+                }
+            });
+        } else {
+            console.error('renderAddRubroSegmentoForm: Select #select-rubro-for-segmento no encontrado.');
+        }
+
 
         // Lógica para añadir nuevo segmento
-        btnAddNewSegmento.addEventListener('click', async () => {
-            const selectedRubro = selectRubroForSegmento.value;
-            const newSegmento = addNewSegmentoInput.value.trim();
-            if (selectedRubro && newSegmento && !rubroSegmentoMap[selectedRubro].includes(newSegmento)) {
-                rubroSegmentoMap[selectedRubro].push(newSegmento);
-                if (await guardarConfiguracionRubrosSegmentos(rubroSegmentoMap)) {
-                    showCustomAlert(`Segmento "${newSegmento}" añadido a "${selectedRubro}".`);
-                    addNewSegmentoInput.value = '';
+        if (btnAddNewSegmento) {
+            btnAddNewSegmento.addEventListener('click', async () => {
+                const selectedRubro = selectRubroForSegmento?.value;
+                const newSegmento = addNewSegmentoInput?.value.trim();
+                if (selectedRubro && newSegmento) {
+                    if (rubroSegmentoMap[selectedRubro] && !rubroSegmentoMap[selectedRubro].includes(newSegmento)) {
+                        rubroSegmentoMap[selectedRubro].push(newSegmento);
+                        if (await guardarConfiguracionRubrosSegmentos(rubroSegmentoMap)) {
+                            showCustomAlert(`Segmento "${newSegmento}" añadido a "${selectedRubro}".`);
+                            if (addNewSegmentoInput) addNewSegmentoInput.value = '';
+                        } else {
+                            showCustomAlert('Fallo al añadir segmento.');
+                        }
+                    } else if (rubroSegmentoMap[selectedRubro] && rubroSegmentoMap[selectedRubro].includes(newSegmento)) {
+                        showCustomAlert(`El segmento "${newSegmento}" ya existe en "${selectedRubro}".`);
+                    } else {
+                        showCustomAlert('Por favor, selecciona un rubro válido.');
+                    }
                 } else {
-                    showCustomAlert('Fallo al añadir segmento.');
+                    showCustomAlert('Por favor, selecciona un rubro e ingresa un nombre para el nuevo segmento.');
                 }
-            } else if (rubroSegmentoMap[selectedRubro].includes(newSegmento)) {
-                showCustomAlert(`El segmento "${newSegmento}" ya existe en "${selectedRubro}".`);
-            } else {
-                showCustomAlert('Por favor, selecciona un rubro e ingresa un nombre para el nuevo segmento.');
-            }
-        });
+            });
+        } else {
+            console.error('renderAddRubroSegmentoForm: Botón #btn-add-new-segmento no encontrado.');
+        }
 
-        btnBack.addEventListener('click', backToMainMenuCallback);
+
+        if (btnBack) {
+            btnBack.addEventListener('click', backToMainMenuCallback);
+        } else {
+            console.error('renderAddRubroSegmentoForm: Botón #btn-back-from-add-form no encontrado.');
+        }
+        console.log('renderAddRubroSegmentoForm: Finalizado.');
     }
 
     // Función para renderizar el formulario de modificar/eliminar Rubro o Segmento
-    async function renderModifyDeleteRubroSegmentoForm(parentContainer, backToMainMenuCallback) {
+    async function renderModifyDeleteRubroSegmentoForm(parentContainer, backToMainMenuCallback) { // Cambiado a function declaration
+        console.log('renderModifyDeleteRubroSegmentoForm: Iniciando...');
         parentContainer.innerHTML = `
             <div class="p-4 bg-yellow-50 rounded-lg shadow-inner">
                 <h4 class="text-xl font-semibold text-yellow-800 mb-3">Modificar o Eliminar Rubro o Segmento</h4>
@@ -851,22 +991,34 @@ export async function renderInventarioSection(container) {
         renderList(rubroSegmentoMap);
 
         // Funcionalidad de búsqueda
-        searchInput.addEventListener('input', () => {
-            const searchTerm = searchInput.value.toLowerCase();
-            const filteredMap = {};
-            for (const rubro in rubroSegmentoMap) {
-                if (rubro.toLowerCase().includes(searchTerm)) {
-                    filteredMap[rubro] = rubroSegmentoMap[rubro];
-                } else {
-                    const matchingSegments = rubroSegmentoMap[rubro].filter(segmento => segmento.toLowerCase().includes(searchTerm));
-                    if (matchingSegments.length > 0) {
-                        filteredMap[rubro] = matchingSegments;
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                const searchTerm = searchInput.value.toLowerCase();
+                const filteredMap = {};
+                for (const rubro in rubroSegmentoMap) {
+                    if (rubro.toLowerCase().includes(searchTerm)) {
+                        filteredMap[rubro] = rubroSegmentoMap[rubro];
+                    } else {
+                        const matchingSegments = rubroSegmentoMap[rubro].filter(segmento => segmento.toLowerCase().includes(searchTerm));
+                        if (matchingSegments.length > 0) {
+                            filteredMap[rubro] = matchingSegments;
+                        }
                     }
                 }
-            }
-            renderList(filteredMap);
-        });
+                renderList(filteredMap);
+            });
+        } else {
+            console.error('renderModifyDeleteRubroSegmentoForm: Input #search-rubro-segmento-input no encontrado.');
+        }
 
-        btnBack.addEventListener('click', backToMainMenuCallback);
+
+        if (btnBack) {
+            btnBack.addEventListener('click', backToMainMenuCallback);
+        } else {
+            console.error('renderModifyDeleteRubroSegmentoForm: Botón #btn-back-from-modify-delete-form no encontrado.');
+        }
+        console.log('renderModifyDeleteRubroSegmentoForm: Finalizado.');
     }
+    console.log('renderInventarioSection: Función completada.');
 }
+
