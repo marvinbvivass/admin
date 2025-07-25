@@ -7,6 +7,8 @@ import { collection, addDoc, getDocs, doc, updateDoc, query, where, getDoc } fro
 // Importa funciones de otros módulos para obtener datos necesarios
 import { obtenerTodosLosClientes } from './clientes.js';
 import { verInventarioCompleto, modificarProducto } from './inventario.js';
+// Importa las funciones de alerta y confirmación personalizadas desde clientes.js
+import { showCustomAlert, showCustomConfirm } from './clientes.js';
 
 // ID fijo para el documento de configuración de valores de cambio (copiado de precios.js)
 const EXCHANGE_RATES_DOC_ID = 'exchangeRates';
@@ -354,7 +356,7 @@ export async function renderVentasSection(container) {
 
         btnFinalizarVenta.addEventListener('click', async () => {
             if (!selectedClient) {
-                alert('Por favor, seleccione un cliente.');
+                showCustomAlert('Por favor, seleccione un cliente.');
                 return;
             }
 
@@ -377,17 +379,17 @@ export async function renderVentasSection(container) {
                 if (cantidad > 0) {
                     const productData = allProducts.find(p => p.id === productId);
                     if (!productData) {
-                        alert(`Error: Producto con ID ${productId} no encontrado.`);
+                        showCustomAlert(`Error: Producto con ID ${productId} no encontrado.`);
                         validationError = true;
                         return;
                     }
                     if (isNaN(cantidad) || cantidad <= 0) {
-                        alert(`Error: Cantidad inválida para ${productData.Producto}.`);
+                        showCustomAlert(`Error: Cantidad inválida para ${productData.Producto}.`);
                         validationError = true;
                         return;
                     }
                     if (cantidad > availableStock) {
-                        alert(`Error: Cantidad de ${productData.Producto} (${cantidad}) excede el stock disponible (${availableStock}).`);
+                        showCustomAlert(`Error: Cantidad de ${productData.Producto} (${cantidad}) excede el stock disponible (${availableStock}).`);
                         validationError = true;
                         return;
                     }
@@ -411,7 +413,7 @@ export async function renderVentasSection(container) {
                 return; // Detener si hubo errores de validación
             }
             if (productsToProcess.length === 0) {
-                alert('No hay productos con cantidad seleccionada para la venta.');
+                showCustomAlert('No hay productos con cantidad seleccionada para la venta.');
                 return;
             }
 
@@ -437,7 +439,7 @@ export async function renderVentasSection(container) {
             const ventaId = await agregarVenta(ventaData);
 
             if (ventaId) {
-                alert('Venta realizada con éxito! ID: ' + ventaId);
+                showCustomAlert('Venta realizada con éxito! ID: ' + ventaId);
                 // Resetear el formulario
                 selectedClient = null;
                 selectedClientDisplay.textContent = 'Cliente Seleccionado: Ninguno';
@@ -451,7 +453,7 @@ export async function renderVentasSection(container) {
                 // Recargar clientes (si fuera necesario por cambios de deuda, etc., aunque aquí no se gestiona)
                 allClients = await obtenerTodosLosClientes();
             } else {
-                alert('Fallo al finalizar la venta.');
+                showCustomAlert('Fallo al finalizar la venta.');
             }
         });
 
@@ -494,7 +496,7 @@ export async function renderVentasSection(container) {
         btnGenerarCierre.addEventListener('click', async () => {
             const selectedDate = cierreFechaInput.value;
             if (!selectedDate) {
-                alert('Por favor, seleccione una fecha.');
+                showCustomAlert('Por favor, seleccione una fecha.');
                 return;
             }
 
@@ -526,7 +528,7 @@ export async function renderVentasSection(container) {
                     const venta = docSnap.data();
                     totalVentasDia += venta.totalVenta || 0;
 
-                    // Sumar por método de pago (si existiera en ventas antiguas, aunque ya no se registra)
+                    // Sumar por método de pago (si existiera en ventas antiguas)
                     const metodo = venta.metodoPago || 'No Especificado'; // Podría ser undefined si no se registra
                     if (venta.metodoPago) { // Solo si el campo existe en la venta
                         ventasPorMetodoPago[metodo] = (ventasPorMetodoPago[metodo] || 0) + venta.totalVenta;
@@ -583,4 +585,3 @@ export async function renderVentasSection(container) {
         btnBack.addEventListener('click', backToMainMenuCallback);
     }
 }
-
