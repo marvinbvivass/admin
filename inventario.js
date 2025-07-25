@@ -4,6 +4,9 @@
 
 // Importa las funciones necesarias de Firebase Firestore.
 import { collection, addDoc, doc, updateDoc, deleteDoc, getDoc, setDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+// Importa las funciones de alerta y confirmación personalizadas desde clientes.js
+import { showCustomAlert, showCustomConfirm } from './clientes.js';
+
 
 // Variable para almacenar el mapa de rubros a segmentos, cargado desde Firebase
 let rubroSegmentoMap = {};
@@ -38,11 +41,10 @@ async function obtenerConfiguracionRubrosSegmentos() {
             console.log('No se encontró configuración de rubros y segmentos. Usando mapa predeterminado.');
             // Si no existe, inicializa con un mapa predeterminado o vacío
             return {
-                "Cerveza": ["Nacional", "Importada", "Artesanal"],
-                "Gaseosa": ["Cola", "Limón", "Naranja"],
-                "Agua": ["Mineral", "Con Gas", "Saborizada"],
-                "Snacks": ["Salado", "Dulce"],
-                "Licores": ["Ron", "Whisky", "Vodka"]
+                "Cervezas": ["Nacionales", "Importadas", "Artesanales"],
+                "Licores": ["Ron", "Whisky", "Vodka", "Ginebra", "Tequila", "Vino", "Espumante"],
+                "Refrescos": ["Gaseosas", "Jugos", "Agua Mineral"],
+                "Snacks": ["Dulces", "Salados"]
             };
         }
     } catch (error) {
@@ -92,7 +94,7 @@ export async function agregarProducto(producto) {
 }
 
 /**
- * Modifica los datos de un producto existente en el inventario de Firestore.
+ * Modifica los datos de un producto existente en Firestore.
  * @param {string} idProducto - ID único del documento del producto a modificar.
  * @param {object} nuevosDatos - Objeto con los nuevos datos del producto.
  * @returns {Promise<boolean>} True si la modificación fue exitosa, false en caso contrario.
@@ -129,7 +131,7 @@ export async function eliminarProducto(idProducto) {
 }
 
 /**
- * Obtiene los datos de un producto específico del inventario de Firestore.
+ * Obtiene los datos de un producto específico de Firestore.
  * @param {string} idProducto - ID único del documento del producto a obtener.
  * @returns {Promise<object|null>} Los datos del producto o null si no se encuentra o hay un error.
  */
@@ -168,7 +170,7 @@ export async function verInventarioCompleto() {
         console.log('Inventario completo obtenido:', productos);
         return productos;
     } catch (error) {
-        console.error('Error al obtener el inventario completo:', error);
+        console.error('Error al obtener inventario completo:', error);
         return [];
     }
 }
@@ -190,7 +192,7 @@ export async function renderInventarioSection(container) {
                     Modificar/Eliminar Producto
                 </button>
                 <button id="btn-show-ver-inventario" class="bg-green-600 text-white p-4 rounded-md font-semibold hover:bg-green-700 transition duration-200">
-                    Ver Inventario
+                    Ver Inventario Completo
                 </button>
                 <button id="btn-show-manage-rubros-segmentos" class="bg-purple-600 text-white p-4 rounded-md font-semibold hover:bg-purple-700 transition duration-200 col-span-full">
                     Gestionar Rubros y Segmentos
@@ -231,162 +233,80 @@ export async function renderInventarioSection(container) {
         showInventarioMainButtons(); // Vuelve a la vista de botones principales al cerrar
     });
 
-    // Función para renderizar el formulario de modificar/eliminar
-    const renderModifyDeleteForm = (productData = null) => {
-        inventarioSubSection.innerHTML = `
-            <div class="p-6 bg-yellow-50 rounded-lg shadow-inner">
-                <h3 class="text-2xl font-semibold text-yellow-800 mb-4">Modificar o Eliminar Producto</h3>
-                <input type="hidden" id="mod-del-producto-id" value="${productData ? productData.id : ''}">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input type="text" id="mod-sku" placeholder="Nuevo SKU (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${productData?.Sku || ''}">
-                    <input type="text" id="mod-producto" placeholder="Nuevo Nombre Producto (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${productData?.Producto || ''}">
-                    <input type="text" id="mod-presentacion" placeholder="Nueva Presentación (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${productData?.Presentacion || ''}">
-                    <select id="mod-rubro" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
-                        <option value="">Nuevo Rubro (opcional)</option>
-                        ${Object.keys(rubroSegmentoMap).map(rubro => `<option value="${rubro}" ${productData?.Rubro === rubro ? 'selected' : ''}>${rubro}</option>`).join('')}
-                    </select>
-                    <select id="mod-segmento" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" ${productData?.Rubro ? '' : 'disabled'}>
-                        <option value="">Nuevo Segmento (opcional)</option>
-                        ${productData?.Rubro && rubroSegmentoMap[productData.Rubro] ? rubroSegmentoMap[productData.Rubro].map(segmento => `<option value="${segmento}" ${productData?.Segmento === segmento ? 'selected' : ''}>${segmento}</option>`).join('') : ''}
-                    </select>
-                    <input type="number" step="0.01" id="mod-precio" placeholder="Nuevo Precio (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${productData?.Precio || ''}">
-                    <input type="number" step="1" id="mod-cantidad" placeholder="Nueva Cantidad (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${productData?.Cantidad || ''}">
-                    <textarea id="mod-observaciones" placeholder="Nuevas Observaciones (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 col-span-full">${productData?.Observaciones || ''}</textarea>
-                </div>
-                <div class="flex flex-col md:flex-row gap-4 mt-6">
-                    <button id="btn-submit-modify-producto" class="flex-1 bg-yellow-600 text-white p-3 rounded-md font-semibold hover:bg-yellow-700 transition duration-200">
-                        Confirmar Modificar
-                    </button>
-                    <button id="btn-submit-delete-producto" class="flex-1 bg-red-600 text-white p-3 rounded-md font-semibold hover:bg-red-700 transition duration-200">
-                        Confirmar Eliminar
-                    </button>
-                </div>
-                <button id="btn-back-modify-delete-producto" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
-                    Volver
-                </button>
-            </div>
-        `;
-
-        // Lógica para actualizar el select de Segmento cuando cambia el Rubro en modificar
-        const modRubroSelect = container.querySelector('#mod-rubro');
-        const modSegmentoSelect = container.querySelector('#mod-segmento');
-        modRubroSelect.addEventListener('change', () => {
-            const selectedRubro = modRubroSelect.value;
-            modSegmentoSelect.innerHTML = '<option value="">Nuevo Segmento (opcional)</option>'; // Limpiar opciones anteriores
-            if (selectedRubro && rubroSegmentoMap[selectedRubro]) {
-                rubroSegmentoMap[selectedRubro].forEach(segmento => {
-                    const option = document.createElement('option');
-                    option.value = segmento;
-                    option.textContent = segmento;
-                    modSegmentoSelect.appendChild(option);
-                });
-                modSegmentoSelect.disabled = false; // Habilitar el select de Segmento
-            } else {
-                modSegmentoSelect.disabled = true; // Deshabilitar si no hay rubro seleccionado
-            }
-        });
-
-        // Conectar los botones de modificar/eliminar producto
-        container.querySelector('#btn-submit-modify-producto').addEventListener('click', async () => {
-            const id = container.querySelector('#mod-del-producto-id').value;
-            const nuevosDatos = {};
-            if (container.querySelector('#mod-sku').value !== (productData?.Sku || '')) nuevosDatos.Sku = container.querySelector('#mod-sku').value;
-            if (container.querySelector('#mod-producto').value !== (productData?.Producto || '')) nuevosDatos.Producto = container.querySelector('#mod-producto').value;
-            if (container.querySelector('#mod-presentacion').value !== (productData?.Presentacion || '')) nuevosDatos.Presentacion = container.querySelector('#mod-presentacion').value;
-            if (container.querySelector('#mod-rubro').value) nuevosDatos.Rubro = container.querySelector('#mod-rubro').value;
-            if (container.querySelector('#mod-segmento').value) nuevosDatos.Segmento = container.querySelector('#mod-segmento').value;
-            if (container.querySelector('#mod-precio').value !== (productData?.Precio || '')) nuevosDatos.Precio = parseFloat(container.querySelector('#mod-precio').value);
-            if (container.querySelector('#mod-cantidad').value !== (productData?.Cantidad || '')) nuevosDatos.Cantidad = parseInt(container.querySelector('#mod-cantidad').value);
-            if (container.querySelector('#mod-observaciones').value !== (productData?.Observaciones || '')) nuevosDatos.Observaciones = container.querySelector('#mod-observaciones').value;
-
-            if (id && Object.keys(nuevosDatos).length > 0) {
-                const modificado = await modificarProducto(id, nuevosDatos);
-                if (modificado) {
-                    alert('Producto modificado con éxito.');
-                    // Limpiar campos y volver a la búsqueda
-                    showModifyDeleteSearch();
-                } else {
-                    alert('Fallo al modificar producto.');
-                }
-            } else {
-                alert('Por favor, ingresa el ID del producto y al menos un campo para modificar.');
-            }
-        });
-
-        container.querySelector('#btn-submit-delete-producto').addEventListener('click', async () => {
-            const id = container.querySelector('#mod-del-producto-id').value;
-            if (id) {
-                const eliminado = await eliminarProducto(id);
-                if (eliminado) {
-                    alert('Producto eliminado con éxito.');
-                    // Volver a la búsqueda
-                    showModifyDeleteSearch();
-                } else {
-                    alert('Fallo al eliminar producto.');
-                }
-            } else {
-                alert('Por favor, ingresa el ID del producto a eliminar.');
-            }
-        });
-
-        // Conectar el botón Volver
-        container.querySelector('#btn-back-modify-delete-producto').addEventListener('click', showModifyDeleteSearch);
-    };
-
-    // Función para mostrar la interfaz de búsqueda para modificar/eliminar
-    const showModifyDeleteSearch = async () => {
-        inventarioMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
-        inventarioSubSection.innerHTML = `
-            <div class="p-6 bg-yellow-50 rounded-lg shadow-inner">
-                <h3 class="text-2xl font-semibold text-yellow-800 mb-4">Buscar Producto para Modificar/Eliminar</h3>
-                <input type="text" id="search-modify-delete-input" placeholder="Buscar por SKU, Producto, Rubro, etc." class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 mb-4">
-                <div id="modify-delete-product-list" class="bg-white p-4 rounded-md border border-gray-200 max-h-60 overflow-y-auto">
-                    <!-- Los productos se mostrarán aquí -->
-                    <p class="text-gray-500">Cargando productos...</p>
-                </div>
-                <button id="btn-back-modify-delete-search" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
-                    Volver al Menú Principal
-                </button>
-            </div>
-        `;
-
-        const productListDiv = container.querySelector('#modify-delete-product-list');
-        const searchInput = container.querySelector('#search-modify-delete-input');
-        let allProducts = [];
-
-        allProducts = await verInventarioCompleto();
-        renderProductsList(allProducts, productListDiv, (selectedProduct) => {
-            renderModifyDeleteForm(selectedProduct); // Pasa el producto seleccionado al formulario de modificar/eliminar
-        });
-
-        searchInput.addEventListener('input', () => {
-            const searchTerm = searchInput.value.toLowerCase();
-            const filteredProducts = allProducts.filter(producto => {
-                return (producto.Sku && producto.Sku.toLowerCase().includes(searchTerm)) ||
-                       (producto.Producto && producto.Producto.toLowerCase().includes(searchTerm)) ||
-                       (producto.Presentacion && producto.Presentacion.toLowerCase().includes(searchTerm)) ||
-                       (producto.Rubro && producto.Rubro.toLowerCase().includes(searchTerm)) ||
-                       (producto.Segmento && producto.Segmento.toLowerCase().includes(searchTerm)) ||
-                       (producto.Observaciones && producto.Observaciones.toLowerCase().includes(searchTerm));
-            });
-            renderProductsList(filteredProducts, productListDiv, (selectedProduct) => {
-                renderModifyDeleteForm(selectedProduct);
-            });
-        });
-
-        container.querySelector('#btn-back-modify-delete-search').addEventListener('click', showInventarioMainButtons);
-    };
-
-
     // Lógica para mostrar la sección de agregar producto
     container.querySelector('#btn-show-add-producto').addEventListener('click', () => {
         inventarioMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
-        inventarioSubSection.innerHTML = `
+        renderAddProductoForm(inventarioSubSection, showInventarioMainButtons);
+    });
+
+    // Lógica para mostrar la sección de modificar/eliminar producto (ahora con búsqueda previa)
+    container.querySelector('#btn-show-modify-delete-producto').addEventListener('click', showModifyDeleteSearch);
+
+    // Lógica para mostrar la sección de ver inventario completo
+    container.querySelector('#btn-show-ver-inventario').addEventListener('click', async () => {
+        inventarioMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
+        await renderVerInventarioSection(inventarioSubSection, showInventarioMainButtons);
+    });
+
+    // Lógica para mostrar la sección de gestionar rubros y segmentos
+    container.querySelector('#btn-show-manage-rubros-segmentos').addEventListener('click', async () => {
+        inventarioMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
+        await renderGestionarRubrosSegmentosForm(); // Llama a la nueva función para gestionar rubros/segmentos
+    });
+
+    /**
+     * Función auxiliar para renderizar la lista de productos.
+     * Esta función se usa en "Buscar Producto" y "Modificar/Eliminar Producto".
+     * @param {Array<object>} productos - Array de objetos de producto.
+     * @param {HTMLElement} listContainer - El elemento DOM donde se renderizará la lista.
+     * @param {function(object): void} [actionCallback] - Función a ejecutar cuando se selecciona un producto.
+     */
+    function renderProductosList(productos, listContainer, actionCallback = null) {
+        listContainer.innerHTML = ''; // Limpiar lista
+        if (productos.length === 0) {
+            listContainer.innerHTML = '<p class="text-gray-500">No hay productos para mostrar aún.</p>';
+            return;
+        }
+        const ul = document.createElement('ul');
+        ul.className = 'divide-y divide-gray-200';
+        productos.forEach(producto => {
+            const li = document.createElement('li');
+            li.className = 'py-2 flex flex-col sm:flex-row justify-between items-start sm:items-center';
+            li.innerHTML = `
+                <div>
+                    <p class="font-semibold">${producto.Producto || 'N/A'}</p>
+                    <p class="text-sm text-gray-600">SKU: ${producto.Sku || 'N/A'} | Presentación: ${producto.Presentacion || 'N/A'}</p>
+                    <p class="text-sm text-gray-600">Rubro: ${producto.Rubro || 'N/A'} | Segmento: ${producto.Segmento || 'N/A'}</p>
+                    <p class="text-sm text-gray-600">Precio: $${(producto.Precio || 0).toFixed(2)} | Cantidad: ${producto.Cantidad || 0}</p>
+                </div>
+                ${actionCallback ? `<button class="mt-2 sm:mt-0 sm:ml-4 bg-blue-500 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-600 transition duration-200 select-product-btn" data-product-id="${producto.id}">Seleccionar</button>` : ''}
+            `;
+            ul.appendChild(li);
+        });
+        listContainer.appendChild(ul);
+
+        // Adjuntar event listeners a los botones "Seleccionar" si existen
+        if (actionCallback) {
+            listContainer.querySelectorAll('.select-product-btn').forEach(button => {
+                button.addEventListener('click', async (event) => {
+                    const productId = event.target.dataset.productId;
+                    const selectedProduct = productos.find(p => p.id === productId);
+                    if (selectedProduct) {
+                        actionCallback(selectedProduct);
+                    }
+                });
+            });
+        }
+    }
+
+    // Función para renderizar el formulario de agregar producto
+    const renderAddProductoForm = (parentContainer, backToMainMenuCallback) => {
+        parentContainer.innerHTML = `
             <div class="p-6 bg-blue-50 rounded-lg shadow-inner">
                 <h3 class="text-2xl font-semibold text-blue-800 mb-4">Agregar Nuevo Producto</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <input type="text" id="add-sku" placeholder="SKU" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <input type="text" id="add-producto" placeholder="Nombre Producto" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="text" id="add-producto" placeholder="Nombre del Producto" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <input type="text" id="add-presentacion" placeholder="Presentación" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <select id="add-rubro" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="">Selecciona Rubro</option>
@@ -395,9 +315,8 @@ export async function renderInventarioSection(container) {
                     <select id="add-segmento" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" disabled>
                         <option value="">Selecciona Segmento</option>
                     </select>
-                    <input type="number" step="0.01" id="add-precio" placeholder="Precio" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <input type="number" step="1" id="add-cantidad" placeholder="Cantidad" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <textarea id="add-observaciones" placeholder="Observaciones (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 col-span-full"></textarea>
+                    <input type="number" step="0.01" id="add-precio" placeholder="Precio ($)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="number" id="add-cantidad" placeholder="Cantidad en Stock" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
                 <button id="btn-submit-add-producto" class="mt-6 w-full bg-blue-600 text-white p-3 rounded-md font-semibold hover:bg-blue-700 transition duration-200">
                     Confirmar Agregar Producto
@@ -408,8 +327,8 @@ export async function renderInventarioSection(container) {
             </div>
         `;
         // Lógica para actualizar el select de Segmento cuando cambia el Rubro
-        const addRubroSelect = container.querySelector('#add-rubro');
-        const addSegmentoSelect = container.querySelector('#add-segmento');
+        const addRubroSelect = parentContainer.querySelector('#add-rubro');
+        const addSegmentoSelect = parentContainer.querySelector('#add-segmento');
         addRubroSelect.addEventListener('change', () => {
             const selectedRubro = addRubroSelect.value;
             addSegmentoSelect.innerHTML = '<option value="">Selecciona Segmento</option>'; // Limpiar opciones anteriores
@@ -427,53 +346,196 @@ export async function renderInventarioSection(container) {
         });
 
         // Conectar el botón de agregar producto
-        container.querySelector('#btn-submit-add-producto').addEventListener('click', async () => {
+        parentContainer.querySelector('#btn-submit-add-producto').addEventListener('click', async () => {
             const producto = {
-                Sku: container.querySelector('#add-sku').value,
-                Producto: container.querySelector('#add-producto').value,
-                Presentacion: container.querySelector('#add-presentacion').value,
-                Rubro: container.querySelector('#add-rubro').value,
-                Segmento: container.querySelector('#add-segmento').value,
-                Precio: parseFloat(container.querySelector('#add-precio').value) || 0,
-                Cantidad: parseInt(container.querySelector('#add-cantidad').value) || 0,
-                Observaciones: container.querySelector('#add-observaciones').value
+                Sku: parentContainer.querySelector('#add-sku').value,
+                Producto: parentContainer.querySelector('#add-producto').value,
+                Presentacion: parentContainer.querySelector('#add-presentacion').value,
+                Rubro: parentContainer.querySelector('#add-rubro').value,
+                Segmento: parentContainer.querySelector('#add-segmento').value,
+                Precio: parseFloat(parentContainer.querySelector('#add-precio').value),
+                Cantidad: parseInt(parentContainer.querySelector('#add-cantidad').value)
             };
 
             const id = await agregarProducto(producto);
             if (id) {
-                alert('Producto agregado con éxito, ID: ' + id);
+                showCustomAlert('Producto agregado con éxito, ID: ' + id);
                 // Limpiar campos
-                container.querySelector('#add-sku').value = '';
-                container.querySelector('#add-producto').value = '';
-                container.querySelector('#add-presentacion').value = '';
-                container.querySelector('#add-rubro').value = '';
-                container.querySelector('#add-segmento').innerHTML = '<option value="">Selecciona Segmento</option>'; // Limpiar y resetear segmento
-                container.querySelector('#add-segmento').disabled = true;
-                container.querySelector('#add-precio').value = '';
-                container.querySelector('#add-cantidad').value = '';
-                container.querySelector('#add-observaciones').value = '';
+                parentContainer.querySelector('#add-sku').value = '';
+                parentContainer.querySelector('#add-producto').value = '';
+                parentContainer.querySelector('#add-presentacion').value = '';
+                parentContainer.querySelector('#add-rubro').value = '';
+                parentContainer.querySelector('#add-segmento').innerHTML = '<option value="">Selecciona Segmento</option>'; // Limpiar y resetear segmento
+                parentContainer.querySelector('#add-segmento').disabled = true;
+                parentContainer.querySelector('#add-precio').value = '';
+                parentContainer.querySelector('#add-cantidad').value = '';
             } else {
-                alert('Fallo al agregar producto.');
+                showCustomAlert('Fallo al agregar producto.');
             }
         });
 
         // Conectar el botón Volver
-        container.querySelector('#btn-back-add-producto').addEventListener('click', showInventarioMainButtons);
-    });
+        parentContainer.querySelector('#btn-back-add-producto').addEventListener('click', backToMainMenuCallback);
+    };
 
-    // Lógica para mostrar la sección de modificar/eliminar producto (ahora con búsqueda previa)
-    container.querySelector('#btn-show-modify-delete-producto').addEventListener('click', showModifyDeleteSearch);
-
-
-    // Lógica para mostrar la sección de ver inventario (anteriormente listar)
-    container.querySelector('#btn-show-ver-inventario').addEventListener('click', async () => {
+    // Función para mostrar la interfaz de búsqueda para modificar/eliminar
+    const showModifyDeleteSearch = async () => {
         inventarioMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
         inventarioSubSection.innerHTML = `
-            <div class="p-6 bg-green-50 rounded-lg shadow-inner">
-                <h3 class="text-2xl font-semibold text-green-800 mb-4">Ver Inventario Completo</h3>
-                <input type="text" id="search-inventario-input" placeholder="Buscar por SKU, Producto, Rubro, etc." class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 mb-4">
-                <div id="inventario-list" class="bg-white p-4 rounded-md border border-gray-200 max-h-96 overflow-y-auto shadow-md">
+            <div class="p-6 bg-yellow-50 rounded-lg shadow-inner">
+                <h3 class="text-2xl font-semibold text-yellow-800 mb-4">Buscar Producto para Modificar/Eliminar</h3>
+                <input type="text" id="search-modify-delete-input" placeholder="Buscar por SKU, Nombre, Rubro, etc." class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 mb-4">
+                <div id="modify-delete-product-list" class="bg-white p-4 rounded-md border border-gray-200 max-h-60 overflow-y-auto">
                     <!-- Los productos se mostrarán aquí -->
+                    <p class="text-gray-500">Cargando productos...</p>
+                </div>
+                <button id="btn-back-modify-delete-search" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
+                    Volver al Menú Principal
+                </button>
+            </div>
+        `;
+
+        const productListDiv = inventarioSubSection.querySelector('#modify-delete-product-list');
+        const searchInput = inventarioSubSection.querySelector('#search-modify-delete-input');
+        let allProducts = [];
+
+        allProducts = await verInventarioCompleto();
+        renderProductosList(allProducts, productListDiv, (selectedProduct) => {
+            renderModifyDeleteForm(selectedProduct); // Pasa el producto seleccionado al formulario de modificar/eliminar
+        });
+
+        searchInput.addEventListener('input', () => {
+            const searchTerm = searchInput.value.toLowerCase();
+            const filteredProducts = allProducts.filter(product =>
+                (product.Sku && product.Sku.toLowerCase().includes(searchTerm)) ||
+                (product.Producto && product.Producto.toLowerCase().includes(searchTerm)) ||
+                (product.Presentacion && product.Presentacion.toLowerCase().includes(searchTerm)) ||
+                (product.Rubro && product.Rubro.toLowerCase().includes(searchTerm)) ||
+                (product.Segmento && product.Segmento.toLowerCase().includes(searchTerm))
+            );
+            renderProductosList(filteredProducts, productListDiv, (selectedProduct) => {
+                renderModifyDeleteForm(selectedProduct);
+            });
+        });
+
+        inventarioSubSection.querySelector('#btn-back-modify-delete-search').addEventListener('click', showInventarioMainButtons);
+    };
+
+    // Función para renderizar el formulario de modificar/eliminar
+    const renderModifyDeleteForm = (productData = null) => {
+        inventarioSubSection.innerHTML = `
+            <div class="p-6 bg-yellow-50 rounded-lg shadow-inner">
+                <h3 class="text-2xl font-semibold text-yellow-800 mb-4">Modificar o Eliminar Producto</h3>
+                <input type="hidden" id="mod-del-producto-id" value="${productData ? productData.id : ''}">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="text" id="mod-sku" placeholder="Nuevo SKU (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${productData?.Sku || ''}">
+                    <input type="text" id="mod-producto" placeholder="Nuevo Nombre del Producto (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${productData?.Producto || ''}">
+                    <input type="text" id="mod-presentacion" placeholder="Nueva Presentación (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${productData?.Presentacion || ''}">
+                    <select id="mod-rubro" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                        <option value="">Nuevo Rubro (opcional)</option>
+                        ${Object.keys(rubroSegmentoMap).map(rubro => `<option value="${rubro}" ${productData?.Rubro === rubro ? 'selected' : ''}>${rubro}</option>`).join('')}
+                    </select>
+                    <select id="mod-segmento" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" ${productData?.Rubro ? '' : 'disabled'}>
+                        <option value="">Nuevo Segmento (opcional)</option>
+                        ${productData?.Rubro && rubroSegmentoMap[productData.Rubro] ? rubroSegmentoMap[productData.Rubro].map(segmento => `<option value="${segmento}" ${productData?.Segmento === segmento ? 'selected' : ''}>${segmento}</option>`).join('') : ''}
+                    </select>
+                    <input type="number" step="0.01" id="mod-precio" placeholder="Nuevo Precio ($) (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${productData?.Precio || ''}">
+                    <input type="number" id="mod-cantidad" placeholder="Nueva Cantidad en Stock (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${productData?.Cantidad || ''}">
+                </div>
+                <div class="flex flex-col md:flex-row gap-4 mt-6">
+                    <button id="btn-submit-modify-producto" class="flex-1 bg-yellow-600 text-white p-3 rounded-md font-semibold hover:bg-yellow-700 transition duration-200">
+                        Confirmar Modificar
+                    </button>
+                    <button id="btn-submit-delete-producto" class="flex-1 bg-red-600 text-white p-3 rounded-md font-semibold hover:bg-red-700 transition duration-200">
+                        Confirmar Eliminar
+                    </button>
+                </div>
+                <button id="btn-back-modify-delete-producto" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
+                    Volver
+                </button>
+            </div>
+        `;
+
+        // Lógica para actualizar el select de Segmento cuando cambia el Rubro en modificar
+        const modRubroSelect = inventarioSubSection.querySelector('#mod-rubro');
+        const modSegmentoSelect = inventarioSubSection.querySelector('#mod-segmento');
+        modRubroSelect.addEventListener('change', () => {
+            const selectedRubro = modRubroSelect.value;
+            modSegmentoSelect.innerHTML = '<option value="">Nuevo Segmento (opcional)</option>'; // Limpiar opciones anteriores
+            if (selectedRubro && rubroSegmentoMap[selectedRubro]) {
+                rubroSegmentoMap[selectedRubro].forEach(segmento => {
+                    const option = document.createElement('option');
+                    option.value = segmento;
+                    option.textContent = segmento;
+                    modSegmentoSelect.appendChild(option);
+                });
+                modSegmentoSelect.disabled = false; // Habilitar el select de Segmento
+            } else {
+                modSegmentoSelect.disabled = true; // Deshabilitar si no hay rubro seleccionado
+            }
+        });
+
+        // Conectar los botones de modificar/eliminar producto
+        inventarioSubSection.querySelector('#btn-submit-modify-producto').addEventListener('click', async () => {
+            const id = inventarioSubSection.querySelector('#mod-del-producto-id').value;
+            const nuevosDatos = {};
+            if (inventarioSubSection.querySelector('#mod-sku').value !== (productData?.Sku || '')) nuevosDatos.Sku = inventarioSubSection.querySelector('#mod-sku').value;
+            if (inventarioSubSection.querySelector('#mod-producto').value !== (productData?.Producto || '')) nuevosDatos.Producto = inventarioSubSection.querySelector('#mod-producto').value;
+            if (inventarioSubSection.querySelector('#mod-presentacion').value !== (productData?.Presentacion || '')) nuevosDatos.Presentacion = inventarioSubSection.querySelector('#mod-presentacion').value;
+            if (inventarioSubSection.querySelector('#mod-rubro').value) nuevosDatos.Rubro = inventarioSubSection.querySelector('#mod-rubro').value;
+            if (inventarioSubSection.querySelector('#mod-segmento').value) nuevosDatos.Segmento = inventarioSubSection.querySelector('#mod-segmento').value;
+            if (inventarioSubSection.querySelector('#mod-precio').value !== (productData?.Precio || '')) nuevosDatos.Precio = parseFloat(inventarioSubSection.querySelector('#mod-precio').value);
+            if (inventarioSubSection.querySelector('#mod-cantidad').value !== (productData?.Cantidad || '')) nuevosDatos.Cantidad = parseInt(inventarioSubSection.querySelector('#mod-cantidad').value);
+
+            if (id && Object.keys(nuevosDatos).length > 0) {
+                const modificado = await modificarProducto(id, nuevosDatos);
+                if (modificado) {
+                    showCustomAlert('Producto modificado con éxito.');
+                    // Limpiar campos y volver a la búsqueda
+                    showModifyDeleteSearch();
+                } else {
+                    showCustomAlert('Fallo al modificar producto.');
+                }
+            } else {
+                showCustomAlert('Por favor, ingresa el ID del producto y al menos un campo para modificar.');
+            }
+        });
+
+        inventarioSubSection.querySelector('#btn-submit-delete-producto').addEventListener('click', async () => {
+            const id = inventarioSubSection.querySelector('#mod-del-producto-id').value;
+            if (id) {
+                const confirmado = await showCustomConfirm(`¿Estás seguro de que quieres eliminar el producto con ID: ${id}?`);
+                if (confirmado) {
+                    const eliminado = await eliminarProducto(id);
+                    if (eliminado) {
+                        showCustomAlert('Producto eliminado con éxito.');
+                        // Volver a la búsqueda
+                        showModifyDeleteSearch();
+                    } else {
+                        showCustomAlert('Fallo al eliminar producto.');
+                    }
+                }
+            } else {
+                showCustomAlert('Por favor, ingresa el ID del producto a eliminar.');
+            }
+        });
+
+        // Conectar el botón Volver
+        inventarioSubSection.querySelector('#btn-back-modify-delete-producto').addEventListener('click', showModifyDeleteSearch);
+    };
+
+    /**
+     * Renderiza la sección para ver la lista completa de productos en formato de tabla.
+     * @param {HTMLElement} parentContainer - El contenedor donde se renderizará esta sección.
+     * @param {function(): void} backToMainMenuCallback - Callback para volver al menú principal de inventario.
+     */
+    async function renderVerInventarioSection(parentContainer, backToMainMenuCallback) {
+        parentContainer.innerHTML = `
+            <div class="p-6 bg-green-50 rounded-lg shadow-inner">
+                <h3 class="text-2xl font-semibold text-green-800 mb-4">Inventario Completo</h3>
+                <input type="text" id="search-ver-inventario-input" placeholder="Buscar producto por SKU, nombre, rubro, etc." class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 mb-4">
+                <div id="ver-inventario-list-table" class="bg-white p-4 rounded-md border border-gray-200 max-h-96 overflow-y-auto shadow-md">
+                    <!-- La tabla de productos se mostrará aquí -->
                     <p class="text-gray-500">Cargando inventario...</p>
                 </div>
                 <button id="btn-back-ver-inventario" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
@@ -481,13 +543,66 @@ export async function renderInventarioSection(container) {
                 </button>
             </div>
         `;
-        const inventarioListDiv = container.querySelector('#inventario-list');
-        const searchInput = container.querySelector('#search-inventario-input');
+
+        const inventarioListTableDiv = parentContainer.querySelector('#ver-inventario-list-table');
+        const searchInput = parentContainer.querySelector('#search-ver-inventario-input');
+        const btnBack = parentContainer.querySelector('#btn-back-ver-inventario');
+
         let allProducts = []; // Para almacenar todos los productos y filtrar sobre ellos
 
+        // Función interna para renderizar la tabla de productos
+        const renderProductsTable = (productsToRender) => {
+            inventarioListTableDiv.innerHTML = ''; // Limpiar tabla
+            if (productsToRender.length === 0) {
+                inventarioListTableDiv.innerHTML = '<p class="text-gray-500">No hay productos para mostrar.</p>';
+                return;
+            }
+
+            const table = document.createElement('table');
+            table.className = 'min-w-full divide-y divide-gray-200';
+            table.innerHTML = `
+                <thead class="bg-gray-50 sticky top-0">
+                    <tr>
+                        <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
+                        <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Producto</th>
+                        <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Presentación</th>
+                        <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rubro</th>
+                        <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Segmento</th>
+                        <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio ($)</th>
+                        <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    <!-- Filas de productos se cargarán aquí -->
+                </tbody>
+            `;
+            const tbody = table.querySelector('tbody');
+
+            productsToRender.forEach(producto => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-100';
+                row.innerHTML = `
+                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-900">${producto.Sku || 'N/A'}</td>
+                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${producto.Producto || 'N/A'}</td>
+                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${producto.Presentacion || 'N/A'}</td>
+                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${producto.Rubro || 'N/A'}</td>
+                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${producto.Segmento || 'N/A'}</td>
+                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">$${(producto.Precio || 0).toFixed(2)}</td>
+                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${producto.Cantidad || 0}</td>
+                `;
+                tbody.appendChild(row);
+            });
+            inventarioListTableDiv.appendChild(table);
+        };
+
         // Cargar todos los productos al abrir la sección
-        allProducts = await verInventarioCompleto();
-        renderProductsList(allProducts, inventarioListDiv); // No se pasa callback para "Seleccionar" aquí
+        try {
+            allProducts = await verInventarioCompleto();
+            renderProductsTable(allProducts);
+        } catch (error) {
+            console.error('Error al obtener productos para la lista:', error);
+            inventarioListTableDiv.innerHTML = '<p class="text-red-600">Error al cargar productos. Por favor, verifique los permisos.</p>';
+        }
 
         // Lógica de filtrado en tiempo real
         searchInput.addEventListener('input', () => {
@@ -497,92 +612,13 @@ export async function renderInventarioSection(container) {
                        (producto.Producto && producto.Producto.toLowerCase().includes(searchTerm)) ||
                        (producto.Presentacion && producto.Presentacion.toLowerCase().includes(searchTerm)) ||
                        (producto.Rubro && producto.Rubro.toLowerCase().includes(searchTerm)) ||
-                       (producto.Segmento && producto.Segmento.toLowerCase().includes(searchTerm)) ||
-                       (producto.Observaciones && producto.Observaciones.toLowerCase().includes(searchTerm));
+                       (producto.Segmento && producto.Segmento.toLowerCase().includes(searchTerm));
             });
-            renderProductsList(filteredProducts, inventarioListDiv);
+            renderProductsTable(filteredProducts);
         });
 
         // Conectar el botón Volver
-        container.querySelector('#btn-back-ver-inventario').addEventListener('click', showInventarioMainButtons);
-    });
-
-    // Lógica para mostrar la sección de gestionar rubros y segmentos
-    container.querySelector('#btn-show-manage-rubros-segmentos').addEventListener('click', async () => {
-        inventarioMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
-        await renderGestionarRubrosSegmentosForm(); // Llama a la nueva función para gestionar rubros/segmentos
-    });
-
-    /**
-     * Función auxiliar para renderizar la lista de productos.
-     * Ahora renderiza una tabla HTML para una mejor visualización del inventario.
-     * @param {Array<object>} productos - Array de objetos de producto.
-     * @param {HTMLElement} listContainer - El elemento DOM donde se renderizará la lista.
-     * @param {function(object): void} [actionCallback] - Función a ejecutar cuando se selecciona un producto (usado en modificar/eliminar).
-     */
-    function renderProductsList(productos, listContainer, actionCallback = null) {
-        listContainer.innerHTML = ''; // Limpiar lista
-        if (productos.length === 0) {
-            listContainer.innerHTML = '<p class="text-gray-500">No hay productos para mostrar aún.</p>';
-            return;
-        }
-
-        const table = document.createElement('table');
-        table.className = 'min-w-full divide-y divide-gray-200';
-        table.innerHTML = `
-            <thead class="bg-gray-50 sticky top-0">
-                <tr>
-                    <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
-                    <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Producto</th>
-                    <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Presentación</th>
-                    <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rubro</th>
-                    <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Segmento</th>
-                    <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio ($)</th>
-                    <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad</th>
-                    <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Observaciones</th>
-                    ${actionCallback ? `<th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acción</th>` : ''}
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-                <!-- Filas de productos se cargarán aquí -->
-            </tbody>
-        `;
-        const tbody = table.querySelector('tbody');
-
-        productos.forEach(producto => {
-            const row = document.createElement('tr');
-            row.className = 'hover:bg-gray-100';
-            row.innerHTML = `
-                <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-900">${producto.Sku || 'N/A'}</td>
-                <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${producto.Producto || 'N/A'}</td>
-                <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${producto.Presentacion || 'N/A'}</td>
-                <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${producto.Rubro || 'N/A'}</td>
-                <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${producto.Segmento || 'N/A'}</td>
-                <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">$${(producto.Precio || 0).toFixed(2)}</td>
-                <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${producto.Cantidad || 0}</td>
-                <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${producto.Observaciones || 'N/A'}</td>
-                ${actionCallback ? `
-                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">
-                        <button class="bg-blue-500 text-white px-3 py-1 rounded-md text-xs hover:bg-blue-600 transition duration-200 select-product-btn" data-product-id="${producto.id}">Seleccionar</button>
-                    </td>
-                ` : ''}
-            `;
-            tbody.appendChild(row);
-        });
-        listContainer.appendChild(table);
-
-        // Adjuntar event listeners a los botones "Seleccionar" si existen
-        if (actionCallback) {
-            listContainer.querySelectorAll('.select-product-btn').forEach(button => {
-                button.addEventListener('click', async (event) => {
-                    const productId = event.target.dataset.productId;
-                    const selectedProduct = productos.find(p => p.id === productId);
-                    if (selectedProduct) {
-                        actionCallback(selectedProduct);
-                    }
-                });
-            });
-        }
+        btnBack.addEventListener('click', backToMainMenuCallback);
     }
 
     // --- Funciones para gestionar Rubros y Segmentos (Refactorizadas) ---
@@ -628,10 +664,12 @@ export async function renderInventarioSection(container) {
             inventarioSubSection.querySelector('#rubros-segmentos-management-buttons').classList.add('hidden'); // Oculta los botones del menú
             renderAddRubroSegmentoForm(rubrosSegmentosSubSection, showRubrosSegmentosMainButtons);
         });
+
         btnModifyDelete.addEventListener('click', () => {
             inventarioSubSection.querySelector('#rubros-segmentos-management-buttons').classList.add('hidden'); // Oculta los botones del menú
             renderModifyDeleteRubroSegmentoForm(rubrosSegmentosSubSection, showRubrosSegmentosMainButtons);
         });
+
         btnBack.addEventListener('click', showInventarioMainButtons); // Vuelve al menú principal de inventario
     }
 
@@ -680,17 +718,17 @@ export async function renderInventarioSection(container) {
             if (newRubro && !rubroSegmentoMap[newRubro]) {
                 rubroSegmentoMap[newRubro] = []; // Inicializa el nuevo rubro con un array vacío de segmentos
                 if (await guardarConfiguracionRubrosSegmentos(rubroSegmentoMap)) {
-                    alert(`Rubro "${newRubro}" añadido.`);
+                    showCustomAlert(`Rubro "${newRubro}" añadido.`);
                     addNewRubroInput.value = '';
                     // Re-poblar el select de rubros para segmentos
                     selectRubroForSegmento.innerHTML = `<option value="">-- Selecciona un Rubro --</option>` + Object.keys(rubroSegmentoMap).map(rubro => `<option value="${rubro}">${rubro}</option>`).join('');
                 } else {
-                    alert('Fallo al añadir rubro.');
+                    showCustomAlert('Fallo al añadir rubro.');
                 }
             } else if (rubroSegmentoMap[newRubro]) {
-                alert(`El rubro "${newRubro}" ya existe.`);
+                showCustomAlert(`El rubro "${newRubro}" ya existe.`);
             } else {
-                alert('Por favor, ingresa un nombre para el nuevo rubro.');
+                showCustomAlert('Por favor, ingresa un nombre para el nuevo rubro.');
             }
         });
 
@@ -713,15 +751,15 @@ export async function renderInventarioSection(container) {
             if (selectedRubro && newSegmento && !rubroSegmentoMap[selectedRubro].includes(newSegmento)) {
                 rubroSegmentoMap[selectedRubro].push(newSegmento);
                 if (await guardarConfiguracionRubrosSegmentos(rubroSegmentoMap)) {
-                    alert(`Segmento "${newSegmento}" añadido a "${selectedRubro}".`);
+                    showCustomAlert(`Segmento "${newSegmento}" añadido a "${selectedRubro}".`);
                     addNewSegmentoInput.value = '';
                 } else {
-                    alert('Fallo al añadir segmento.');
+                    showCustomAlert('Fallo al añadir segmento.');
                 }
             } else if (rubroSegmentoMap[selectedRubro].includes(newSegmento)) {
-                alert(`El segmento "${newSegmento}" ya existe en "${selectedRubro}".`);
+                showCustomAlert(`El segmento "${newSegmento}" ya existe en "${selectedRubro}".`);
             } else {
-                alert('Por favor, selecciona un rubro e ingresa un nombre para el nuevo segmento.');
+                showCustomAlert('Por favor, selecciona un rubro e ingresa un nombre para el nuevo segmento.');
             }
         });
 
@@ -783,11 +821,12 @@ export async function renderInventarioSection(container) {
             listContainer.querySelectorAll('.delete-rubro-btn').forEach(button => {
                 button.addEventListener('click', async (event) => {
                     const rubroToDelete = event.target.dataset.rubro;
-                    if (confirm(`¿Estás seguro de que quieres eliminar el rubro "${rubroToDelete}" y todos sus segmentos?`)) {
+                    const confirmado = await showCustomConfirm(`¿Estás seguro de que quieres eliminar el rubro "${rubroToDelete}" y todos sus segmentos?`);
+                    if (confirmado) {
                         delete rubroSegmentoMap[rubroToDelete];
                         await guardarConfiguracionRubrosSegmentos(rubroSegmentoMap);
                         renderList(rubroSegmentoMap); // Re-renderizar la lista con el mapa actualizado
-                        alert(`Rubro "${rubroToDelete}" eliminada.`);
+                        showCustomAlert(`Rubro "${rubroToDelete}" eliminado.`);
                     }
                 });
             });
@@ -797,11 +836,12 @@ export async function renderInventarioSection(container) {
                 button.addEventListener('click', async (event) => {
                     const rubro = event.target.dataset.rubro;
                     const segmentoToDelete = event.target.dataset.segmento;
-                    if (confirm(`¿Estás seguro de que quieres eliminar el segmento "${segmentoToDelete}" de "${rubro}"?`)) {
+                    const confirmado = await showCustomConfirm(`¿Estás seguro de que quieres eliminar el segmento "${segmentoToDelete}" de "${rubro}"?`);
+                    if (confirmado) {
                         rubroSegmentoMap[rubro] = rubroSegmentoMap[rubro].filter(s => s !== segmentoToDelete);
                         await guardarConfiguracionRubrosSegmentos(rubroSegmentoMap);
                         renderList(rubroSegmentoMap); // Re-renderizar la lista con el mapa actualizado
-                        alert(`Sector "${segmentoToDelete}" eliminado de "${rubro}".`);
+                        showCustomAlert(`Sector "${segmentoToDelete}" eliminado de "${rubro}".`);
                     }
                 });
             });
