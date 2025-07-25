@@ -47,7 +47,7 @@ function showCustomConfirm(message) {
         }
 
         modal.querySelector('#confirm-message').textContent = message;
-        modal.classList.remove('hidden');
+        modal.classList.remove('hidden'); // Asegurarse de que el modal sea visible
 
         const yesBtn = modal.querySelector('#confirm-yes-btn');
         const noBtn = modal.querySelector('#confirm-no-btn');
@@ -63,7 +63,9 @@ function showCustomConfirm(message) {
 
 
         const cleanup = () => {
-            modal.classList.add('hidden');
+            if (modal && modal.parentNode) { // Verificar si el modal todavía está en el DOM
+                modal.remove(); // Eliminar el modal del DOM
+            }
         };
 
         const onYesClick = () => {
@@ -105,7 +107,7 @@ function showCustomAlert(message) {
     }
 
     modal.querySelector('#alert-message').textContent = message;
-    modal.classList.remove('hidden');
+    modal.classList.remove('hidden'); // Asegurarse de que el modal sea visible
 
     const okBtn = modal.querySelector('#alert-ok-btn');
     // Clonar y reemplazar el botón para limpiar listeners previos
@@ -114,7 +116,9 @@ function showCustomAlert(message) {
     const newOkBtn = document.getElementById('alert-ok-btn');
 
     const cleanup = () => {
-        modal.classList.add('hidden');
+        if (modal && modal.parentNode) { // Verificar si el modal todavía está en el DOM
+            modal.remove(); // Eliminar el modal del DOM
+        }
     };
 
     newOkBtn.addEventListener('click', cleanup);
@@ -542,7 +546,7 @@ export async function renderClientesSection(container) {
                     </select>
                     <input type="tel" id="mod-tlf" placeholder="Nuevo Teléfono (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${clientData?.Tlf || ''}">
                     <input type="number" step="0.01" id="mod-deuda" placeholder="Nueva Deuda (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${clientData?.Deuda || ''}">
-                    <textarea id="mod-observaciones" placeholder="Nuevas Observaciones (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 col-span-full"></textarea>
+                    <textarea id="mod-observaciones" placeholder="Nuevas Observaciones (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 col-span-full">${clientData?.Observaciones || ''}</textarea>
                 </div>
                 <div class="flex flex-col md:flex-row gap-4 mt-6">
                     <button id="btn-submit-modify-cliente" class="flex-1 bg-yellow-600 text-white p-3 rounded-md font-semibold hover:bg-yellow-700 transition duration-200">
@@ -1028,5 +1032,5 @@ export async function renderClientesSection(container) {
             console.error('renderModifyDeleteZoneSectorForm: Botón #btn-back-from-modify-delete-form no encontrado.');
         }
     }
+    console.log('renderClientesSection: Función completada.'); // Log al final de la función
 }
-
