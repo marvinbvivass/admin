@@ -25,7 +25,7 @@ async function getFirestoreInstances() {
  * @param {string} message - El mensaje a mostrar en el modal.
  * @returns {Promise<boolean>} Resuelve a true si el usuario confirma, false si cancela.
  */
-function showCustomConfirm(message) {
+export function showCustomConfirm(message) { // Exportar para que otros módulos puedan usarla
     return new Promise(resolve => {
         const modalId = 'custom-confirm-modal';
         let modal = document.getElementById(modalId);
@@ -33,7 +33,8 @@ function showCustomConfirm(message) {
         if (!modal) {
             modal = document.createElement('div');
             modal.id = modalId;
-            modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 p-4';
+            // Aumentar z-index para asegurar que esté por encima de todo
+            modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-[9999] p-4';
             modal.innerHTML = `
                 <div class="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-auto">
                     <p class="text-lg font-semibold text-gray-800 mb-4" id="confirm-message"></p>
@@ -47,7 +48,10 @@ function showCustomConfirm(message) {
         }
 
         modal.querySelector('#confirm-message').textContent = message;
-        modal.classList.remove('hidden'); // Asegurarse de que el modal sea visible
+        // Usar setTimeout para asegurar que el modal se muestre después de que el DOM esté listo
+        setTimeout(() => {
+            modal.classList.remove('hidden');
+        }, 50); // Pequeño retraso
 
         const yesBtn = modal.querySelector('#confirm-yes-btn');
         const noBtn = modal.querySelector('#confirm-no-btn');
@@ -87,14 +91,15 @@ function showCustomConfirm(message) {
  * Muestra un modal de alerta personalizado.
  * @param {string} message - El mensaje a mostrar en el modal.
  */
-function showCustomAlert(message) {
+export function showCustomAlert(message) { // Exportar para que otros módulos puedan usarla
     const modalId = 'custom-alert-modal';
     let modal = document.getElementById(modalId);
 
     if (!modal) {
         modal = document.createElement('div');
         modal.id = modalId;
-        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 p-4';
+        // Aumentar z-index para asegurar que esté por encima de todo
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-[9999] p-4';
         modal.innerHTML = `
             <div class="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-auto">
                 <p class="text-lg font-semibold text-gray-800 mb-4" id="alert-message"></p>
@@ -107,7 +112,10 @@ function showCustomAlert(message) {
     }
 
     modal.querySelector('#alert-message').textContent = message;
-    modal.classList.remove('hidden'); // Asegurarse de que el modal sea visible
+    // Usar setTimeout para asegurar que el modal se muestre después de que el DOM esté listo
+    setTimeout(() => {
+        modal.classList.remove('hidden');
+    }, 50); // Pequeño retraso
 
     const okBtn = modal.querySelector('#alert-ok-btn');
     // Clonar y reemplazar el botón para limpiar listeners previos
@@ -546,7 +554,7 @@ export async function renderClientesSection(container) {
                     </select>
                     <input type="tel" id="mod-tlf" placeholder="Nuevo Teléfono (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${clientData?.Tlf || ''}">
                     <input type="number" step="0.01" id="mod-deuda" placeholder="Nueva Deuda (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${clientData?.Deuda || ''}">
-                    <textarea id="mod-observaciones" placeholder="Nuevas Observaciones (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 col-span-full">${clientData?.Observaciones || ''}</textarea>
+                    <textarea id="mod-observaciones" placeholder="Nuevas Observaciones (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 col-span-full"></textarea>
                 </div>
                 <div class="flex flex-col md:flex-row gap-4 mt-6">
                     <button id="btn-submit-modify-cliente" class="flex-1 bg-yellow-600 text-white p-3 rounded-md font-semibold hover:bg-yellow-700 transition duration-200">
