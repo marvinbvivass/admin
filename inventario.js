@@ -1,6 +1,6 @@
 // inventario.js
-// Este archivo gestiona las operaciones CRUD para el inventario de productos
-// y también se encarga de renderizar su interfaz de usuario.
+// Este archivo gestiona las operaciones CRUD para el inventario de productos,
+// la gestión de rubros/segmentos y la visualización del inventario general y por camión.
 
 // Importa las funciones necesarias de Firebase Firestore.
 import { collection, addDoc, doc, updateDoc, deleteDoc, getDoc, setDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -303,6 +303,9 @@ export async function renderInventarioSection(container, backToMainMenuCallback)
                 <button id="btn-modify-delete-producto" class="bg-yellow-600 text-white p-4 rounded-md font-semibold hover:bg-yellow-700 transition duration-200">
                     Modificar o Eliminar Producto
                 </button>
+                <button id="btn-ver-inventario" class="bg-purple-600 text-white p-4 rounded-md font-semibold hover:bg-purple-700 transition duration-200">
+                    Ver Inventario
+                </button>
             </div>
 
             <!-- Contenedor para las sub-secciones dinámicas -->
@@ -332,6 +335,7 @@ export async function renderInventarioSection(container, backToMainMenuCallback)
     const btnGestionRubroSegmento = container.querySelector('#btn-gestion-rubro-segmento');
     const btnAddProducto = container.querySelector('#btn-add-producto');
     const btnModifyDeleteProducto = container.querySelector('#btn-modify-delete-producto');
+    const btnVerInventario = container.querySelector('#btn-ver-inventario'); // Nuevo botón
 
     // Cargar el mapa de rubros y segmentos al inicio de la sección de inventario
     rubroSegmentoMap = await obtenerConfiguracionRubrosSegmentos();
@@ -385,6 +389,15 @@ export async function renderInventarioSection(container, backToMainMenuCallback)
             console.log('Botón "Modificar o Eliminar Producto" clickeado.');
             inventarioMainButtonsContainer.classList.add('hidden');
             await renderModifyDeleteProductoSection(inventarioSubSection, showInventarioMainButtons);
+        });
+    }
+
+    // Lógica para mostrar la sección de Ver Inventario
+    if (btnVerInventario) {
+        btnVerInventario.addEventListener('click', async () => {
+            console.log('Botón "Ver Inventario" clickeado.');
+            inventarioMainButtonsContainer.classList.add('hidden');
+            await renderVerInventarioSection(inventarioSubSection, showInventarioMainButtons);
         });
     }
 
@@ -1009,5 +1022,206 @@ export async function renderInventarioSection(container, backToMainMenuCallback)
         }
         console.log('renderEditProductoForm: Finalizado.');
     }
+
+    // --- Funciones para Ver Inventario ---
+    /**
+     * Renderiza el menú principal para la visualización del inventario.
+     * @param {HTMLElement} parentContainer - El contenedor donde se renderizará el menú.
+     * @param {function(): void} backToMainMenuCallback - Callback para volver al menú principal de inventario.
+     */
+    async function renderVerInventarioSection(parentContainer, backToMainMenuCallback) {
+        console.log('renderVerInventarioSection: Iniciando...');
+        parentContainer.innerHTML = `
+            <div class="p-6 bg-purple-50 rounded-lg shadow-inner">
+                <h3 class="text-2xl font-semibold text-purple-800 mb-4">Ver Inventario</h3>
+
+                <div id="ver-inventario-buttons" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <button id="btn-inventario-general" class="bg-purple-600 text-white p-4 rounded-md font-semibold hover:bg-purple-700 transition duration-200">
+                        Inventario General
+                    </button>
+                    <button id="btn-inventario-por-camion" class="bg-indigo-600 text-white p-4 rounded-md font-semibold hover:bg-indigo-700 transition duration-200">
+                        Inventario por Camión
+                    </button>
+                </div>
+
+                <div id="ver-inventario-sub-section">
+                    <!-- El contenido del inventario general o por camión se cargará aquí -->
+                </div>
+
+                <button id="btn-back-from-ver-inventario" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
+                    Volver al Menú Principal de Inventario
+                </button>
+            </div>
+        `;
+
+        const verInventarioSubSection = parentContainer.querySelector('#ver-inventario-sub-section');
+        const btnBack = parentContainer.querySelector('#btn-back-from-ver-inventario');
+        const btnInventarioGeneral = parentContainer.querySelector('#btn-inventario-general');
+        const btnInventarioPorCamion = parentContainer.querySelector('#btn-inventario-por-camion');
+
+        // Función para mostrar los botones principales de "Ver Inventario"
+        const showVerInventarioMainButtons = () => {
+            verInventarioSubSection.innerHTML = '';
+            const managementButtons = parentContainer.querySelector('#ver-inventario-buttons');
+            if (managementButtons) {
+                managementButtons.classList.remove('hidden');
+            }
+        };
+
+        if (btnInventarioGeneral) {
+            btnInventarioGeneral.addEventListener('click', async () => {
+                const managementButtons = parentContainer.querySelector('#ver-inventario-buttons');
+                if (managementButtons) {
+                    managementButtons.classList.add('hidden');
+                }
+                await renderInventarioGeneral(verInventarioSubSection, showVerInventarioMainButtons);
+            });
+        }
+
+        if (btnInventarioPorCamion) {
+            btnInventarioPorCamion.addEventListener('click', () => {
+                showCustomAlert('Sección "Inventario por Camión" en construcción.');
+            });
+        }
+
+        if (btnBack) {
+            btnBack.addEventListener('click', backToMainMenuCallback);
+        }
+        console.log('renderVerInventarioSection: Finalizado.');
+    }
+
+    /**
+     * Renderiza la tabla de Inventario General (suma de productos de todos los camiones).
+     * @param {HTMLElement} parentContainer - El contenedor donde se renderizará la tabla.
+     * @param {function(): void} backToMainMenuCallback - Callback para volver al menú principal de "Ver Inventario".
+     */
+    async function renderInventarioGeneral(parentContainer, backToMainMenuCallback) {
+        console.log('renderInventarioGeneral: Iniciando...');
+        parentContainer.innerHTML = `
+            <div class="p-6 bg-purple-100 rounded-lg shadow-inner">
+                <h3 class="text-2xl font-semibold text-purple-900 mb-4">Inventario General</h3>
+
+                <input type="text" id="search-inventario-general-input" placeholder="Buscar producto por Segmento, Nombre, Presentación..." class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 mb-4">
+
+                <div id="inventario-general-table-container" class="max-h-96 overflow-y-auto bg-white p-3 rounded-md border border-gray-200 shadow-md">
+                    <p class="text-gray-500">Calculando inventario general...</p>
+                </div>
+
+                <button id="btn-back-inventario-general" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
+                    Volver
+                </button>
+            </div>
+        `;
+
+        const searchInput = parentContainer.querySelector('#search-inventario-general-input');
+        const tableContainer = parentContainer.querySelector('#inventario-general-table-container');
+        const btnBack = parentContainer.querySelector('#btn-back-inventario-general');
+
+        // Obtener todos los productos definidos en el inventario
+        const allDefinedProducts = await verInventarioCompleto();
+        // Obtener todas las cargas de productos de la colección 'Inventario'
+        const { db } = await getFirestoreInstances();
+        const cargasSnapshot = await getDocs(collection(db, 'Inventario'));
+        const allCargas = [];
+        cargasSnapshot.forEach(doc => {
+            allCargas.push(doc.data());
+        });
+
+        // Calcular el inventario general
+        const inventarioGeneralMap = {}; // { productId: { productData, totalCantidad } }
+
+        // Inicializar con todos los productos definidos, con cantidad 0
+        allDefinedProducts.forEach(product => {
+            inventarioGeneralMap[product.id] = {
+                ...product,
+                CantidadTotal: 0 // Inicializar la cantidad total
+            };
+        });
+
+        // Sumar las cantidades de cada producto de todas las cargas
+        allCargas.forEach(carga => {
+            if (carga.productos && Array.isArray(carga.productos)) {
+                carga.productos.forEach(item => {
+                    if (inventarioGeneralMap[item.idProducto]) {
+                        inventarioGeneralMap[item.idProducto].CantidadTotal += item.Cantidad;
+                    } else {
+                        // Si un producto en una carga no está en allDefinedProducts (caso raro, pero posible)
+                        // Añadirlo al mapa con sus datos de la carga
+                        inventarioGeneralMap[item.idProducto] = {
+                            id: item.idProducto,
+                            Rubro: item.Rubro,
+                            Segmento: item.Segmento,
+                            Producto: item.Producto,
+                            Presentacion: item.Presentacion,
+                            Precio: item.Precio,
+                            CantidadTotal: item.Cantidad
+                        };
+                    }
+                });
+            }
+        });
+
+        let inventarioGeneralList = Object.values(inventarioGeneralMap);
+
+        const renderTable = (productsToRender) => {
+            tableContainer.innerHTML = '';
+            if (productsToRender.length === 0) {
+                tableContainer.innerHTML = '<p class="text-gray-500">No hay productos en el inventario general.</p>';
+                return;
+            }
+
+            let tableHTML = `
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50 sticky top-0">
+                        <tr>
+                            <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rubro</th>
+                            <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Segmento</th>
+                            <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Producto</th>
+                            <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Presentación</th>
+                            <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio ($)</th>
+                            <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad Total</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+            `;
+
+            productsToRender.forEach(product => {
+                tableHTML += `
+                    <tr class="hover:bg-gray-100">
+                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-900">${product.Rubro || 'N/A'}</td>
+                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${product.Segmento || 'N/A'}</td>
+                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${product.Producto || 'N/A'}</td>
+                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${product.Presentacion || 'N/A'}</td>
+                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">$${(product.Precio || 0).toFixed(2)}</td>
+                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${product.CantidadTotal || 0}</td>
+                    </tr>
+                `;
+            });
+
+            tableHTML += `</tbody></table>`;
+            tableContainer.innerHTML = tableHTML;
+        };
+
+        renderTable(inventarioGeneralList);
+
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                const searchTerm = searchInput.value.toLowerCase();
+                const filteredProducts = inventarioGeneralList.filter(product =>
+                    (product.Rubro && product.Rubro.toLowerCase().includes(searchTerm)) ||
+                    (product.Segmento && product.Segmento.toLowerCase().includes(searchTerm)) ||
+                    (product.Producto && product.Producto.toLowerCase().includes(searchTerm)) ||
+                    (product.Presentacion && product.Presentacion.toLowerCase().includes(searchTerm))
+                );
+                renderTable(filteredProducts);
+            });
+        }
+
+        if (btnBack) {
+            btnBack.addEventListener('click', backToMainMenuCallback);
+        }
+        console.log('renderInventarioGeneral: Finalizado.');
+    }
+
     console.log('renderInventarioSection: Función completada.');
 }
