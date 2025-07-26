@@ -5,6 +5,9 @@
 // Importa las funciones necesarias de Firebase Firestore.
 import { collection, addDoc, doc, updateDoc, deleteDoc, getDoc, setDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+// Importa funciones de otros módulos para obtener datos necesarios
+import { obtenerTodosLosVehiculos } from './CargasyVehiculos.js'; // Importa para obtener la lista de vehículos
+
 // Variable para almacenar el mapa de rubros a segmentos, cargado desde Firebase
 let rubroSegmentoMap = {};
 const RUBRO_SEGMENTO_CONFIG_DOC_ID = 'rubrosSegmentos'; // ID fijo para el documento de configuración
@@ -1079,8 +1082,12 @@ export async function renderInventarioSection(container, backToMainMenuCallback)
         }
 
         if (btnInventarioPorCamion) {
-            btnInventarioPorCamion.addEventListener('click', () => {
-                showCustomAlert('Sección "Inventario por Camión" en construcción.');
+            btnInventarioPorCamion.addEventListener('click', async () => {
+                const managementButtons = parentContainer.querySelector('#ver-inventario-buttons');
+                if (managementButtons) {
+                    managementButtons.classList.add('hidden');
+                }
+                await renderInventarioPorCamion(verInventarioSubSection, showVerInventarioMainButtons);
             });
         }
 
@@ -1221,6 +1228,181 @@ export async function renderInventarioSection(container, backToMainMenuCallback)
             btnBack.addEventListener('click', backToMainMenuCallback);
         }
         console.log('renderInventarioGeneral: Finalizado.');
+    }
+
+    /**
+     * Renderiza la tabla de Inventario por Camión.
+     * @param {HTMLElement} parentContainer - El contenedor donde se renderizará el formulario.
+     * @param {function(): void} backToMainMenuCallback - Callback para volver al menú principal de "Ver Inventario".
+     */
+    async function renderInventarioPorCamion(parentContainer, backToMainMenuCallback) {
+        console.log('renderInventarioPorCamion: Iniciando...');
+        parentContainer.innerHTML = `
+            <div class="p-6 bg-indigo-100 rounded-lg shadow-inner">
+                <h3 class="text-2xl font-semibold text-indigo-900 mb-4">Inventario por Camión</h3>
+
+                <div class="mb-4">
+                    <label for="select-camion-inventario" class="block text-sm font-medium text-gray-700 mb-1">Seleccionar Camión:</label>
+                    <select id="select-camion-inventario" class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="">-- Selecciona un Camión --</option>
+                    </select>
+                </div>
+
+                <input type="text" id="search-inventario-camion-input" placeholder="Buscar producto por Segmento, Producto, Presentación..." class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4 mt-4">
+
+                <div id="inventario-camion-table-container" class="max-h-96 overflow-y-auto bg-white p-3 rounded-md border border-gray-200 shadow-md">
+                    <p class="text-gray-500">Selecciona un camión para ver su inventario.</p>
+                </div>
+
+                <button id="btn-back-inventario-camion" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
+                    Volver
+                </button>
+            </div>
+        `;
+
+        const selectCamionInventario = parentContainer.querySelector('#select-camion-inventario');
+        const searchInput = parentContainer.querySelector('#search-inventario-camion-input');
+        const tableContainer = parentContainer.querySelector('#inventario-camion-table-container');
+        const btnBack = parentContainer.querySelector('#btn-back-inventario-camion');
+
+        const allVehiculos = await obtenerTodosLosVehiculos(); // Obtener todos los vehículos
+        const { db } = await getFirestoreInstances();
+        let allCargas = []; // Para almacenar todas las cargas y filtrarlas
+
+        // Poblar el select de camiones
+        if (selectCamionInventario) {
+            allVehiculos.forEach(vehiculo => {
+                const option = document.createElement('option');
+                option.value = vehiculo.id;
+                option.textContent = `${vehiculo.marca} ${vehiculo.modelo} (${vehiculo.placa})`;
+                selectCamionInventario.appendChild(option);
+            });
+
+            // Cargar todas las cargas una vez para evitar múltiples lecturas al cambiar de camión
+            const cargasSnapshot = await getDocs(collection(db, 'Inventario'));
+            cargasSnapshot.forEach(doc => {
+                allCargas.push(doc.data());
+            });
+
+            selectCamionInventario.addEventListener('change', () => {
+                const selectedVehiculoId = selectCamionInventario.value;
+                if (selectedVehiculoId) {
+                    displayInventarioPorCamion(selectedVehiculoId);
+                } else {
+                    tableContainer.innerHTML = '<p class="text-gray-500">Selecciona un camión para ver su inventario.</p>';
+                }
+            });
+        }
+
+        const displayInventarioPorCamion = (vehiculoId) => {
+            const productosEnCamionMap = {}; // { productId: { productData, totalCantidad } }
+
+            allCargas.filter(carga => carga.vehiculoId === vehiculoId)
+                     .forEach(carga => {
+                         if (carga.productos && Array.isArray(carga.productos)) {
+                             carga.productos.forEach(item => {
+                                 if (productosEnCamionMap[item.idProducto]) {
+                                     productosEnCamionMap[item.idProducto].CantidadTotal += item.Cantidad;
+                                 } else {
+                                     productosEnCamionMap[item.idProducto] = {
+                                         id: item.idProducto,
+                                         Rubro: item.Rubro,
+                                         Segmento: item.Segmento,
+                                         Producto: item.Producto,
+                                         Presentacion: item.Presentacion,
+                                         Precio: item.Precio,
+                                         CantidadTotal: item.Cantidad
+                                     };
+                                 }
+                             });
+                         }
+                     });
+
+            let productosEnCamionList = Object.values(productosEnCamionMap);
+            renderTableCamion(productosEnCamionList);
+        };
+
+        const renderTableCamion = (productsToRender) => {
+            tableContainer.innerHTML = '';
+            if (productsToRender.length === 0) {
+                tableContainer.innerHTML = '<p class="text-gray-500">Este camión no tiene productos cargados.</p>';
+                return;
+            }
+
+            let tableHTML = `
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50 sticky top-0">
+                        <tr>
+                            <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rubro</th>
+                            <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Segmento</th>
+                            <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Producto</th>
+                            <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Presentación</th>
+                            <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio ($)</th>
+                            <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+            `;
+
+            productsToRender.forEach(product => {
+                tableHTML += `
+                    <tr class="hover:bg-gray-100">
+                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-900">${product.Rubro || 'N/A'}</td>
+                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${product.Segmento || 'N/A'}</td>
+                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${product.Producto || 'N/A'}</td>
+                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${product.Presentacion || 'N/A'}</td>
+                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">$${(product.Precio || 0).toFixed(2)}</td>
+                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${product.CantidadTotal || 0}</td>
+                    </tr>
+                `;
+            });
+
+            tableHTML += `</tbody></table>`;
+            tableContainer.innerHTML = tableHTML;
+        };
+
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                const searchTerm = searchInput.value.toLowerCase();
+                const selectedVehiculoId = selectCamionInventario.value;
+                if (selectedVehiculoId) {
+                    const productosEnCamionMap = {};
+                    allCargas.filter(carga => carga.vehiculoId === selectedVehiculoId)
+                             .forEach(carga => {
+                                 if (carga.productos && Array.isArray(carga.productos)) {
+                                     carga.productos.forEach(item => {
+                                         if (productosEnCamionMap[item.idProducto]) {
+                                             productosEnCamionMap[item.idProducto].CantidadTotal += item.Cantidad;
+                                         } else {
+                                             productosEnCamionMap[item.idProducto] = {
+                                                 id: item.idProducto,
+                                                 Rubro: item.Rubro,
+                                                 Segmento: item.Segmento,
+                                                 Producto: item.Producto,
+                                                 Presentacion: item.Presentacion,
+                                                 Precio: item.Precio,
+                                                 CantidadTotal: item.Cantidad
+                                             };
+                                         }
+                                     });
+                                 }
+                             });
+                    let currentProducts = Object.values(productosEnCamionMap);
+                    const filteredProducts = currentProducts.filter(product =>
+                        (product.Rubro && product.Rubro.toLowerCase().includes(searchTerm)) ||
+                        (product.Segmento && product.Segmento.toLowerCase().includes(searchTerm)) ||
+                        (product.Producto && product.Producto.toLowerCase().includes(searchTerm)) ||
+                        (product.Presentacion && product.Presentacion.toLowerCase().includes(searchTerm))
+                    );
+                    renderTableCamion(filteredProducts);
+                }
+            });
+        }
+
+        if (btnBack) {
+            btnBack.addEventListener('click', backToMainMenuCallback);
+        }
+        console.log('renderInventarioPorCamion: Finalizado.');
     }
 
     console.log('renderInventarioSection: Función completada.');
