@@ -9,7 +9,8 @@ import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase
 import { renderClientesSection } from './clientes.js';
 import { renderCargaVehiculosSection } from './CargasyVehiculos.js';
 import { renderInventarioSection } from './inventario.js';
-import { renderCargaProductosSection } from './CargaProductos.js'; // Descomentado: Importa la función de carga de productos
+import { renderCargaProductosSection } from './CargaProductos.js';
+import { renderPreciosSection } from './precios.js'; // Descomentado: Importa la función de precios
 
 // Variables globales para Firebase (accesibles desde otros módulos a través de window)
 window.firebaseApp = null;
@@ -212,7 +213,7 @@ function renderMainAppScreen() {
             <!-- Tarjeta para la sección de Clientes -->
             <div id="btn-clientes" class="section-button bg-gradient-to-r from-blue-700 to-blue-800 text-white p-6 rounded-lg shadow-md flex flex-col items-center justify-center cursor-pointer transform hover:scale-105">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.3.356-1.857m0 0A5.002 5.002 0 0112 10a5.002 5.002 0 015.644 3.143m0 0L17 20m-2-9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v4m3 2h6m-6 4h6" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H2v-2a3 3 0 015.356-1.857m0 0A5.002 5.002 0 0112 10a5.002 5.002 0 015.644 3.143m0 0L17 20m-2-9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v4m3 2h6m-6 4h6" />
                 </svg>
                 <h2 class="text-3xl font-bold">Clientes</h2>
                 <p class="text-lg text-center mt-2 opacity-90">Gestión de la base de datos de clientes.</p>
@@ -289,8 +290,9 @@ function renderMainAppScreen() {
         await renderInventarioSection(modalContainer, renderMainAppScreen);
     });
 
-    document.getElementById('btn-precios').addEventListener('click', () => {
-        showCustomAlert('Sección de Precios en construcción.');
+    document.getElementById('btn-precios').addEventListener('click', async () => { // MODIFICADO AQUI
+        modalContainer.classList.remove('hidden');
+        await renderPreciosSection(modalContainer, renderMainAppScreen); // MODIFICADO AQUI
     });
 
     document.getElementById('btn-ventas').addEventListener('click', () => {
