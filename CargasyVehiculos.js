@@ -283,19 +283,18 @@ export async function renderCargaVehiculosSection(container, backToMainMenuCallb
     // Lógica para cerrar el modal
     if (closeCargaVehiculosModalBtn) {
         closeCargaVehiculosModalBtn.addEventListener('click', () => {
-            console.log('Cerrar modal de Carga y Vehículos clickeado.');
+            console.log('Cerrar modal de Carga y Vehículos clickeado. Volviendo al menú principal de la aplicación.');
             container.classList.add('hidden'); // Oculta el modal
-            backToMainMenuCallback(); // Vuelve al menú principal
+            backToMainMenuCallback(); // Vuelve al menú principal de la aplicación
         });
     }
 
     // Lógica para el botón "Volver al Menú Principal"
     if (btnBack) {
         btnBack.addEventListener('click', () => {
-            console.log('Botón "Volver al Menú Principal" clickeado en Carga y Vehículos.');
-            showVehiculosMainButtons(); // Vuelve a los botones principales de Carga y Vehículos
-            // Si quieres que vuelva al menú principal de la app, descomenta la siguiente línea y comenta la anterior:
-            // backToMainMenuCallback();
+            console.log('Botón "Volver al Menú Principal" clickeado en Carga y Vehículos. Volviendo al menú principal de la aplicación.');
+            container.classList.add('hidden'); // Oculta el modal
+            backToMainMenuCallback(); // Vuelve al menú principal de la aplicación
         });
     }
 
