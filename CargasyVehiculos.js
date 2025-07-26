@@ -226,7 +226,7 @@ export async function obtenerTodosLosVehiculos() {
 // --- Funciones para la gestión de Usuarios ---
 
 /**
- * Agrega un nuevo usuario a la colección 'configuracion/appUsers/Usuarios'.
+ * Agrega un nuevo usuario a la colección 'configuracion/appData/Usuarios'.
  * @param {object} userData - Objeto con los datos del usuario (ej: { nombre: 'Juan', apellido: 'Perez' }).
  * @param {string} userData.nombre - Nombre del usuario.
  * @param {string} userData.apellido - Apellido del usuario.
@@ -237,7 +237,7 @@ async function agregarUsuario(userData) {
     try {
         const { db } = await getFirestoreInstances();
         // Ruta corregida para la subcolección de usuarios
-        const usuariosCollectionRef = collection(db, `configuracion`, `appUsers`, `Usuarios`);
+        const usuariosCollectionRef = collection(db, `configuracion`, `appData`, `Usuarios`);
         const docRef = await addDoc(usuariosCollectionRef, userData);
         console.log('Usuario agregado con ID:', docRef.id);
         return docRef.id;
@@ -250,7 +250,7 @@ async function agregarUsuario(userData) {
 }
 
 /**
- * Elimina un usuario de la colección 'configuracion/appUsers/Usuarios'.
+ * Elimina un usuario de la colección 'configuracion/appData/Usuarios'.
  * @param {string} userId - ID único del usuario a eliminar.
  * @returns {Promise<boolean>} True si se eliminó con éxito, false en caso contrario.
  */
@@ -259,7 +259,7 @@ async function eliminarUsuario(userId) {
     try {
         const { db } = await getFirestoreInstances();
         // Ruta corregida para el documento de usuario
-        const userDocRef = doc(db, `configuracion`, `appUsers`, `Usuarios`, userId);
+        const userDocRef = doc(db, `configuracion`, `appData`, `Usuarios`, userId);
         await deleteDoc(userDocRef);
         console.log('Usuario eliminado con éxito. ID:', userId);
         return true;
@@ -272,15 +272,15 @@ async function eliminarUsuario(userId) {
 }
 
 /**
- * Obtiene todos los usuarios de la colección 'configuracion/appUsers/Usuarios'.
+ * Obtiene todos los usuarios de la colección 'configuracion/appData/Usuarios'.
  * @returns {Promise<Array<object>>} Un array de objetos de usuario.
  */
-async function obtenerTodosLosUsuarios() {
+export async function obtenerTodosLosUsuarios() { // AÑADIDO 'export' AQUÍ
     console.log('obtenerTodosLosUsuarios: Iniciando...');
     try {
         const { db } = await getFirestoreInstances();
         // Ruta corregida para la subcolección de usuarios
-        const usuariosCollectionRef = collection(db, `configuracion`, `appUsers`, `Usuarios`);
+        const usuariosCollectionRef = collection(db, `configuracion`, `appData`, `Usuarios`);
         const querySnapshot = await getDocs(usuariosCollectionRef);
         const usuarios = [];
         querySnapshot.forEach((doc) => {
@@ -794,3 +794,4 @@ export async function renderCargaVehiculosSection(container, backToMainMenuCallb
         console.log('renderEditVehiculoForm: Finalizado.');
     }
 }
+
