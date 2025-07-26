@@ -458,3 +458,4 @@ export async function renderCargaProductosSection(container, backToMainMenuCallb
 
     console.log('renderCargaProductosSection: Función completada.');
 }
+
