@@ -5,8 +5,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 import { getAuth, signInWithCustomToken, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-// Importa la función de renderizado de la sección de clientes
+// Importa las funciones de renderizado de cada sección
 import { renderClientesSection } from './clientes.js';
+import { renderCargaVehiculosSection } from './CargasyVehiculos.js'; // Importa la nueva función
 
 // Variables globales para Firebase (accesibles desde otros módulos a través de window)
 window.firebaseApp = null;
@@ -69,7 +70,6 @@ async function handleRegister(email, password) {
         const userCredential = await createUserWithEmailAndPassword(window.firebaseAuth, email, password);
         console.log('Usuario registrado:', userCredential.user.uid);
         showCustomAlert('Registro exitoso. ¡Bienvenido!');
-        // onAuthStateChanged se encargará de renderizar la pantalla principal
     } catch (error) {
         console.error('Error al registrar usuario:', error);
         let errorMessage = 'Error al registrar usuario.';
@@ -89,7 +89,6 @@ async function handleLogin(email, password) {
         const userCredential = await signInWithEmailAndPassword(window.firebaseAuth, email, password);
         console.log('Usuario inició sesión:', userCredential.user.uid);
         showCustomAlert('Inicio de sesión exitoso. ¡Bienvenido de nuevo!');
-        // onAuthStateChanged se encargará de renderizar la pantalla principal
     } catch (error) {
         console.error('Error al iniciar sesión:', error);
         let errorMessage = 'Error al iniciar sesión.';
@@ -107,7 +106,6 @@ async function handleLogout() {
         await signOut(window.firebaseAuth);
         console.log('Usuario cerró sesión.');
         showCustomAlert('Sesión cerrada.');
-        // onAuthStateChanged se encargará de renderizar la pantalla de autenticación
     } catch (error) {
         console.error('Error al cerrar sesión:', error);
         showCustomAlert('Error al cerrar sesión.');
@@ -154,6 +152,7 @@ function showCustomAlert(message) {
             modal.remove();
         }
     };
+
     newOkBtn.addEventListener('click', cleanup);
 }
 
@@ -269,13 +268,11 @@ function renderMainAppScreen() {
     const modalContainer = document.getElementById('modal-container');
 
     // Event Listeners para los botones del menú principal
-    // El botón de Clientes ahora abre la sección real
     document.getElementById('btn-clientes').addEventListener('click', async () => {
-        modalContainer.classList.remove('hidden'); // Muestra el modal
-        await renderClientesSection(modalContainer); // Llama a la función de clientes.js
+        modalContainer.classList.remove('hidden');
+        await renderClientesSection(modalContainer);
     });
 
-    // Los demás botones siguen mostrando el aviso de construcción
     document.getElementById('btn-inventario').addEventListener('click', () => {
         showCustomAlert('Sección de Inventario en construcción.');
     });
@@ -292,8 +289,11 @@ function renderMainAppScreen() {
         showCustomAlert('Sección de Archivos en construcción.');
     });
 
-    document.getElementById('btn-carga-vehiculos').addEventListener('click', () => {
-        showCustomAlert('Sección de Carga & Vehículos en construcción.');
+    // Habilitar el botón de Carga & Vehículos
+    document.getElementById('btn-carga-vehiculos').addEventListener('click', async () => {
+        modalContainer.classList.remove('hidden');
+        // Pasa una función de callback para volver al menú principal
+        await renderCargaVehiculosSection(modalContainer, renderMainAppScreen);
     });
 
     document.getElementById('btn-logout').addEventListener('click', handleLogout);
