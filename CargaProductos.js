@@ -1,11 +1,13 @@
 // CargaProductos.js
-// Este archivo gestiona la creación de nuevas cargas de productos.
+// Este archivo gestiona la creación de nuevas cargas de productos,
+// asignándolas a un vehículo específico y guardándolas en la colección 'Inventario'.
 
 // Importa las funciones necesarias de Firebase Firestore.
 import { collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // Importa funciones de otros módulos para obtener datos necesarios
 import { verInventarioCompleto } from './inventario.js'; // Para obtener la lista de productos
+import { obtenerTodosLosVehiculos } from './CargasyVehiculos.js'; // Para obtener la lista de vehículos
 
 // Función auxiliar para obtener la instancia de Firestore
 async function getFirestoreInstances() {
@@ -69,31 +71,37 @@ function showCustomAlert(message) {
 
 /**
  * Guarda una nueva carga de productos en Firestore.
- * Los datos se guardarán en la colección 'datosCargasProductos' en la raíz.
+ * Los datos se guardarán en la colección 'Inventario' en la raíz.
+ * @param {string} vehiculoId - El ID del vehículo al que se asigna la carga.
+ * @param {string} vehiculoMarca - Marca del vehículo.
+ * @param {string} vehiculoModelo - Modelo del vehículo.
+ * @param {string} vehiculoPlaca - Placa del vehículo.
  * @param {Array<object>} productosCargados - Array de objetos de productos con sus cantidades.
  * @returns {Promise<string|null>} El ID del documento de la carga agregada o null si hubo un error.
  */
-async function guardarCargaProductos(productosCargados) {
-    console.log('guardarCargaProductos: Iniciando...');
+async function guardarNuevaCarga(vehiculoId, vehiculoMarca, vehiculoModelo, vehiculoPlaca, productosCargados) {
+    console.log('guardarNuevaCarga: Iniciando...');
     try {
         const { db } = await getFirestoreInstances();
-        // La ruta de la colección es directamente 'datosCargasProductos'
-        const cargasCollectionRef = collection(db, `datosCargasProductos`);
+        // La ruta de la colección es directamente 'Inventario'
+        const inventarioCollectionRef = collection(db, `Inventario`);
         const cargaData = {
-            fecha: new Date().toISOString(), // Fecha y hora de la carga
+            fechaCarga: new Date().toISOString(), // Fecha y hora de la carga en formato ISO
+            vehiculoId: vehiculoId,
+            vehiculoMarca: vehiculoMarca,
+            vehiculoModelo: vehiculoModelo,
+            vehiculoPlaca: vehiculoPlaca,
             productos: productosCargados,
-            // Puedes añadir más campos aquí, como el usuario que realizó la carga, vehículo, etc.
-            // usuarioId: window.currentUserId,
-            // vehiculoId: 'someVehicleId', // Si tuvieras una selección de vehículos
+            estadoCarga: "Cargado" // Estado inicial de la carga
         };
-        const docRef = await addDoc(cargasCollectionRef, cargaData);
+        const docRef = await addDoc(inventarioCollectionRef, cargaData);
         console.log('Carga de productos agregada con ID:', docRef.id);
         return docRef.id;
     } catch (error) {
         console.error('Error al guardar carga de productos:', error);
         return null;
     } finally {
-        console.log('guardarCargaProductos: Finalizado.');
+        console.log('guardarNuevaCarga: Finalizado.');
     }
 }
 
@@ -191,7 +199,14 @@ export async function renderCargaProductosSection(container, backToMainMenuCallb
             <div class="p-6 bg-pink-50 rounded-lg shadow-inner">
                 <h3 class="text-2xl font-semibold text-pink-800 mb-4">Nueva Carga de Productos</h3>
 
-                <input type="text" id="search-productos-carga-input" placeholder="Buscar producto por Segmento, Producto, Presentación..." class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 mb-4">
+                <div class="mb-4">
+                    <label for="select-camion" class="block text-sm font-medium text-gray-700 mb-1">Seleccionar Camión:</label>
+                    <select id="select-camion" class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500">
+                        <option value="">-- Selecciona un Camión --</option>
+                    </select>
+                </div>
+
+                <input type="text" id="search-productos-carga-input" placeholder="Buscar producto por Segmento, Producto, Presentación..." class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 mb-4 mt-4">
 
                 <div id="productos-carga-table-container" class="max-h-96 overflow-y-auto bg-white p-3 rounded-md border border-gray-200 shadow-md">
                     <p class="text-gray-500">Cargando productos disponibles...</p>
@@ -206,12 +221,24 @@ export async function renderCargaProductosSection(container, backToMainMenuCallb
             </div>
         `;
 
+        const selectCamion = parentContainer.querySelector('#select-camion');
         const searchInput = parentContainer.querySelector('#search-productos-carga-input');
         const tableContainer = parentContainer.querySelector('#productos-carga-table-container');
         const btnGuardarCarga = parentContainer.querySelector('#btn-guardar-carga');
         const btnBackNuevaCarga = parentContainer.querySelector('#btn-back-nueva-carga');
 
         let allProducts = await verInventarioCompleto(); // Obtener todos los productos del inventario
+        let allVehiculos = await obtenerTodosLosVehiculos(); // Obtener todos los vehículos
+
+        // Poblar el select de camiones
+        if (selectCamion) {
+            allVehiculos.forEach(vehiculo => {
+                const option = document.createElement('option');
+                option.value = vehiculo.id;
+                option.textContent = `${vehiculo.marca} ${vehiculo.modelo} (${vehiculo.placa})`;
+                selectCamion.appendChild(option);
+            });
+        }
 
         const renderTable = (productsToRender) => {
             tableContainer.innerHTML = '';
@@ -268,6 +295,18 @@ export async function renderCargaProductosSection(container, backToMainMenuCallb
 
         if (btnGuardarCarga) {
             btnGuardarCarga.addEventListener('click', async () => {
+                const selectedVehiculoId = selectCamion?.value;
+                if (!selectedVehiculoId) {
+                    showCustomAlert('Por favor, selecciona un camión antes de guardar la carga.');
+                    return;
+                }
+
+                const selectedVehiculo = allVehiculos.find(v => v.id === selectedVehiculoId);
+                if (!selectedVehiculo) {
+                    showCustomAlert('Error: Camión seleccionado no encontrado.');
+                    return;
+                }
+
                 const cantidadInputs = tableContainer.querySelectorAll('.cantidad-input');
                 const productosCargados = [];
 
@@ -279,7 +318,7 @@ export async function renderCargaProductosSection(container, backToMainMenuCallb
                         const product = allProducts.find(p => p.id === productId);
                         if (product) {
                             productosCargados.push({
-                                id: product.id,
+                                idProducto: product.id, // Guardar el ID del producto
                                 Rubro: product.Rubro,
                                 Segmento: product.Segmento,
                                 Producto: product.Producto,
@@ -292,11 +331,18 @@ export async function renderCargaProductosSection(container, backToMainMenuCallb
                 });
 
                 if (productosCargados.length > 0) {
-                    const cargaId = await guardarCargaProductos(productosCargados);
+                    const cargaId = await guardarNuevaCarga(
+                        selectedVehiculo.id,
+                        selectedVehiculo.marca,
+                        selectedVehiculo.modelo,
+                        selectedVehiculo.placa,
+                        productosCargados
+                    );
                     if (cargaId) {
-                        showCustomAlert(`Carga de productos guardada con éxito (ID: ${cargaId}).`);
+                        showCustomAlert(`Carga guardada con éxito para el camión ${selectedVehiculo.marca} (${selectedVehiculo.placa}).`);
                         // Limpiar cantidades y volver a la vista principal de carga de productos
                         cantidadInputs.forEach(input => input.value = '0');
+                        if (selectCamion) selectCamion.value = ''; // Limpiar selección de camión
                         backToMainMenuCallback();
                     } else {
                         showCustomAlert('Fallo al guardar la carga de productos.');
