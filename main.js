@@ -11,20 +11,20 @@ window.firebaseDb = null;
 window.firebaseAuth = null;
 window.currentUserId = null;
 
-// Configuración de Firebase (solo para desarrollo local o GitHub Pages si no se usa Canvas)
-// En un entorno de producción real, estas credenciales deberían ser gestionadas de forma más segura.
-const firebaseConfigLocal = {
-  apiKey: "AIzaSyBags4wEqc_v8GGsHoLBwStPf0FIJgT6hE",
-  authDomain: "admin-804f6.firebaseapp.com",
-  projectId: "admin-804f6",
-  storageBucket: "admin-804f6.firebasestorage.app",
-  messagingSenderId: "641744033630",
-  appId: "1:641744033630:web:7e61b41752b1882a6461cf",
-  measurementId: "G-DFL37S2NVX"
-};
-
 // Función de inicialización de Firebase
 async function initializeFirebase() {
+    // Configuración de Firebase (solo para desarrollo local o GitHub Pages si no se usa Canvas)
+    // Mover firebaseConfigLocal dentro de la función para asegurar su definición en el ámbito de la función.
+    const firebaseConfigLocal = {
+        apiKey: "AIzaSyBags4wEqc_v8GGsHoLBwStPf0FIJgT6hE",
+        authDomain: "admin-804f6.firebaseapp.com",
+        projectId: "admin-804f6",
+        storageBucket: "admin-804f6.firebasestorage.app",
+        messagingSenderId: "641744033630",
+        appId: "1:641744033630:web:7e61b41752b1882a6461cf",
+        measurementId: "G-DFL37S2NVX"
+    };
+
     try {
         // Usar la configuración de Canvas si está disponible, de lo contrario, la local
         const firebaseConfig = typeof __firebase_config !== 'undefined' && Object.keys(JSON.parse(__firebase_config)).length > 0
@@ -127,7 +127,7 @@ function renderMainAppScreen() {
             <!-- Tarjeta para la sección de Clientes -->
             <div id="btn-clientes" class="section-button bg-gradient-to-r from-blue-700 to-blue-800 text-white p-6 rounded-lg shadow-md flex flex-col items-center justify-center cursor-pointer transform hover:scale-105">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.3.356-1.857m0 0A5.002 5.002 0 0112 10a5.002 5.002 0 015.644 3.143m0 0L17 20m-2-9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v4m3 2h6m-6 4h6" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.3.356-1-857m0 0A5.002 5.002 0 0112 10a5.002 5.002 0 015.644 3.143m0 0L17 20m-2-9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v4m3 2h6m-6 4h6" />
                 </svg>
                 <h2 class="text-3xl font-bold">Clientes</h2>
                 <p class="text-lg text-center mt-2 opacity-90">Gestión de la base de datos de clientes.</p>
@@ -216,3 +216,4 @@ function renderMainAppScreen() {
 
 // Iniciar la aplicación cuando el DOM esté completamente cargado
 document.addEventListener('DOMContentLoaded', initializeFirebase);
+
