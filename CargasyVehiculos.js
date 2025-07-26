@@ -1,6 +1,7 @@
 // CargasyVehiculos.js
 // Este archivo gestiona las operaciones CRUD para los vehículos de carga
 // y se encarga de renderizar su interfaz de usuario.
+// Ahora también incluye la gestión de usuarios (no de autenticación).
 
 // Importa las funciones necesarias de Firebase Firestore.
 import { collection, addDoc, doc, updateDoc, deleteDoc, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -202,7 +203,7 @@ async function eliminarVehiculo(idVehiculo) {
  * Obtiene todos los vehículos de carga de Firestore.
  * @returns {Promise<Array<object>>} Un array de objetos de vehículo.
  */
-export async function obtenerTodosLosVehiculos() { // Añadido 'export' aquí
+export async function obtenerTodosLosVehiculos() {
     console.log('obtenerTodosLosVehiculos: Iniciando...');
     try {
         const { db } = await getFirestoreInstances();
@@ -222,6 +223,223 @@ export async function obtenerTodosLosVehiculos() { // Añadido 'export' aquí
     }
 }
 
+// --- Funciones para la gestión de Usuarios ---
+
+/**
+ * Agrega un nuevo usuario a la colección 'configuracion/Usuarios'.
+ * @param {object} userData - Objeto con los datos del usuario (ej: { nombre: 'Juan', apellido: 'Perez' }).
+ * @param {string} userData.nombre - Nombre del usuario.
+ * @param {string} userData.apellido - Apellido del usuario.
+ * @returns {Promise<string|null>} El ID del documento del usuario agregado o null si hubo un error.
+ */
+async function agregarUsuario(userData) {
+    console.log('agregarUsuario: Iniciando...');
+    try {
+        const { db } = await getFirestoreInstances();
+        const usuariosCollectionRef = collection(db, `configuracion`, `Usuarios`);
+        const docRef = await addDoc(usuariosCollectionRef, userData);
+        console.log('Usuario agregado con ID:', docRef.id);
+        return docRef.id;
+    } catch (error) {
+        console.error('Error al agregar usuario:', error);
+        return null;
+    } finally {
+        console.log('agregarUsuario: Finalizado.');
+    }
+}
+
+/**
+ * Elimina un usuario de la colección 'configuracion/Usuarios'.
+ * @param {string} userId - ID único del usuario a eliminar.
+ * @returns {Promise<boolean>} True si se eliminó con éxito, false en caso contrario.
+ */
+async function eliminarUsuario(userId) {
+    console.log('eliminarUsuario: Iniciando. ID:', userId);
+    try {
+        const { db } = await getFirestoreInstances();
+        const userDocRef = doc(db, `configuracion`, `Usuarios`, userId);
+        await deleteDoc(userDocRef);
+        console.log('Usuario eliminado con éxito. ID:', userId);
+        return true;
+    } catch (error) {
+        console.error('Error al eliminar usuario:', error);
+        return false;
+    } finally {
+        console.log('eliminarUsuario: Finalizado.');
+    }
+}
+
+/**
+ * Obtiene todos los usuarios de la colección 'configuracion/Usuarios'.
+ * @returns {Promise<Array<object>>} Un array de objetos de usuario.
+ */
+async function obtenerTodosLosUsuarios() {
+    console.log('obtenerTodosLosUsuarios: Iniciando...');
+    try {
+        const { db } = await getFirestoreInstances();
+        const usuariosCollectionRef = collection(db, `configuracion`, `Usuarios`);
+        const querySnapshot = await getDocs(usuariosCollectionRef);
+        const usuarios = [];
+        querySnapshot.forEach((doc) => {
+            usuarios.push({ id: doc.id, ...doc.data() });
+        });
+        console.log('Todos los usuarios obtenidos:', usuarios);
+        return usuarios;
+    } catch (error) {
+        console.error('Error al obtener todos los usuarios:', error);
+        return [];
+    } finally {
+        console.log('obtenerTodosLosUsuarios: Finalizado.');
+    }
+}
+
+/**
+ * Renderiza la interfaz de usuario para la gestión de usuarios.
+ * @param {HTMLElement} parentContainer - El contenedor donde se renderizará el formulario.
+ * @param {function(): void} backToMainMenuCallback - Callback para volver al menú principal de vehículos.
+ */
+async function renderGestionUsuariosSection(parentContainer, backToMainMenuCallback) {
+    console.log('renderGestionUsuariosSection: Iniciando...');
+    parentContainer.innerHTML = `
+        <div class="p-6 bg-teal-50 rounded-lg shadow-inner">
+            <h3 class="text-2xl font-semibold text-teal-800 mb-4">Gestión de Usuarios</h3>
+
+            <div class="mb-6 p-4 bg-white rounded-md shadow-sm">
+                <h4 class="text-xl font-semibold text-gray-800 mb-3">Agregar Nuevo Usuario</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="text" id="add-user-name" placeholder="Nombre del Usuario" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500">
+                    <input type="text" id="add-user-apellido" placeholder="Apellido del Usuario" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500">
+                </div>
+                <button id="btn-add-user" class="mt-4 w-full bg-teal-600 text-white p-3 rounded-md font-semibold hover:bg-teal-700 transition duration-200">
+                    Añadir Usuario
+                </button>
+            </div>
+
+            <div class="mb-6 p-4 bg-white rounded-md shadow-sm">
+                <h4 class="text-xl font-semibold text-gray-800 mb-3">Lista de Usuarios Existentes</h4>
+                <input type="text" id="search-users-input" placeholder="Buscar usuario por nombre o apellido..." class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 mb-4">
+                <div id="users-table-container" class="max-h-96 overflow-y-auto bg-white p-3 rounded-md border border-gray-200 shadow-md">
+                    <p class="text-gray-500">Cargando usuarios...</p>
+                </div>
+            </div>
+
+            <button id="btn-back-gestion-usuarios" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
+                Volver
+            </button>
+        </div>
+    `;
+
+    const addUserNameInput = parentContainer.querySelector('#add-user-name');
+    const addUserApellidoInput = parentContainer.querySelector('#add-user-apellido'); // Cambiado de email a apellido
+    const btnAddUser = parentContainer.querySelector('#btn-add-user');
+    const searchUsersInput = parentContainer.querySelector('#search-users-input');
+    const usersTableContainer = parentContainer.querySelector('#users-table-container');
+    const btnBack = parentContainer.querySelector('#btn-back-gestion-usuarios');
+
+    let allUsers = []; // Para almacenar todos los usuarios y filtrar sobre ellos
+
+    const renderUsersTable = (usersToRender) => {
+        usersTableContainer.innerHTML = '';
+        if (usersToRender.length === 0) {
+            usersTableContainer.innerHTML = '<p class="text-gray-500">No hay usuarios registrados.</p>';
+            return;
+        }
+
+        let tableHTML = `
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50 sticky top-0">
+                    <tr>
+                        <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+                        <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Apellido</th>
+                        <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+        `;
+
+        usersToRender.forEach(user => {
+            tableHTML += `
+                <tr class="hover:bg-gray-100">
+                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-900">${user.nombre || 'N/A'}</td>
+                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${user.apellido || 'N/A'}</td> <!-- Cambiado de email a apellido -->
+                    <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">
+                        <button class="bg-red-500 text-white px-2 py-1 rounded-md text-xs hover:bg-red-600 transition duration-200 delete-user-btn" data-user-id="${user.id}">Eliminar</button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tableHTML += `</tbody></table>`;
+        usersTableContainer.innerHTML = tableHTML;
+
+        // Añadir event listeners para los botones de eliminar
+        usersTableContainer.querySelectorAll('.delete-user-btn').forEach(button => {
+            button.addEventListener('click', async (event) => {
+                const userId = event.target.dataset.userId;
+                const userToDelete = allUsers.find(u => u.id === userId);
+                const userName = userToDelete ? `${userToDelete.nombre} ${userToDelete.apellido}` : 'este usuario'; // Actualizado para mostrar nombre y apellido
+                const confirmed = await showCustomConfirm(`¿Estás seguro de que quieres eliminar a ${userName}?`);
+                if (confirmed) {
+                    const deleted = await eliminarUsuario(userId);
+                    if (deleted) {
+                        showCustomAlert(`Usuario ${userName} eliminado con éxito.`);
+                        allUsers = allUsers.filter(u => u.id !== userId); // Actualizar lista local
+                        renderUsersTable(allUsers); // Re-renderizar tabla
+                    } else {
+                        showCustomAlert(`Fallo al eliminar a ${userName}.`);
+                    }
+                }
+            });
+        });
+    };
+
+    // Cargar usuarios al inicio
+    allUsers = await obtenerTodosLosUsuarios();
+    renderUsersTable(allUsers);
+
+    // Lógica para añadir usuario
+    if (btnAddUser) {
+        btnAddUser.addEventListener('click', async () => {
+            const nombre = addUserNameInput?.value.trim() || '';
+            const apellido = addUserApellidoInput?.value.trim() || ''; // Cambiado de email a apellido
+
+            if (!nombre || !apellido) { // Validar ambos campos
+                showCustomAlert('Por favor, ingrese el nombre y el apellido del usuario.');
+                return;
+            }
+
+            const newUserData = { nombre, apellido }; // Solo nombre y apellido
+            const id = await agregarUsuario(newUserData);
+            if (id) {
+                showCustomAlert(`Usuario "${nombre} ${apellido}" agregado con éxito.`);
+                addUserNameInput.value = '';
+                addUserApellidoInput.value = ''; // Limpiar campo de apellido
+                allUsers.push({ id, ...newUserData }); // Añadir a la lista local
+                renderUsersTable(allUsers); // Re-renderizar tabla
+            } else {
+                showCustomAlert('Fallo al agregar usuario.');
+            }
+        });
+    }
+
+    // Lógica de búsqueda de usuarios
+    if (searchUsersInput) {
+        searchUsersInput.addEventListener('input', () => {
+            const searchTerm = searchUsersInput.value.toLowerCase();
+            const filteredUsers = allUsers.filter(user =>
+                (user.nombre && user.nombre.toLowerCase().includes(searchTerm)) ||
+                (user.apellido && user.apellido.toLowerCase().includes(searchTerm)) // Buscar también por apellido
+            );
+            renderUsersTable(filteredUsers);
+        });
+    }
+
+    if (btnBack) {
+        btnBack.addEventListener('click', backToMainMenuCallback);
+    }
+    console.log('renderGestionUsuariosSection: Finalizado.');
+}
+
 
 /**
  * Renderiza la interfaz de usuario de la sección de Carga y Vehículos.
@@ -239,18 +457,21 @@ export async function renderCargaVehiculosSection(container, backToMainMenuCallb
         <div class="modal-content">
             <h2 class="text-4xl font-bold text-gray-900 mb-6 text-center">Gestión de Carga y Vehículos</h2>
 
-            <div id="vehiculos-main-buttons-container" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+            <div id="vehiculos-main-buttons-container" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                 <button id="btn-show-add-vehiculo" class="bg-orange-600 text-white p-4 rounded-md font-semibold hover:bg-orange-700 transition duration-200">
                     Agregar Vehículo de Carga
                 </button>
                 <button id="btn-show-modify-delete-vehiculo" class="bg-yellow-600 text-white p-4 rounded-md font-semibold hover:bg-yellow-700 transition duration-200">
                     Modificar o Eliminar Vehículo
                 </button>
+                <button id="btn-gestion-usuarios" class="bg-teal-600 text-white p-4 rounded-md font-semibold hover:bg-teal-700 transition duration-200">
+                    Gestión de Usuarios
+                </button>
             </div>
 
             <!-- Contenedor para las sub-secciones dinámicas -->
             <div id="vehiculos-sub-section" class="mt-8">
-                <!-- El contenido de agregar, modificar/eliminar se cargará aquí -->
+                <!-- El contenido de agregar, modificar/eliminar o gestión de usuarios se cargará aquí -->
             </div>
 
             <button id="btn-back-carga-vehiculos" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
@@ -273,6 +494,7 @@ export async function renderCargaVehiculosSection(container, backToMainMenuCallb
 
     const btnShowAddVehiculo = container.querySelector('#btn-show-add-vehiculo');
     const btnShowModifyDeleteVehiculo = container.querySelector('#btn-show-modify-delete-vehiculo');
+    const btnGestionUsuarios = container.querySelector('#btn-gestion-usuarios'); // Nuevo botón
 
     // Función para mostrar los botones principales y limpiar la sub-sección
     function showVehiculosMainButtons() {
@@ -313,6 +535,15 @@ export async function renderCargaVehiculosSection(container, backToMainMenuCallb
             console.log('Botón "Modificar o Eliminar Vehículo" clickeado.');
             vehiculosMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
             await renderModifyDeleteVehiculoSection(vehiculosSubSection, showVehiculosMainButtons);
+        });
+    }
+
+    // Lógica para mostrar la sección de gestión de usuarios
+    if (btnGestionUsuarios) {
+        btnGestionUsuarios.addEventListener('click', async () => {
+            console.log('Botón "Gestión de Usuarios" clickeado.');
+            vehiculosMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
+            await renderGestionUsuariosSection(vehiculosSubSection, showVehiculosMainButtons);
         });
     }
 
@@ -560,3 +791,4 @@ export async function renderCargaVehiculosSection(container, backToMainMenuCallb
         console.log('renderEditVehiculoForm: Finalizado.');
     }
 }
+
