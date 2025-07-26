@@ -283,6 +283,7 @@ export async function renderCargaVehiculosSection(container, backToMainMenuCallb
     // Lógica para cerrar el modal
     if (closeCargaVehiculosModalBtn) {
         closeCargaVehiculosModalBtn.addEventListener('click', () => {
+            console.log('Cerrar modal de Carga y Vehículos clickeado.');
             container.classList.add('hidden'); // Oculta el modal
             backToMainMenuCallback(); // Vuelve al menú principal
         });
@@ -290,12 +291,18 @@ export async function renderCargaVehiculosSection(container, backToMainMenuCallb
 
     // Lógica para el botón "Volver al Menú Principal"
     if (btnBack) {
-        btnBack.addEventListener('click', backToMainMenuCallback);
+        btnBack.addEventListener('click', () => {
+            console.log('Botón "Volver al Menú Principal" clickeado en Carga y Vehículos.');
+            showVehiculosMainButtons(); // Vuelve a los botones principales de Carga y Vehículos
+            // Si quieres que vuelva al menú principal de la app, descomenta la siguiente línea y comenta la anterior:
+            // backToMainMenuCallback();
+        });
     }
 
     // Lógica para mostrar la sección de agregar vehículo
     if (btnShowAddVehiculo) {
         btnShowAddVehiculo.addEventListener('click', () => {
+            console.log('Botón "Agregar Vehículo de Carga" clickeado.');
             vehiculosMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
             renderAddVehiculoForm(vehiculosSubSection, showVehiculosMainButtons);
         });
@@ -304,6 +311,7 @@ export async function renderCargaVehiculosSection(container, backToMainMenuCallb
     // Lógica para mostrar la sección de modificar/eliminar vehículo
     if (btnShowModifyDeleteVehiculo) {
         btnShowModifyDeleteVehiculo.addEventListener('click', async () => {
+            console.log('Botón "Modificar o Eliminar Vehículo" clickeado.');
             vehiculosMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
             await renderModifyDeleteVehiculoSection(vehiculosSubSection, showVehiculosMainButtons);
         });
@@ -546,6 +554,7 @@ export async function renderCargaVehiculosSection(container, backToMainMenuCallb
 
         if (btnBackEditVehiculo) {
             btnBackEditVehiculo.addEventListener('click', async () => {
+                // Volver a la sección de modificar/eliminar vehículos
                 await renderModifyDeleteVehiculoSection(parentContainer, backToMainMenuCallback);
             });
         }
