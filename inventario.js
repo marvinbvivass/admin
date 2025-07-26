@@ -16,14 +16,15 @@ const RUBRO_SEGMENTO_CONFIG_DOC_ID = 'rubrosSegmentos'; // ID fijo para el docum
 async function getFirestoreInstances() {
     let attempts = 0;
     const maxAttempts = 50; // Intentar por 5 segundos (50 * 100ms)
-    while (!window.firebaseDb && attempts < maxAttempts) {
-        console.log(`Esperando inicialización de Firebase en inventario.js... Intento ${attempts + 1}`);
+    // Esperar a que firebaseDb esté disponible, firebaseAuth esté cargado y haya un usuario autenticado
+    while (!window.firebaseDb || !window.firebaseAuth || !window.firebaseAuth.currentUser && attempts < maxAttempts) {
+        console.log(`Esperando inicialización de Firebase y autenticación en inventario.js... Intento ${attempts + 1}`);
         await new Promise(resolve => setTimeout(resolve, 100));
         attempts++;
     }
-    if (!window.firebaseDb) {
-        console.error('ERROR: Firebase DB no inicializado después de múltiples intentos en inventario.js.');
-        throw new Error('Firebase DB no disponible.');
+    if (!window.firebaseDb || !window.firebaseAuth || !window.firebaseAuth.currentUser) {
+        console.error('ERROR: Firebase DB o autenticación no inicializados después de múltiples intentos en inventario.js.');
+        throw new Error('Firebase DB o autenticación no disponibles.');
     }
     return {
         db: window.firebaseDb,
@@ -1124,17 +1125,12 @@ export async function renderInventarioSection(container, backToMainMenuCallback)
         const tableContainer = parentContainer.querySelector('#inventario-general-table-container');
         const btnBack = parentContainer.querySelector('#btn-back-inventario-general');
 
-        // Obtener todos los productos definidos en el inventario
+        // Obtener todos los productos definidos en el inventario (datosInventario)
         const allDefinedProducts = await verInventarioCompleto();
-        // Obtener todas las cargas de productos de la colección 'Inventario'
+        // Obtener todos los inventarios de camiones
         const { db } = await getFirestoreInstances();
-        const cargasSnapshot = await getDocs(collection(db, 'Inventario'));
-        const allCargas = [];
-        cargasSnapshot.forEach(doc => {
-            allCargas.push(doc.data());
-        });
-
-        // Calcular el inventario general
+        const vehiculosSnapshot = await getDocs(collection(db, 'Vehiculos'));
+        
         const inventarioGeneralMap = {}; // { productId: { productData, totalCantidad } }
 
         // Inicializar con todos los productos definidos, con cantidad 0
@@ -1145,29 +1141,29 @@ export async function renderInventarioSection(container, backToMainMenuCallback)
             };
         });
 
-        // Sumar las cantidades de cada producto de todas las cargas
-        allCargas.forEach(carga => {
-            if (carga.productos && Array.isArray(carga.productos)) {
-                carga.productos.forEach(item => {
-                    if (inventarioGeneralMap[item.idProducto]) {
-                        inventarioGeneralMap[item.idProducto].CantidadTotal += item.Cantidad;
-                    } else {
-                        // Si un producto en una carga no está en allDefinedProducts (caso raro, pero posible)
-                        // Añadirlo al mapa con sus datos de la carga
-                        inventarioGeneralMap[item.idProducto] = {
-                            id: item.idProducto,
-                            Rubro: item.Rubro,
-                            Segmento: item.Segmento,
-                            Producto: item.Producto,
-                            Presentacion: item.Presentacion,
-                            Precio: item.Precio,
-                            CantidadTotal: item.Cantidad
-                        };
-                    }
-                });
-            }
-        });
-
+        // Sumar las cantidades de cada producto de los inventarios de los camiones
+        for (const vehiculoDoc of vehiculosSnapshot.docs) {
+            const inventarioCamionSnapshot = await getDocs(collection(db, 'Vehiculos', vehiculoDoc.id, 'inventarioCamion'));
+            inventarioCamionSnapshot.forEach(productDoc => {
+                const item = productDoc.data();
+                if (inventarioGeneralMap[productDoc.id]) {
+                    inventarioGeneralMap[productDoc.id].CantidadTotal += item.Cantidad;
+                } else {
+                    // Si un producto en el inventario de un camión no está en allDefinedProducts
+                    // (ej. fue cargado antes de ser definido en datosInventario), añadirlo.
+                    inventarioGeneralMap[productDoc.id] = {
+                        id: productDoc.id,
+                        Rubro: item.Rubro,
+                        Segmento: item.Segmento,
+                        Producto: item.Producto,
+                        Presentacion: item.Presentacion,
+                        Precio: item.Precio,
+                        CantidadTotal: item.Cantidad
+                    };
+                }
+            });
+        }
+        
         let inventarioGeneralList = Object.values(inventarioGeneralMap);
 
         const renderTable = (productsToRender) => {
@@ -1267,8 +1263,7 @@ export async function renderInventarioSection(container, backToMainMenuCallback)
 
         const allVehiculos = await obtenerTodosLosVehiculos(); // Obtener todos los vehículos
         const { db } = await getFirestoreInstances();
-        let allCargas = []; // Para almacenar todas las cargas y filtrarlas
-
+        
         // Poblar el select de camiones
         if (selectCamionInventario) {
             allVehiculos.forEach(vehiculo => {
@@ -1278,47 +1273,22 @@ export async function renderInventarioSection(container, backToMainMenuCallback)
                 selectCamionInventario.appendChild(option);
             });
 
-            // Cargar todas las cargas una vez para evitar múltiples lecturas al cambiar de camión
-            const cargasSnapshot = await getDocs(collection(db, 'Inventario'));
-            cargasSnapshot.forEach(doc => {
-                allCargas.push(doc.data());
-            });
-
-            selectCamionInventario.addEventListener('change', () => {
+            selectCamionInventario.addEventListener('change', async () => {
                 const selectedVehiculoId = selectCamionInventario.value;
                 if (selectedVehiculoId) {
-                    displayInventarioPorCamion(selectedVehiculoId);
+                    await displayInventarioPorCamion(selectedVehiculoId);
                 } else {
                     tableContainer.innerHTML = '<p class="text-gray-500">Selecciona un camión para ver su inventario.</p>';
                 }
             });
         }
 
-        const displayInventarioPorCamion = (vehiculoId) => {
-            const productosEnCamionMap = {}; // { productId: { productData, totalCantidad } }
-
-            allCargas.filter(carga => carga.vehiculoId === vehiculoId)
-                     .forEach(carga => {
-                         if (carga.productos && Array.isArray(carga.productos)) {
-                             carga.productos.forEach(item => {
-                                 if (productosEnCamionMap[item.idProducto]) {
-                                     productosEnCamionMap[item.idProducto].CantidadTotal += item.Cantidad;
-                                 } else {
-                                     productosEnCamionMap[item.idProducto] = {
-                                         id: item.idProducto,
-                                         Rubro: item.Rubro,
-                                         Segmento: item.Segmento,
-                                         Producto: item.Producto,
-                                         Presentacion: item.Presentacion,
-                                         Precio: item.Precio,
-                                         CantidadTotal: item.Cantidad
-                                     };
-                                 }
-                             });
-                         }
-                     });
-
-            let productosEnCamionList = Object.values(productosEnCamionMap);
+        const displayInventarioPorCamion = async (vehiculoId) => {
+            const inventarioCamionSnapshot = await getDocs(collection(db, 'Vehiculos', vehiculoId, 'inventarioCamion'));
+            const productosEnCamionList = [];
+            inventarioCamionSnapshot.forEach(doc => {
+                productosEnCamionList.push({ id: doc.id, ...doc.data() });
+            });
             renderTableCamion(productosEnCamionList);
         };
 
@@ -1352,7 +1322,7 @@ export async function renderInventarioSection(container, backToMainMenuCallback)
                         <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${product.Producto || 'N/A'}</td>
                         <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${product.Presentacion || 'N/A'}</td>
                         <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">$${(product.Precio || 0).toFixed(2)}</td>
-                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${product.CantidadTotal || 0}</td>
+                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${product.Cantidad || 0}</td>
                     </tr>
                 `;
             });
@@ -1362,32 +1332,16 @@ export async function renderInventarioSection(container, backToMainMenuCallback)
         };
 
         if (searchInput) {
-            searchInput.addEventListener('input', () => {
+            searchInput.addEventListener('input', async () => {
                 const searchTerm = searchInput.value.toLowerCase();
                 const selectedVehiculoId = selectCamionInventario.value;
                 if (selectedVehiculoId) {
-                    const productosEnCamionMap = {};
-                    allCargas.filter(carga => carga.vehiculoId === selectedVehiculoId)
-                             .forEach(carga => {
-                                 if (carga.productos && Array.isArray(carga.productos)) {
-                                     carga.productos.forEach(item => {
-                                         if (productosEnCamionMap[item.idProducto]) {
-                                             productosEnCamionMap[item.idProducto].CantidadTotal += item.Cantidad;
-                                         } else {
-                                             productosEnCamionMap[item.idProducto] = {
-                                                 id: item.idProducto,
-                                                 Rubro: item.Rubro,
-                                                 Segmento: item.Segmento,
-                                                 Producto: item.Producto,
-                                                 Presentacion: item.Presentacion,
-                                                 Precio: item.Precio,
-                                                 CantidadTotal: item.Cantidad
-                                             };
-                                         }
-                                     });
-                                 }
-                             });
-                    let currentProducts = Object.values(productosEnCamionMap);
+                    const inventarioCamionSnapshot = await getDocs(collection(db, 'Vehiculos', selectedVehiculoId, 'inventarioCamion'));
+                    let currentProducts = [];
+                    inventarioCamionSnapshot.forEach(doc => {
+                        currentProducts.push({ id: doc.id, ...doc.data() });
+                    });
+
                     const filteredProducts = currentProducts.filter(product =>
                         (product.Rubro && product.Rubro.toLowerCase().includes(searchTerm)) ||
                         (product.Segmento && product.Segmento.toLowerCase().includes(searchTerm)) ||
@@ -1407,3 +1361,4 @@ export async function renderInventarioSection(container, backToMainMenuCallback)
 
     console.log('renderInventarioSection: Función completada.');
 }
+
