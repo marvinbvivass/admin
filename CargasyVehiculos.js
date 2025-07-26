@@ -3,7 +3,7 @@
 // y se encarga de renderizar su interfaz de usuario.
 
 // Importa las funciones necesarias de Firebase Firestore.
-import { collection, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { collection, addDoc, doc, updateDoc, deleteDoc, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // Función auxiliar para obtener la instancia de Firestore
 async function getFirestoreInstances() {
@@ -21,6 +21,70 @@ async function getFirestoreInstances() {
     return {
         db: window.firebaseDb,
     };
+}
+
+/**
+ * Muestra un modal de confirmación personalizado.
+ * @param {string} message - El mensaje a mostrar en el modal.
+ * @returns {Promise<boolean>} Resuelve a true si el usuario confirma, false si cancela.
+ */
+function showCustomConfirm(message) {
+    return new Promise(resolve => {
+        const modalId = 'custom-confirm-modal';
+        let modal = document.getElementById(modalId);
+
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = modalId;
+            modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-[9999] p-4';
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-auto">
+                    <p class="text-lg font-semibold text-gray-800 mb-4" id="confirm-message"></p>
+                    <div class="flex justify-end space-x-3">
+                        <button id="confirm-no-btn" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 transition duration-200">No</button>
+                        <button id="confirm-yes-btn" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition duration-200">Sí</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        modal.querySelector('#confirm-message').textContent = message;
+        setTimeout(() => {
+            modal.classList.remove('hidden');
+        }, 50);
+
+        const yesBtn = modal.querySelector('#confirm-yes-btn');
+        const noBtn = modal.querySelector('#confirm-no-btn');
+
+        const oldYesBtn = yesBtn.cloneNode(true);
+        const oldNoBtn = noBtn.cloneNode(true);
+        yesBtn.parentNode.replaceChild(oldYesBtn, yesBtn);
+        noBtn.parentNode.replaceChild(oldNoBtn, noBtn);
+
+        const newYesBtn = document.getElementById('confirm-yes-btn');
+        const newNoBtn = document.getElementById('confirm-no-btn');
+
+
+        const cleanup = () => {
+            if (modal && modal.parentNode) {
+                modal.remove();
+            }
+        };
+
+        const onYesClick = () => {
+            cleanup();
+            resolve(true);
+        };
+
+        const onNoClick = () => {
+            cleanup();
+            resolve(false);
+        };
+
+        newYesBtn.addEventListener('click', onYesClick);
+        newNoBtn.addEventListener('click', onNoClick);
+    });
 }
 
 /**
@@ -67,7 +131,7 @@ function showCustomAlert(message) {
 
 /**
  * Agrega un nuevo vehículo de carga a Firestore.
- * Los datos se guardarán en la colección 'vehiculosCarga' en la raíz.
+ * Los datos se guardarán en la colección 'Vehiculos' en la raíz.
  * @param {object} vehiculo - Objeto con los datos del vehículo a agregar.
  * @param {string} vehiculo.marca - Marca del vehículo.
  * @param {string} vehiculo.modelo - Modelo del vehículo.
@@ -78,8 +142,8 @@ async function agregarVehiculo(vehiculo) {
     console.log('agregarVehiculo: Iniciando...');
     try {
         const { db } = await getFirestoreInstances();
-        // La ruta de la colección es directamente 'vehiculosCarga'
-        const vehiculosCollectionRef = collection(db, `vehiculosCarga`);
+        // La ruta de la colección es directamente 'Vehiculos'
+        const vehiculosCollectionRef = collection(db, `Vehiculos`);
         const docRef = await addDoc(vehiculosCollectionRef, vehiculo);
         console.log('Vehículo agregado con ID:', docRef.id);
         return docRef.id;
@@ -90,6 +154,74 @@ async function agregarVehiculo(vehiculo) {
         console.log('agregarVehiculo: Finalizado.');
     }
 }
+
+/**
+ * Modifica los datos de un vehículo existente en Firestore.
+ * @param {string} idVehiculo - ID único del vehículo a modificar.
+ * @param {object} nuevosDatos - Objeto con los nuevos datos del vehículo.
+ * @returns {Promise<boolean>} True si se modificó con éxito, false en caso contrario.
+ */
+async function modificarVehiculo(idVehiculo, nuevosDatos) {
+    console.log('modificarVehiculo: Iniciando. ID:', idVehiculo, 'Nuevos datos:', nuevosDatos);
+    try {
+        const { db } = await getFirestoreInstances();
+        const vehiculoDocRef = doc(db, `Vehiculos`, idVehiculo);
+        await updateDoc(vehiculoDocRef, nuevosDatos);
+        console.log('Vehículo modificado con éxito. ID:', idVehiculo);
+        return true;
+    } catch (error) {
+        console.error('Error al modificar vehículo:', error);
+        return false;
+    } finally {
+        console.log('modificarVehiculo: Finalizado.');
+    }
+}
+
+/**
+ * Elimina un vehículo del sistema de Firestore.
+ * @param {string} idVehiculo - ID único del vehículo a eliminar.
+ * @returns {Promise<boolean>} True si se eliminó con éxito, false en caso contrario.
+ */
+async function eliminarVehiculo(idVehiculo) {
+    console.log('eliminarVehiculo: Iniciando. ID:', idVehiculo);
+    try {
+        const { db } = await getFirestoreInstances();
+        const vehiculoDocRef = doc(db, `Vehiculos`, idVehiculo);
+        await deleteDoc(vehiculoDocRef);
+        console.log('Vehículo eliminado con éxito. ID:', idVehiculo);
+        return true;
+    } catch (error) {
+        console.error('Error al eliminar vehículo:', error);
+        return false;
+    } finally {
+        console.log('eliminarVehiculo: Finalizado.');
+    }
+}
+
+/**
+ * Obtiene todos los vehículos de carga de Firestore.
+ * @returns {Promise<Array<object>>} Un array de objetos de vehículo.
+ */
+async function obtenerTodosLosVehiculos() {
+    console.log('obtenerTodosLosVehiculos: Iniciando...');
+    try {
+        const { db } = await getFirestoreInstances();
+        const vehiculosCollectionRef = collection(db, `Vehiculos`);
+        const querySnapshot = await getDocs(vehiculosCollectionRef);
+        const vehiculos = [];
+        querySnapshot.forEach((doc) => {
+            vehiculos.push({ id: doc.id, ...doc.data() });
+        });
+        console.log('Todos los vehículos obtenidos:', vehiculos);
+        return vehiculos;
+    } catch (error) {
+        console.error('Error al obtener todos los vehículos:', error);
+        return [];
+    } finally {
+        console.log('obtenerTodosLosVehiculos: Finalizado.');
+    }
+}
+
 
 /**
  * Renderiza la interfaz de usuario de la sección de Carga y Vehículos.
@@ -107,16 +239,18 @@ export async function renderCargaVehiculosSection(container, backToMainMenuCallb
         <div class="modal-content">
             <h2 class="text-4xl font-bold text-gray-900 mb-6 text-center">Gestión de Carga y Vehículos</h2>
 
-            <div class="p-6 bg-orange-50 rounded-lg shadow-inner">
-                <h3 class="text-2xl font-semibold text-orange-800 mb-4">Vehículos de Carga</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input type="text" id="vehiculo-marca" placeholder="Marca (Ej: Volswaguen)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500">
-                    <input type="text" id="vehiculo-modelo" placeholder="Modelo (Ej: Volswaguen Worker 220)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500">
-                    <input type="text" id="vehiculo-placa" placeholder="Placa (Ej: ABC-123)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500">
-                </div>
-                <button id="btn-add-vehiculo" class="mt-6 w-full bg-orange-600 text-white p-3 rounded-md font-semibold hover:bg-orange-700 transition duration-200">
-                    Agregar Vehículo
+            <div id="vehiculos-main-buttons-container" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                <button id="btn-show-add-vehiculo" class="bg-orange-600 text-white p-4 rounded-md font-semibold hover:bg-orange-700 transition duration-200">
+                    Agregar Vehículo de Carga
                 </button>
+                <button id="btn-show-modify-delete-vehiculo" class="bg-yellow-600 text-white p-4 rounded-md font-semibold hover:bg-yellow-700 transition duration-200">
+                    Modificar o Eliminar Vehículo
+                </button>
+            </div>
+
+            <!-- Contenedor para las sub-secciones dinámicas -->
+            <div id="vehiculos-sub-section" class="mt-8">
+                <!-- El contenido de agregar, modificar/eliminar se cargará aquí -->
             </div>
 
             <button id="btn-back-carga-vehiculos" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
@@ -132,58 +266,289 @@ export async function renderCargaVehiculosSection(container, backToMainMenuCallb
         </div>
     `;
 
-    const vehiculoMarcaInput = container.querySelector('#vehiculo-marca');
-    const vehiculoModeloInput = container.querySelector('#vehiculo-modelo');
-    const vehiculoPlacaInput = container.querySelector('#vehiculo-placa');
-    const btnAddVehiculo = container.querySelector('#btn-add-vehiculo');
+    const vehiculosMainButtonsContainer = container.querySelector('#vehiculos-main-buttons-container');
+    const vehiculosSubSection = container.querySelector('#vehiculos-sub-section');
     const btnBack = container.querySelector('#btn-back-carga-vehiculos');
     const closeCargaVehiculosModalBtn = container.querySelector('#close-carga-vehiculos-modal');
 
-    // Lógica para agregar vehículo
-    if (btnAddVehiculo) {
-        btnAddVehiculo.addEventListener('click', async () => {
-            const vehiculo = {
-                marca: vehiculoMarcaInput?.value.trim() || '',
-                modelo: vehiculoModeloInput?.value.trim() || '',
-                placa: vehiculoPlacaInput?.value.trim() || ''
-            };
+    const btnShowAddVehiculo = container.querySelector('#btn-show-add-vehiculo');
+    const btnShowModifyDeleteVehiculo = container.querySelector('#btn-show-modify-delete-vehiculo');
 
-            if (!vehiculo.marca || !vehiculo.modelo || !vehiculo.placa) {
-                showCustomAlert('Por favor, complete todos los campos (Marca, Modelo, Placa).');
-                return;
-            }
-
-            const id = await agregarVehiculo(vehiculo);
-            if (id) {
-                showCustomAlert(`Vehículo "${vehiculo.marca} ${vehiculo.modelo}" (Placa: ${vehiculo.placa}) agregado con éxito.`);
-                // Limpiar campos
-                if (vehiculoMarcaInput) vehiculoMarcaInput.value = '';
-                if (vehiculoModeloInput) vehiculoModeloInput.value = '';
-                if (vehiculoPlacaInput) vehiculoPlacaInput.value = '';
-            } else {
-                showCustomAlert('Fallo al agregar vehículo.');
-            }
-        });
-    } else {
-        console.error('renderCargaVehiculosSection: Botón #btn-add-vehiculo no encontrado.');
-    }
-
-    // Lógica para el botón "Volver"
-    if (btnBack) {
-        btnBack.addEventListener('click', backToMainMenuCallback);
-    } else {
-        console.error('renderCargaVehiculosSection: Botón #btn-back-carga-vehiculos no encontrado.');
+    // Función para mostrar los botones principales y limpiar la sub-sección
+    function showVehiculosMainButtons() {
+        vehiculosSubSection.innerHTML = ''; // Limpia el contenido de la sub-sección
+        vehiculosMainButtonsContainer.classList.remove('hidden'); // Muestra los botones principales
     }
 
     // Lógica para cerrar el modal
     if (closeCargaVehiculosModalBtn) {
         closeCargaVehiculosModalBtn.addEventListener('click', () => {
             container.classList.add('hidden'); // Oculta el modal
-            backToMainMenuCallback(); // Vuelve al menú principal al cerrar
+            backToMainMenuCallback(); // Vuelve al menú principal
         });
-    } else {
-        console.error('renderCargaVehiculosSection: Botón #close-carga-vehiculos-modal no encontrado.');
     }
 
-    console.log('renderCargaVehiculosSection: Función completada.');
+    // Lógica para el botón "Volver al Menú Principal"
+    if (btnBack) {
+        btnBack.addEventListener('click', backToMainMenuCallback);
+    }
+
+    // Lógica para mostrar la sección de agregar vehículo
+    if (btnShowAddVehiculo) {
+        btnShowAddVehiculo.addEventListener('click', () => {
+            vehiculosMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
+            renderAddVehiculoForm(vehiculosSubSection, showVehiculosMainButtons);
+        });
+    }
+
+    // Lógica para mostrar la sección de modificar/eliminar vehículo
+    if (btnShowModifyDeleteVehiculo) {
+        btnShowModifyDeleteVehiculo.addEventListener('click', async () => {
+            vehiculosMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
+            await renderModifyDeleteVehiculoSection(vehiculosSubSection, showVehiculosMainButtons);
+        });
+    }
+
+    // --- Funciones para el formulario de Agregar Vehículo ---
+    /**
+     * Renderiza el formulario para agregar un nuevo vehículo.
+     * @param {HTMLElement} parentContainer - El contenedor donde se renderizará el formulario.
+     * @param {function(): void} backToMainMenuCallback - Callback para volver al menú principal de vehículos.
+     */
+    function renderAddVehiculoForm(parentContainer, backToMainMenuCallback) {
+        console.log('renderAddVehiculoForm: Iniciando...');
+        parentContainer.innerHTML = `
+            <div class="p-6 bg-orange-50 rounded-lg shadow-inner">
+                <h3 class="text-2xl font-semibold text-orange-800 mb-4">Agregar Nuevo Vehículo de Carga</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="text" id="add-vehiculo-marca" placeholder="Marca (Ej: Volswaguen)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500">
+                    <input type="text" id="add-vehiculo-modelo" placeholder="Modelo (Ej: Volswaguen Worker 220)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500">
+                    <input type="text" id="add-vehiculo-placa" placeholder="Placa (Ej: ABC-123)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500">
+                </div>
+                <button id="btn-submit-add-vehiculo" class="mt-6 w-full bg-orange-600 text-white p-3 rounded-md font-semibold hover:bg-orange-700 transition duration-200">
+                    Confirmar Agregar Vehículo
+                </button>
+                <button id="btn-back-add-vehiculo" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
+                    Volver
+                </button>
+            </div>
+        `;
+
+        const addVehiculoMarcaInput = parentContainer.querySelector('#add-vehiculo-marca');
+        const addVehiculoModeloInput = parentContainer.querySelector('#add-vehiculo-modelo');
+        const addVehiculoPlacaInput = parentContainer.querySelector('#add-vehiculo-placa');
+        const btnSubmitAddVehiculo = parentContainer.querySelector('#btn-submit-add-vehiculo');
+        const btnBackAddVehiculo = parentContainer.querySelector('#btn-back-add-vehiculo');
+
+        if (btnSubmitAddVehiculo) {
+            btnSubmitAddVehiculo.addEventListener('click', async () => {
+                const vehiculo = {
+                    marca: addVehiculoMarcaInput?.value.trim() || '',
+                    modelo: addVehiculoModeloInput?.value.trim() || '',
+                    placa: addVehiculoPlacaInput?.value.trim() || ''
+                };
+
+                if (!vehiculo.marca || !vehiculo.modelo || !vehiculo.placa) {
+                    showCustomAlert('Por favor, complete todos los campos (Marca, Modelo, Placa).');
+                    return;
+                }
+
+                const id = await agregarVehiculo(vehiculo);
+                if (id) {
+                    showCustomAlert(`Vehículo "${vehiculo.marca} ${vehiculo.modelo}" (Placa: ${vehiculo.placa}) agregado con éxito.`);
+                    // Limpiar campos
+                    if (addVehiculoMarcaInput) addVehiculoMarcaInput.value = '';
+                    if (addVehiculoModeloInput) addVehiculoModeloInput.value = '';
+                    if (addVehiculoPlacaInput) addVehiculoPlacaInput.value = '';
+                } else {
+                    showCustomAlert('Fallo al agregar vehículo.');
+                }
+            });
+        }
+
+        if (btnBackAddVehiculo) {
+            btnBackAddVehiculo.addEventListener('click', backToMainMenuCallback);
+        }
+        console.log('renderAddVehiculoForm: Finalizado.');
+    }
+
+    // --- Funciones para Modificar o Eliminar Vehículos ---
+    async function renderModifyDeleteVehiculoSection(parentContainer, backToMainMenuCallback) {
+        console.log('renderModifyDeleteVehiculoSection: Iniciando...');
+        parentContainer.innerHTML = `
+            <div class="p-6 bg-yellow-50 rounded-lg shadow-inner">
+                <h3 class="text-2xl font-semibold text-yellow-800 mb-4">Modificar o Eliminar Vehículo</h3>
+
+                <input type="text" id="search-vehiculos-input" placeholder="Buscar vehículo por Marca, Modelo, Placa..." class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 mb-4">
+
+                <div id="vehiculos-table-container" class="max-h-96 overflow-y-auto bg-white p-3 rounded-md border border-gray-200 shadow-md">
+                    <p class="text-gray-500">Cargando vehículos...</p>
+                </div>
+
+                <button id="btn-back-modify-delete-vehiculos" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
+                    Volver
+                </button>
+            </div>
+        `;
+
+        const searchInput = parentContainer.querySelector('#search-vehiculos-input');
+        const tableContainer = parentContainer.querySelector('#vehiculos-table-container');
+        const btnBack = parentContainer.querySelector('#btn-back-modify-delete-vehiculos');
+
+        let allVehiculos = await obtenerTodosLosVehiculos();
+
+        const renderTable = (vehiculosToRender) => {
+            if (vehiculosToRender.length === 0) {
+                tableContainer.innerHTML = '<p class="text-gray-500">No hay vehículos para mostrar.</p>';
+                return;
+            }
+
+            let tableHTML = `
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50 sticky top-0">
+                        <tr>
+                            <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Marca</th>
+                            <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Modelo</th>
+                            <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Placa</th>
+                            <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+            `;
+
+            vehiculosToRender.forEach(vehiculo => {
+                tableHTML += `
+                    <tr class="hover:bg-gray-100">
+                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-900">${vehiculo.marca || 'N/A'}</td>
+                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${vehiculo.modelo || 'N/A'}</td>
+                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${vehiculo.placa || 'N/A'}</td>
+                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">
+                            <button class="bg-blue-500 text-white px-2 py-1 rounded-md text-xs hover:bg-blue-600 transition duration-200 modify-vehiculo-btn" data-vehiculo-id="${vehiculo.id}">Modificar</button>
+                            <button class="bg-red-500 text-white px-2 py-1 rounded-md text-xs hover:bg-red-600 transition duration-200 delete-vehiculo-btn" data-vehiculo-id="${vehiculo.id}">Eliminar</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tableHTML += `</tbody></table>`;
+            tableContainer.innerHTML = tableHTML;
+
+            // Add event listeners for modify and delete buttons
+            tableContainer.querySelectorAll('.modify-vehiculo-btn').forEach(button => {
+                button.addEventListener('click', async (event) => {
+                    const vehiculoId = event.target.dataset.vehiculoId;
+                    const vehiculoToModify = allVehiculos.find(v => v.id === vehiculoId);
+                    if (vehiculoToModify) {
+                        renderEditVehiculoForm(parentContainer, showVehiculosMainButtons, vehiculoToModify);
+                    } else {
+                        showCustomAlert('Vehículo no encontrado para modificar.');
+                    }
+                });
+            });
+
+            tableContainer.querySelectorAll('.delete-vehiculo-btn').forEach(button => {
+                button.addEventListener('click', async (event) => {
+                    const vehiculoId = event.target.dataset.vehiculoId;
+                    const vehiculoToDelete = allVehiculos.find(v => v.id === vehiculoId);
+                    const vehiculoName = vehiculoToDelete ? `${vehiculoToDelete.marca} ${vehiculoToDelete.modelo} (${vehiculoToDelete.placa})` : 'este vehículo';
+                    const confirmed = await showCustomConfirm(`¿Estás seguro de que quieres eliminar ${vehiculoName}?`);
+                    if (confirmed) {
+                        const deleted = await eliminarVehiculo(vehiculoId);
+                        if (deleted) {
+                            showCustomAlert(`Vehículo ${vehiculoName} eliminado con éxito.`);
+                            allVehiculos = allVehiculos.filter(v => v.id !== vehiculoId); // Update local list
+                            renderTable(allVehiculos); // Re-render table
+                        } else {
+                            showCustomAlert(`Fallo al eliminar ${vehiculoName}.`);
+                        }
+                    }
+                });
+            });
+        };
+
+        renderTable(allVehiculos);
+
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                const searchTerm = searchInput.value.toLowerCase();
+                const filteredVehiculos = allVehiculos.filter(vehiculo =>
+                    (vehiculo.marca && vehiculo.marca.toLowerCase().includes(searchTerm)) ||
+                    (vehiculo.modelo && vehiculo.modelo.toLowerCase().includes(searchTerm)) ||
+                    (vehiculo.placa && vehiculo.placa.toLowerCase().includes(searchTerm))
+                );
+                renderTable(filteredVehiculos);
+            });
+        }
+
+        if (btnBack) {
+            btnBack.addEventListener('click', backToMainMenuCallback);
+        }
+        console.log('renderModifyDeleteVehiculoSection: Finalizado.');
+    }
+
+    /**
+     * Renderiza el formulario para editar un vehículo existente.
+     * @param {HTMLElement} parentContainer - El contenedor donde se renderizará el formulario.
+     * @param {function(): void} backToMainMenuCallback - Callback para volver al menú principal de vehículos.
+     * @param {object} vehiculoData - Los datos del vehículo a editar.
+     */
+    async function renderEditVehiculoForm(parentContainer, backToMainMenuCallback, vehiculoData) {
+        console.log('renderEditVehiculoForm: Iniciando con datos:', vehiculoData);
+        parentContainer.innerHTML = `
+            <div class="p-6 bg-yellow-50 rounded-lg shadow-inner">
+                <h3 class="text-2xl font-semibold text-yellow-800 mb-4">Modificar Vehículo: ${vehiculoData.marca || 'N/A'} ${vehiculoData.modelo || 'N/A'}</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="text" id="edit-vehiculo-marca" placeholder="Marca" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${vehiculoData.marca || ''}">
+                    <input type="text" id="edit-vehiculo-modelo" placeholder="Modelo" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${vehiculoData.modelo || ''}">
+                    <input type="text" id="edit-vehiculo-placa" placeholder="Placa" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500" value="${vehiculoData.placa || ''}">
+                </div>
+                <button id="btn-submit-edit-vehiculo" class="mt-6 w-full bg-yellow-600 text-white p-3 rounded-md font-semibold hover:bg-yellow-700 transition duration-200">
+                    Confirmar Modificación
+                </button>
+                <button id="btn-back-edit-vehiculo" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
+                    Volver
+                </button>
+            </div>
+        `;
+
+        const editVehiculoMarcaInput = parentContainer.querySelector('#edit-vehiculo-marca');
+        const editVehiculoModeloInput = parentContainer.querySelector('#edit-vehiculo-modelo');
+        const editVehiculoPlacaInput = parentContainer.querySelector('#edit-vehiculo-placa');
+        const btnSubmitEditVehiculo = parentContainer.querySelector('#btn-submit-edit-vehiculo');
+        const btnBackEditVehiculo = parentContainer.querySelector('#btn-back-edit-vehiculo');
+
+        if (btnSubmitEditVehiculo) {
+            btnSubmitEditVehiculo.addEventListener('click', async () => {
+                const updatedVehiculoData = {
+                    marca: editVehiculoMarcaInput?.value.trim() || '',
+                    modelo: editVehiculoModeloInput?.value.trim() || '',
+                    placa: editVehiculoPlacaInput?.value.trim() || ''
+                };
+
+                if (!updatedVehiculoData.marca || !updatedVehiculoData.modelo || !updatedVehiculoData.placa) {
+                    showCustomAlert('Por favor, complete todos los campos obligatorios (Marca, Modelo, Placa).');
+                    return;
+                }
+
+                const confirmed = await showCustomConfirm(`¿Estás seguro de que quieres modificar los datos del vehículo "${updatedVehiculoData.marca} ${updatedVehiculoData.modelo}"?`);
+                if (confirmed) {
+                    const updated = await modificarVehiculo(vehiculoData.id, updatedVehiculoData);
+                    if (updated) {
+                        showCustomAlert(`Vehículo "${updatedVehiculoData.marca} ${updatedVehiculoData.modelo}" modificado con éxito.`);
+                        // Volver a la lista después de modificar
+                        await renderModifyDeleteVehiculoSection(parentContainer, backToMainMenuCallback);
+                    } else {
+                        showCustomAlert('Fallo al modificar vehículo.');
+                    }
+                }
+            });
+        }
+
+        if (btnBackEditVehiculo) {
+            btnBackEditVehiculo.addEventListener('click', async () => {
+                await renderModifyDeleteVehiculoSection(parentContainer, backToMainMenuCallback);
+            });
+        }
+        console.log('renderEditVehiculoForm: Finalizado.');
+    }
 }
