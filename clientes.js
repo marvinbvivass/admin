@@ -476,7 +476,7 @@ export async function renderClientesSection(container) {
                         Añadir Zona o Sector
                     </button>
                     <button id="btn-modify-delete-zone-sector" class="bg-yellow-600 text-white p-4 rounded-md font-semibold hover:bg-yellow-700 transition duration-200">
-                        Modificar o Eliminar Zona o Sector
+                        Eliminar Zona o Sector
                     </button>
                 </div>
 
@@ -666,7 +666,7 @@ export async function renderClientesSection(container) {
         console.log('renderModifyDeleteZoneSectorForm: Iniciando...');
         parentContainer.innerHTML = `
             <div class="p-4 bg-yellow-50 rounded-lg shadow-inner">
-                <h4 class="text-xl font-semibold text-yellow-800 mb-3">Modificar o Eliminar Zona o Sector</h4>
+                <h4 class="text-xl font-semibold text-yellow-800 mb-3">Eliminar Zona o Sector</h4>
 
                 <input type="text" id="search-zone-sector-input" placeholder="Buscar Zona o Sector..." class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 mb-4">
 
