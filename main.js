@@ -13,7 +13,7 @@ window.currentUserId = null;
 
 // Configuración de Firebase (solo para desarrollo local o GitHub Pages si no se usa Canvas)
 // En un entorno de producción real, estas credenciales deberían ser gestionadas de forma más segura.
-const firebaseConfig = {
+const firebaseConfigLocal = {
   apiKey: "AIzaSyBags4wEqc_v8GGsHoLBwStPf0FIJgT6hE",
   authDomain: "admin-804f6.firebaseapp.com",
   projectId: "admin-804f6",
