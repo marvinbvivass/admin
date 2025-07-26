@@ -7,7 +7,8 @@ import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase
 
 // Importa las funciones de renderizado de cada sección
 import { renderClientesSection } from './clientes.js';
-import { renderCargaVehiculosSection } from './CargasyVehiculos.js'; // Importa la nueva función
+import { renderCargaVehiculosSection } from './CargasyVehiculos.js';
+import { renderInventarioSection } from './inventario.js'; // Importa la función de inventario.js
 
 // Variables globales para Firebase (accesibles desde otros módulos a través de window)
 window.firebaseApp = null;
@@ -273,8 +274,9 @@ function renderMainAppScreen() {
         await renderClientesSection(modalContainer);
     });
 
-    document.getElementById('btn-inventario').addEventListener('click', () => {
-        showCustomAlert('Sección de Inventario en construcción.');
+    document.getElementById('btn-inventario').addEventListener('click', async () => {
+        modalContainer.classList.remove('hidden');
+        await renderInventarioSection(modalContainer, renderMainAppScreen); // Pasa renderMainAppScreen como callback
     });
 
     document.getElementById('btn-precios').addEventListener('click', () => {
@@ -289,10 +291,8 @@ function renderMainAppScreen() {
         showCustomAlert('Sección de Archivos en construcción.');
     });
 
-    // Habilitar el botón de Carga & Vehículos
     document.getElementById('btn-carga-vehiculos').addEventListener('click', async () => {
         modalContainer.classList.remove('hidden');
-        // Pasa una función de callback para volver al menú principal
         await renderCargaVehiculosSection(modalContainer, renderMainAppScreen);
     });
 
@@ -301,3 +301,4 @@ function renderMainAppScreen() {
 
 // Iniciar la aplicación cuando el DOM esté completamente cargado
 document.addEventListener('DOMContentLoaded', initializeFirebase);
+
