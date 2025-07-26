@@ -5,6 +5,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 import { getAuth, signInWithCustomToken, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+// Importa la función de renderizado de la sección de clientes
+import { renderClientesSection } from './clientes.js';
+
 // Variables globales para Firebase (accesibles desde otros módulos a través de window)
 window.firebaseApp = null;
 window.firebaseDb = null;
@@ -266,10 +269,13 @@ function renderMainAppScreen() {
     const modalContainer = document.getElementById('modal-container');
 
     // Event Listeners para los botones del menú principal
-    document.getElementById('btn-clientes').addEventListener('click', () => {
-        showCustomAlert('Sección de Clientes en construcción.');
+    // El botón de Clientes ahora abre la sección real
+    document.getElementById('btn-clientes').addEventListener('click', async () => {
+        modalContainer.classList.remove('hidden'); // Muestra el modal
+        await renderClientesSection(modalContainer); // Llama a la función de clientes.js
     });
 
+    // Los demás botones siguen mostrando el aviso de construcción
     document.getElementById('btn-inventario').addEventListener('click', () => {
         showCustomAlert('Sección de Inventario en construcción.');
     });
@@ -295,4 +301,3 @@ function renderMainAppScreen() {
 
 // Iniciar la aplicación cuando el DOM esté completamente cargado
 document.addEventListener('DOMContentLoaded', initializeFirebase);
-
