@@ -202,7 +202,7 @@ async function eliminarVehiculo(idVehiculo) {
  * Obtiene todos los vehículos de carga de Firestore.
  * @returns {Promise<Array<object>>} Un array de objetos de vehículo.
  */
-async function obtenerTodosLosVehiculos() {
+export async function obtenerTodosLosVehiculos() { // Añadido 'export' aquí
     console.log('obtenerTodosLosVehiculos: Iniciando...');
     try {
         const { db } = await getFirestoreInstances();
