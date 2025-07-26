@@ -1,37 +1,26 @@
 // main.js
-// Este archivo maneja la inicialización de Firebase, la autenticación de usuario y la navegación principal de la aplicación.
+// Este archivo maneja la inicialización de Firebase y la navegación principal de la aplicación.
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-// Importa las funciones de renderizado de cada sección
-import { renderClientesSection } from './clientes.js';
-import { renderInventarioSection } from './inventario.js';
-import { renderPreciosSection } from './precios.js';
-import { renderVentasSection } from './ventas.js';
-import { renderArchivosSection } from './archivos.js';
-// Importa módulos para futuras secciones (descomentar cuando los archivos existan)
-// import { renderCargaVehiculosSection } from './carga-vehiculos.js';
-
 
 // Variables globales para Firebase (accesibles desde otros módulos a través de window)
 window.firebaseApp = null;
 window.firebaseDb = null;
 window.firebaseAuth = null;
 window.currentUserId = null;
-// window.currentAppId = null; // Ya no es necesario como parte de la ruta de la colección
 
 // Configuración de Firebase (solo para desarrollo local o GitHub Pages si no se usa Canvas)
 // En un entorno de producción real, estas credenciales deberían ser gestionadas de forma más segura.
 const firebaseConfigLocal = {
-    apiKey: "AIzaSyBags4wEqc_v8GGsHoLBwStPf0FIJgT6hE", // REEMPLAZA CON TU API KEY REAL
-    authDomain: "admin-804f6.firebaseapp.com", // REEMPLAZA CON TU AUTH DOMAIN REAL
-    projectId: "admin-804f6", // REEMPLAZA CON TU PROJECT ID REAL
-    storageBucket: "admin-804f6.firebasestorage.app", // REEMPLAZA CON TU STORAGE BUCKET REAL
-    messagingSenderId: "641744033630", // REEMPLAZA CON TU MESSAGING SENDER ID REAL
-    appId: "1:641744033630:web:7e61b41752b1882a6461cf", // REEMPLAZA CON TU APP ID REAL
-    measurementId: "G-DFL37S2NVX" // REEMPLAZA CON TU MEASUREMENT ID REAL
+    apiKey: "YOUR_API_KEY", // REEMPLAZA CON TU API KEY REAL
+    authDomain: "YOUR_AUTH_DOMAIN", // REEMPLAZA CON TU AUTH DOMAIN REAL
+    projectId: "YOUR_PROJECT_ID", // REEMPLAZA CON TU PROJECT ID REAL
+    storageBucket: "YOUR_STORAGE_BUCKET", // REEMPLAZA CON TU STORAGE BUCKET REAL
+    messagingSenderId: "YOUR_MESSAGING_SENDER_ID", // REEMPLAZA CON TU MESSAGING SENDER ID REAL
+    appId: "YOUR_APP_ID", // REEMPLAZA CON TU APP ID REAL
+    measurementId: "YOUR_MEASUREMENT_ID" // REEMPLAZA CON TU MEASUREMENT ID REAL
 };
 
 // Función de inicialización de Firebase
@@ -45,18 +34,18 @@ async function initializeFirebase() {
         window.firebaseApp = initializeApp(firebaseConfig);
         window.firebaseDb = getFirestore(window.firebaseApp);
         window.firebaseAuth = getAuth(window.firebaseApp);
-        // window.currentAppId ya no es necesario para la ruta de la colección en Firestore
 
         // Observar cambios en el estado de autenticación
-        onAuthStateChanged(window.firebaseAuth, (user) => {
+        onAuthStateChanged(window.firebaseAuth, async (user) => {
             if (user) {
                 window.currentUserId = user.uid;
                 console.log('Firebase: User ID activo:', window.currentUserId);
                 renderMainAppScreen(); // Renderizar la app principal si el usuario está autenticado
             } else {
                 window.currentUserId = null;
-                console.log('Firebase: No user is signed in.');
-                renderAuthScreen(); // Mostrar la pantalla de autenticación si no hay usuario
+                console.log('Firebase: No user is signed in. Signing in anonymously...');
+                // Si no hay usuario, intentar iniciar sesión anónimamente para pruebas
+                await signInAnonymously(window.firebaseAuth);
             }
         });
 
@@ -65,105 +54,58 @@ async function initializeFirebase() {
             await signInWithCustomToken(window.firebaseAuth, __initial_auth_token);
             console.log('Firebase: Autenticado con token personalizado (Entorno Canvas).');
         } else {
-            // No hacemos signInAnonymously aquí, ya que queremos que el usuario se registre/inicie sesión
-            // La pantalla de autenticación se mostrará por onAuthStateChanged si no hay usuario.
+            // Si no hay token de Canvas, onAuthStateChanged se encargará de signInAnonymously
         }
 
         console.log('Firebase inicializado con éxito.');
     } catch (error) {
         console.error('Error al inicializar Firebase:', error);
-        // Si hay un error grave de inicialización, mostrar un mensaje al usuario
         const appContainer = document.getElementById('app-container');
         appContainer.innerHTML = '<p class="text-red-600 text-center">Error al iniciar la aplicación. Por favor, intente de nuevo más tarde.</p>';
     }
 }
 
-// --- Funciones de Autenticación ---
+/**
+ * Muestra un modal de alerta personalizado (simplificado para esta versión).
+ * @param {string} message - El mensaje a mostrar en el modal.
+ */
+function showCustomAlert(message) {
+    const modalId = 'custom-alert-modal';
+    let modal = document.getElementById(modalId);
 
-async function handleRegister(email, password) {
-    try {
-        const userCredential = await createUserWithEmailAndPassword(window.firebaseAuth, email, password);
-        console.log('Usuario registrado:', userCredential.user.uid);
-        alert('Registro exitoso. ¡Bienvenido!');
-        // onAuthStateChanged se encargará de renderizar la pantalla principal
-    } catch (error) {
-        console.error('Error al registrar usuario:', error);
-        let errorMessage = 'Error al registrar usuario.';
-        if (error.code === 'auth/email-already-in-use') {
-            errorMessage = 'El email ya está registrado.';
-        } else if (error.code === 'auth/invalid-email') {
-            errorMessage = 'Formato de email inválido.';
-        } else if (error.code === 'auth/weak-password') {
-            errorMessage = 'La contraseña debe tener al menos 6 caracteres.';
-        }
-        alert(errorMessage);
-    }
-}
-
-async function handleLogin(email, password) {
-    try {
-        const userCredential = await signInWithEmailAndPassword(window.firebaseAuth, email, password);
-        console.log('Usuario inició sesión:', userCredential.user.uid);
-        alert('Inicio de sesión exitoso. ¡Bienvenido de nuevo!');
-        // onAuthStateChanged se encargará de renderizar la pantalla principal
-    } catch (error) {
-        console.error('Error al iniciar sesión:', error);
-        let errorMessage = 'Error al iniciar sesión.';
-        if (error.code === 'auth/invalid-email' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-            errorMessage = 'Email o contraseña incorrectos.';
-        } else if (error.code === 'auth/too-many-requests') {
-            errorMessage = 'Demasiados intentos fallidos. Intente de nuevo más tarde.';
-        }
-        alert(errorMessage);
-    }
-}
-
-async function handleLogout() {
-    try {
-        await signOut(window.firebaseAuth);
-        console.log('Usuario cerró sesión.');
-        alert('Sesión cerrada.');
-        // onAuthStateChanged se encargará de renderizar la pantalla de autenticación
-    } catch (error) {
-        console.error('Error al cerrar sesión:', error);
-        alert('Error al cerrar sesión.');
-    }
-}
-
-// --- Renderizado de Pantallas ---
-
-function renderAuthScreen() {
-    const appContainer = document.getElementById('app-container');
-    appContainer.innerHTML = `
-        <div class="p-8 bg-white rounded-lg shadow-xl w-full max-w-md text-center">
-            <h2 class="text-3xl font-bold text-gray-800 mb-6">Iniciar Sesión / Registrarse</h2>
-            <div class="mb-4">
-                <input type="email" id="auth-email" placeholder="Email" class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = modalId;
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-[9999] p-4';
+        modal.innerHTML = `
+            <div class="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-auto">
+                <p class="text-lg font-semibold text-gray-800 mb-4" id="alert-message"></p>
+                <div class="flex justify-end">
+                    <button id="alert-ok-btn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-200">OK</button>
+                </div>
             </div>
-            <div class="mb-6">
-                <input type="password" id="auth-password" placeholder="Contraseña" class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-            </div>
-            <button id="btn-login" class="w-full bg-blue-600 text-white p-3 rounded-md font-semibold hover:bg-blue-700 transition duration-200 mb-3">
-                Iniciar Sesión
-            </button>
-            <button id="btn-register" class="w-full bg-green-600 text-white p-3 rounded-md font-semibold hover:bg-green-700 transition duration-200">
-                Registrarse
-            </button>
-        </div>
-    `;
+        `;
+        document.body.appendChild(modal);
+    }
 
-    document.getElementById('btn-login').addEventListener('click', () => {
-        const email = document.getElementById('auth-email').value;
-        const password = document.getElementById('auth-password').value;
-        handleLogin(email, password);
-    });
+    modal.querySelector('#alert-message').textContent = message;
+    setTimeout(() => {
+        modal.classList.remove('hidden');
+    }, 50);
 
-    document.getElementById('btn-register').addEventListener('click', () => {
-        const email = document.getElementById('auth-email').value;
-        const password = document.getElementById('auth-password').value;
-        handleRegister(email, password);
-    });
+    const okBtn = modal.querySelector('#alert-ok-btn');
+    const oldOkBtn = okBtn.cloneNode(true);
+    okBtn.parentNode.replaceChild(oldOkBtn, okBtn);
+    const newOkBtn = document.getElementById('alert-ok-btn');
+
+    const cleanup = () => {
+        if (modal && modal.parentNode) {
+            modal.remove();
+        }
+    };
+    newOkBtn.addEventListener('click', cleanup);
 }
+
 
 function renderMainAppScreen() {
     const appContainer = document.getElementById('app-container');
@@ -176,7 +118,7 @@ function renderMainAppScreen() {
                 Tu plataforma integral para administrar tu negocio.
             </p>
             <button id="btn-logout" class="mt-4 bg-red-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-600 transition duration-200">
-                Cerrar Sesión
+                Cerrar Sesión (No funcional en esta versión)
             </button>
         </header>
 
@@ -193,7 +135,6 @@ function renderMainAppScreen() {
 
             <!-- Tarjeta para la sección de Ventas - Verde más profundo -->
             <div id="btn-ventas" class="section-button bg-gradient-to-r from-green-600 to-green-700 text-white p-6 rounded-lg shadow-md flex flex-col items-center justify-center cursor-pointer transform hover:scale-105">
-                <!-- Icono representativo para Ventas (ej. un carrito de compras) -->
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
@@ -212,7 +153,6 @@ function renderMainAppScreen() {
 
             <!-- Tarjeta para la sección de Precios - Rojo más vibrante -->
             <div id="btn-precios" class="section-button bg-gradient-to-r from-red-700 to-red-800 text-white p-6 rounded-lg shadow-md flex flex-col items-center justify-center cursor-pointer transform hover:scale-105">
-                <!-- Icono representativo para Precios (ej. una etiqueta de precio) -->
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                 </svg>
@@ -222,7 +162,6 @@ function renderMainAppScreen() {
 
             <!-- Nueva Tarjeta para la sección de Archivos - Amarillo/Dorado -->
             <div id="btn-archivos" class="section-button bg-gradient-to-r from-yellow-500 to-yellow-600 text-white p-6 rounded-lg shadow-md flex flex-col items-center justify-center cursor-pointer transform hover:scale-105">
-                <!-- Icono representativo para Archivos (ej. una carpeta de documentos) -->
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                 </svg>
@@ -232,7 +171,6 @@ function renderMainAppScreen() {
 
             <!-- Nueva Tarjeta para la sección de Carga & Vehículos - Naranja/Ámbar -->
             <div id="btn-carga-vehiculos" class="section-button bg-gradient-to-r from-orange-600 to-orange-700 text-white p-6 rounded-lg shadow-md flex flex-col items-center justify-center cursor-pointer transform hover:scale-105">
-                <!-- Icono representativo para Carga & Vehículos (ej. un camión o vehículo de carga) -->
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 10H7a2 2 0 00-2 2v2a2 2 0 002 2h2v.01M15 10h2a2 2 0 012 2v2a2 2 0 01-2 2h-2m-4 0h.01M12 16v.01" />
@@ -247,39 +185,33 @@ function renderMainAppScreen() {
     const modalContainer = document.getElementById('modal-container');
 
     // Event Listeners para los botones del menú principal
-    document.getElementById('btn-clientes').addEventListener('click', async () => {
-        modalContainer.classList.remove('hidden');
-        await renderClientesSection(modalContainer);
+    document.getElementById('btn-clientes').addEventListener('click', () => {
+        showCustomAlert('Sección de Clientes en construcción.');
     });
 
-    document.getElementById('btn-inventario').addEventListener('click', async () => {
-        modalContainer.classList.remove('hidden');
-        await renderInventarioSection(modalContainer);
+    document.getElementById('btn-inventario').addEventListener('click', () => {
+        showCustomAlert('Sección de Inventario en construcción.');
     });
 
-    document.getElementById('btn-precios').addEventListener('click', async () => {
-        modalContainer.classList.remove('hidden');
-        await renderPreciosSection(modalContainer);
+    document.getElementById('btn-precios').addEventListener('click', () => {
+        showCustomAlert('Sección de Precios en construcción.');
     });
 
-    document.getElementById('btn-ventas').addEventListener('click', async () => {
-        modalContainer.classList.remove('hidden');
-        await renderVentasSection(modalContainer);
+    document.getElementById('btn-ventas').addEventListener('click', () => {
+        showCustomAlert('Sección de Ventas en construcción.');
     });
 
-    document.getElementById('btn-archivos').addEventListener('click', async () => {
-        modalContainer.classList.remove('hidden');
-        await renderArchivosSection(modalContainer);
+    document.getElementById('btn-archivos').addEventListener('click', () => {
+        showCustomAlert('Sección de Archivos en construcción.');
     });
 
-    // Placeholders para futuras secciones
     document.getElementById('btn-carga-vehiculos').addEventListener('click', () => {
-        alert('Sección de Carga & Vehículos en construcción.');
-        // modalContainer.classList.remove('hidden');
-        // await renderCargaVehiculosSection(modalContainer);
+        showCustomAlert('Sección de Carga & Vehículos en construcción.');
     });
 
-    document.getElementById('btn-logout').addEventListener('click', handleLogout);
+    document.getElementById('btn-logout').addEventListener('click', () => {
+        showCustomAlert('La función de cerrar sesión no está implementada en esta versión simplificada.');
+    });
 }
 
 // Iniciar la aplicación cuando el DOM esté completamente cargado
