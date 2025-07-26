@@ -149,7 +149,7 @@ async function obtenerConfiguracionZonasSectores() {
     console.log('obtenerConfiguracionZonasSectores: Iniciando...');
     try {
         const { db } = await getFirestoreInstances();
-        // Las configuraciones ahora están en la raíz de la colección 'configuracion'
+        // Colección 'configuracion' está en la raíz
         const configDocRef = doc(db, `configuracion`, ZONA_SECTOR_CONFIG_DOC_ID);
         const configSnap = await getDoc(configDocRef);
 
@@ -185,6 +185,7 @@ async function guardarConfiguracionZonasSectores(newMap) {
     console.log('guardarConfiguracionZonasSectores: Iniciando...');
     try {
         const { db } = await getFirestoreInstances();
+        // Colección 'configuracion' está en la raíz
         const configDocRef = doc(db, `configuracion`, ZONA_SECTOR_CONFIG_DOC_ID);
         await setDoc(configDocRef, { mapa: newMap }); // Usa setDoc para sobrescribir o crear
         console.log('Configuración de zonas y sectores guardada con éxito.');
@@ -217,8 +218,8 @@ export async function agregarCliente(cliente) {
     console.log('agregarCliente: Iniciando...');
     try {
         const { db } = await getFirestoreInstances();
-        // La ruta de la colección es /artifacts/{appId}/datosClientes
-        const clientesCollectionRef = collection(db, `artifacts/${window.__app_id}/datosClientes`);
+        // La ruta de la colección es directamente 'datosClientes'
+        const clientesCollectionRef = collection(db, `datosClientes`);
         const docRef = await addDoc(clientesCollectionRef, cliente);
         console.log('Cliente agregado con ID:', docRef.id);
         return docRef.id;
