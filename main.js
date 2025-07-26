@@ -8,7 +8,9 @@ import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase
 // Importa las funciones de renderizado de cada sección
 import { renderClientesSection } from './clientes.js';
 import { renderCargaVehiculosSection } from './CargasyVehiculos.js';
-import { renderInventarioSection } from './inventario.js'; // Importa la función de inventario.js
+import { renderInventarioSection } from './inventario.js';
+// Importa la función de carga de productos (se creará en el siguiente paso)
+// import { renderCargaProductosSection } from './CargaProductos.js'; // Descomentar cuando el archivo exista
 
 // Variables globales para Firebase (accesibles desde otros módulos a través de window)
 window.firebaseApp = null;
@@ -253,15 +255,24 @@ function renderMainAppScreen() {
                 <p class="text-lg text-center mt-2 opacity-90">Gestión de documentos y archivos.</p>
             </div>
 
-            <!-- Nueva Tarjeta para la sección de Carga & Vehículos - Naranja/Ámbar -->
-            <div id="btn-carga-vehiculos" class="section-button bg-gradient-to-r from-orange-600 to-orange-700 text-white p-6 rounded-lg shadow-md flex flex-col items-center justify-center cursor-pointer transform hover:scale-105">
+            <!-- Tarjeta para la sección de Vehículos (antes Carga & Vehículos) -->
+            <div id="btn-vehiculos" class="section-button bg-gradient-to-r from-orange-600 to-orange-700 text-white p-6 rounded-lg shadow-md flex flex-col items-center justify-center cursor-pointer transform hover:scale-105">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 10H7a2 2 0 00-2 2v2a2 2 0 002 2h2v.01M15 10h2a2 2 0 012 2v2a2 2 0 01-2 2h-2m-4 0h.01M12 16v.01" />
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 14V8m0 0l-3 3m3-3l3 3" />
                 </svg>
-                <h2 class="text-3xl font-bold">Carga & Vehículos</h2>
-                <p class="text-lg text-center mt-2 opacity-90">Administración de carga y flota de vehículos.</p>
+                <h2 class="text-3xl font-bold">Vehículos</h2>
+                <p class="text-lg text-center mt-2 opacity-90">Administración de la flota de vehículos.</p>
+            </div>
+
+            <!-- NUEVA Tarjeta para la sección de Carga Productos -->
+            <div id="btn-carga-productos" class="section-button bg-gradient-to-r from-pink-600 to-pink-700 text-white p-6 rounded-lg shadow-md flex flex-col items-center justify-center cursor-pointer transform hover:scale-105">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                </svg>
+                <h2 class="text-3xl font-bold">Carga Productos</h2>
+                <p class="text-lg text-center mt-2 opacity-90">Gestión de la carga de productos en vehículos.</p>
             </div>
         </main>
     `;
@@ -276,7 +287,7 @@ function renderMainAppScreen() {
 
     document.getElementById('btn-inventario').addEventListener('click', async () => {
         modalContainer.classList.remove('hidden');
-        await renderInventarioSection(modalContainer, renderMainAppScreen); // Pasa renderMainAppScreen como callback
+        await renderInventarioSection(modalContainer, renderMainAppScreen);
     });
 
     document.getElementById('btn-precios').addEventListener('click', () => {
@@ -291,9 +302,17 @@ function renderMainAppScreen() {
         showCustomAlert('Sección de Archivos en construcción.');
     });
 
-    document.getElementById('btn-carga-vehiculos').addEventListener('click', async () => {
+    // Event Listener para la sección de Vehículos (antes Carga & Vehículos)
+    document.getElementById('btn-vehiculos').addEventListener('click', async () => {
         modalContainer.classList.remove('hidden');
         await renderCargaVehiculosSection(modalContainer, renderMainAppScreen);
+    });
+
+    // Event Listener para la nueva sección de Carga Productos
+    document.getElementById('btn-carga-productos').addEventListener('click', async () => {
+        modalContainer.classList.remove('hidden');
+        // await renderCargaProductosSection(modalContainer, renderMainAppScreen); // Descomentar cuando el archivo exista
+        showCustomAlert('Sección de Carga Productos en construcción.');
     });
 
     document.getElementById('btn-logout').addEventListener('click', handleLogout);
@@ -301,4 +320,3 @@ function renderMainAppScreen() {
 
 // Iniciar la aplicación cuando el DOM esté completamente cargado
 document.addEventListener('DOMContentLoaded', initializeFirebase);
-
