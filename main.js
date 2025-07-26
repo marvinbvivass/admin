@@ -13,14 +13,14 @@ window.currentUserId = null;
 
 // Configuración de Firebase (solo para desarrollo local o GitHub Pages si no se usa Canvas)
 // En un entorno de producción real, estas credenciales deberían ser gestionadas de forma más segura.
-const firebaseConfigLocal = {
-    apiKey: "YOUR_API_KEY", // REEMPLAZA CON TU API KEY REAL
-    authDomain: "YOUR_AUTH_DOMAIN", // REEMPLAZA CON TU AUTH DOMAIN REAL
-    projectId: "YOUR_PROJECT_ID", // REEMPLAZA CON TU PROJECT ID REAL
-    storageBucket: "YOUR_STORAGE_BUCKET", // REEMPLAZA CON TU STORAGE BUCKET REAL
-    messagingSenderId: "YOUR_MESSAGING_SENDER_ID", // REEMPLAZA CON TU MESSAGING SENDER ID REAL
-    appId: "YOUR_APP_ID", // REEMPLAZA CON TU APP ID REAL
-    measurementId: "YOUR_MEASUREMENT_ID" // REEMPLAZA CON TU MEASUREMENT ID REAL
+const firebaseConfig = {
+  apiKey: "AIzaSyBags4wEqc_v8GGsHoLBwStPf0FIJgT6hE",
+  authDomain: "admin-804f6.firebaseapp.com",
+  projectId: "admin-804f6",
+  storageBucket: "admin-804f6.firebasestorage.app",
+  messagingSenderId: "641744033630",
+  appId: "1:641744033630:web:7e61b41752b1882a6461cf",
+  measurementId: "G-DFL37S2NVX"
 };
 
 // Función de inicialización de Firebase
