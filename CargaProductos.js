@@ -2,13 +2,15 @@
 // Este archivo gestiona la carga de productos en vehículos,
 // permitiendo seleccionar un vehículo, un usuario, y añadir productos con sus cantidades.
 // Al guardar, la información completa de la carga se guarda en Firestore y se exporta a un archivo CSV.
+// ¡Ahora la cantidad cargada se SUMA al inventario específico del camión!
+// NOTA: Esta versión NO actualiza el inventario general (no resta cantidades).
 
 // Importa las funciones necesarias de Firebase Firestore.
-import { collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { collection, addDoc, getDocs, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // Importa funciones de otros módulos para obtener datos necesarios
 import { obtenerTodosLosVehiculos, obtenerTodosLosUsuarios } from './CargasyVehiculos.js';
-import { verInventarioCompleto } from './inventario.js';
+import { verInventarioCompleto } from './inventario.js'; // Ya no se importa modificarProducto
 
 // Función auxiliar para obtener la instancia de Firestore
 async function getFirestoreInstances() {
@@ -481,9 +483,50 @@ export async function renderCargaProductosSection(container, backToMainMenuCallb
 
         const cargaId = await guardarCarga(cargaData);
         if (cargaId) {
-            showCustomAlert('Carga guardada con éxito. Generando archivo...');
+            // --- INICIO: Lógica para SUMAR al inventario del camión ---
+            const { db } = await getFirestoreInstances();
+            let truckInventoryUpdateSuccess = true;
+
+            for (const loadedProduct of productosCargados) {
+                const productDocRef = doc(db, 'Vehiculos', selectedVehiculo.id, 'inventarioCamion', loadedProduct.idProducto);
+                
+                try {
+                    const docSnap = await getDoc(productDocRef);
+                    let newQuantity = loadedProduct.Cantidad;
+                    let productDetails = {
+                        Producto: loadedProduct.Producto,
+                        Presentacion: loadedProduct.Presentacion,
+                        Rubro: loadedProduct.Rubro,
+                        Segmento: loadedProduct.Segmento,
+                        Precio: loadedProduct.Precio,
+                    };
+
+                    if (docSnap.exists()) {
+                        const currentTruckProduct = docSnap.data();
+                        newQuantity += (currentTruckProduct.Cantidad || 0);
+                        // Mantener los detalles existentes si ya están en el documento del camión
+                        // o actualizar si hay nuevos campos. setDoc con merge:true se encarga de esto.
+                    }
+
+                    await setDoc(productDocRef, { Cantidad: newQuantity, ...productDetails }, { merge: true });
+                    console.log(`Producto ${loadedProduct.Producto} actualizado en el inventario del camión ${selectedVehiculo.placa}. Nueva cantidad: ${newQuantity}`);
+
+                } catch (error) {
+                    console.error(`Fallo al actualizar el inventario del camión para el producto ${loadedProduct.Producto}:`, error);
+                    truckInventoryUpdateSuccess = false;
+                }
+            }
+            // --- FIN: Lógica para SUMAR al inventario del camión ---
+
+            if (truckInventoryUpdateSuccess) {
+                showCustomAlert('Carga guardada y inventario del camión actualizado con éxito. Generando archivo...');
+            } else {
+                showCustomAlert('Carga guardada, pero hubo problemas al actualizar el inventario del camión. Verifique la consola para más detalles.');
+            }
+            
             generateCargaFile(cargaData); // Generar el archivo
-            // Limpiar el formulario después de guardar
+
+            // Limpiar el formulario y resetear la tabla después de guardar
             selectVehiculoCarga.value = '';
             selectUsuarioCarga.value = '';
             selectedVehiculo = null;
@@ -493,6 +536,7 @@ export async function renderCargaProductosSection(container, backToMainMenuCallb
             filterRubroCarga.value = ''; // Resetear el filtro de rubro
             displayedProducts = [...allProductsInventario]; // Restaurar todos los productos
             renderProductsTable(displayedProducts);
+
         } else {
             showCustomAlert('Fallo al guardar la carga.');
         }
