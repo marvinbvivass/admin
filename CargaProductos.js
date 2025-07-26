@@ -1,7 +1,7 @@
 // CargaProductos.js
 // Este archivo gestiona la carga de productos en vehículos,
 // permitiendo seleccionar un vehículo, un usuario, y añadir productos con sus cantidades.
-// Al guardar, la información completa de la carga se guarda en Firestore y se exporta a un archivo JSON.
+// Al guardar, la información completa de la carga se guarda en Firestore y se exporta a un archivo CSV.
 
 // Importa las funciones necesarias de Firebase Firestore.
 import { collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -156,13 +156,67 @@ async function guardarCarga(cargaData) {
 }
 
 /**
- * Genera y descarga un archivo JSON con los datos de la carga.
+ * Convierte los datos de la carga a formato CSV con un formato específico.
+ * @param {object} cargaData - Los datos completos de la carga.
+ * @returns {string} La cadena de texto en formato CSV.
+ */
+function convertToCsv(cargaData) {
+    const csvRows = [];
+
+    // Fila 1: Información del camión
+    // Formato: "Camion: Marca Modelo, Placa: XXX-YYY"
+    const vehicleInfo = `Camion: ${cargaData.vehiculo.marca} ${cargaData.vehiculo.modelo}, Placa: ${cargaData.vehiculo.placa}`;
+    csvRows.push(`"${vehicleInfo.replace(/"/g, '""')}"`); // Escapar comillas dobles y encerrar en comillas
+
+    // Fila 2: Información del usuario
+    // Formato: "Usuario: Nombre Apellido"
+    const userInfo = `Usuario: ${cargaData.usuario.nombre} ${cargaData.usuario.apellido}`;
+    csvRows.push(`"${userInfo.replace(/"/g, '""')}"`); // Escapar comillas dobles y encerrar en comillas
+
+    // Fila 3: Cabecera de identificación de los productos
+    const productHeaders = [
+        "ProductoID",
+        "ProductoNombre",
+        "ProductoPresentacion",
+        "ProductoRubro",
+        "ProductoSegmento",
+        "ProductoPrecioUSD",
+        "CantidadCargada"
+    ];
+    csvRows.push(productHeaders.map(header => `"${header}"`).join(','));
+
+    // De la cuarta fila en adelante: Información de los productos y cantidades
+    cargaData.productos.forEach(producto => {
+        const row = [
+            producto.idProducto,
+            producto.Producto,
+            producto.Presentacion,
+            producto.Rubro,
+            producto.Segmento,
+            producto.Precio,
+            producto.Cantidad
+        ];
+        // Escapar comillas dobles y encerrar el valor en comillas si contiene comas o comillas
+        csvRows.push(row.map(value => {
+            if (value === undefined || value === null) {
+                return '';
+            }
+            value = String(value).replace(/"/g, '""');
+            return `"${value}"`;
+        }).join(','));
+    });
+
+    return csvRows.join('\n');
+}
+
+/**
+ * Genera y descarga un archivo CSV con los datos de la carga.
  * @param {object} cargaData - Los datos completos de la carga.
  */
 function generateCargaFile(cargaData) {
-    const filename = `carga_${cargaData.vehiculo.placa}_${new Date().toISOString().slice(0, 10)}.json`; // Usar cargaData.vehiculo.placa
-    const jsonString = JSON.stringify(cargaData, null, 2); // Formato JSON legible
-    const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8;' });
+    const filename = `carga_${cargaData.vehiculo.placa}_${new Date().toISOString().slice(0, 10)}.csv`;
+    const csvString = convertToCsv(cargaData); // Convertir a CSV
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
 
     const link = document.createElement('a');
     if (link.download !== undefined) {
@@ -177,7 +231,7 @@ function generateCargaFile(cargaData) {
         showCustomAlert(`Archivo de carga "${filename}" generado y descargado.`);
     } else {
         showCustomAlert('Su navegador no soporta la descarga directa de archivos. Los datos de la carga se han copiado a la consola.');
-        console.log(jsonString);
+        console.log(csvString);
     }
 }
 
@@ -458,4 +512,3 @@ export async function renderCargaProductosSection(container, backToMainMenuCallb
 
     console.log('renderCargaProductosSection: Función completada.');
 }
-
