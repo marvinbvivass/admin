@@ -217,22 +217,12 @@ export async function renderCargaProductosSection(container, backToMainMenuCallb
                 </div>
 
                 <div class="mb-4">
-                    <label for="search-productos-carga" class="block text-sm font-medium text-gray-700 mb-1">Buscar y Añadir Productos:</label>
-                    <input type="text" id="search-productos-carga" placeholder="Buscar producto por nombre, presentación..." class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500">
-                    <select id="select-producto-carga" class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 mt-2" disabled>
-                        <option value="">-- Selecciona un Producto --</option>
-                    </select>
-                    <input type="number" id="cantidad-producto-carga" placeholder="Cantidad" class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 mt-2" min="1" value="1">
-                    <button id="btn-add-producto-to-carga" class="mt-2 w-full bg-blue-600 text-white p-3 rounded-md font-semibold hover:bg-blue-700 transition duration-200" disabled>
-                        Añadir Producto a la Carga
-                    </button>
+                    <label for="search-productos-carga" class="block text-sm font-medium text-gray-700 mb-1">Filtrar Productos:</label>
+                    <input type="text" id="search-productos-carga" placeholder="Buscar producto por nombre, presentación, rubro, segmento..." class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500">
                 </div>
 
-                <div id="productos-en-carga-list" class="bg-white p-4 rounded-md border border-gray-200 max-h-60 overflow-y-auto shadow-md mb-4">
-                    <h4 class="text-lg font-semibold text-gray-800 mb-2">Productos en la Carga:</h4>
-                    <ul id="lista-productos-carga" class="divide-y divide-gray-100">
-                        <li class="text-gray-500">No hay productos añadidos aún.</li>
-                    </ul>
+                <div id="productos-disponibles-table-container" class="bg-white p-4 rounded-md border border-gray-200 max-h-96 overflow-y-auto shadow-md mb-4">
+                    <p class="text-gray-500">Cargando productos disponibles...</p>
                 </div>
 
                 <button id="btn-guardar-carga" class="mt-6 w-full bg-pink-600 text-white p-3 rounded-md font-semibold hover:bg-pink-700 transition duration-200">
@@ -255,18 +245,15 @@ export async function renderCargaProductosSection(container, backToMainMenuCallb
     const selectVehiculoCarga = container.querySelector('#select-vehiculo-carga');
     const selectUsuarioCarga = container.querySelector('#select-usuario-carga');
     const searchProductosCarga = container.querySelector('#search-productos-carga');
-    const selectProductoCarga = container.querySelector('#select-producto-carga');
-    const cantidadProductoCarga = container.querySelector('#cantidad-producto-carga');
-    const btnAddProductoToCarga = container.querySelector('#btn-add-producto-to-carga');
-    const listaProductosCarga = container.querySelector('#lista-productos-carga');
+    const productosDisponiblesTableContainer = container.querySelector('#productos-disponibles-table-container');
     const btnGuardarCarga = container.querySelector('#btn-guardar-carga');
     const btnBack = container.querySelector('#btn-back-carga-productos');
     const closeCargaProductosModalBtn = container.querySelector('#close-carga-productos-modal');
 
     let allVehiculos = [];
     let allUsuarios = [];
-    let allProductsInventario = []; // Todos los productos del inventario
-    let productosEnCarga = []; // Productos actualmente seleccionados para la carga
+    let allProductsInventario = []; // Todos los productos del inventario (originales)
+    let displayedProducts = []; // Productos actualmente mostrados en la tabla (filtrados)
 
     let selectedVehiculo = null;
     let selectedUsuario = null;
@@ -290,11 +277,14 @@ export async function renderCargaProductosSection(container, backToMainMenuCallb
         });
 
         allProductsInventario = await verInventarioCompleto();
-        // Inicialmente no poblar selectProductoCarga, se hará con la búsqueda
+        displayedProducts = [...allProductsInventario]; // Inicialmente, mostrar todos
+        renderProductsTable(displayedProducts);
+
         console.log('Datos iniciales cargados para Carga de Productos.');
     } catch (error) {
         console.error('Error al cargar datos iniciales para Carga de Productos:', error);
         showCustomAlert('Error al cargar datos necesarios. Por favor, intente de nuevo.');
+        productosDisponiblesTableContainer.innerHTML = '<p class="text-red-600">Error al cargar productos. Por favor, verifique los permisos o la conexión.</p>';
     }
 
     // --- Event Listeners para selección principal ---
@@ -308,111 +298,58 @@ export async function renderCargaProductosSection(container, backToMainMenuCallb
         console.log('Usuario seleccionado:', selectedUsuario);
     });
 
-    // --- Lógica de búsqueda y selección de productos ---
+    // --- Renderizar la tabla de productos ---
+    function renderProductsTable(productsToRender) {
+        productosDisponiblesTableContainer.innerHTML = '';
+        if (productsToRender.length === 0) {
+            productosDisponiblesTableContainer.innerHTML = '<p class="text-gray-500">No hay productos que coincidan con la búsqueda.</p>';
+            return;
+        }
+
+        const table = document.createElement('table');
+        table.className = 'min-w-full divide-y divide-gray-200';
+        table.innerHTML = `
+            <thead class="bg-gray-50 sticky top-0">
+                <tr>
+                    <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Segmento</th>
+                    <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Producto</th>
+                    <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Presentación</th>
+                    <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad a Cargar</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                <!-- Filas de productos se cargarán aquí -->
+            </tbody>
+        `;
+        const tbody = table.querySelector('tbody');
+
+        productsToRender.forEach(product => {
+            const row = document.createElement('tr');
+            row.className = 'hover:bg-gray-100';
+            row.innerHTML = `
+                <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-900">${product.Segmento || 'N/A'}</td>
+                <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-900">${product.Producto || 'N/A'}</td>
+                <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${product.Presentacion || 'N/A'}</td>
+                <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">
+                    <input type="number" min="0" value="0" class="w-24 p-1 border border-gray-300 rounded-md text-center cantidad-input" data-product-id="${product.id}">
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+        productosDisponiblesTableContainer.appendChild(table);
+    }
+
+    // --- Lógica de filtrado en tiempo real ---
     searchProductosCarga.addEventListener('input', () => {
         const searchTerm = searchProductosCarga.value.toLowerCase();
-        selectProductoCarga.innerHTML = '<option value="">-- Selecciona un Producto --</option>';
-        selectProductoCarga.disabled = true;
-        btnAddProductoToCarga.disabled = true;
-
-        if (searchTerm.length > 2) { // Empezar a buscar después de 2 caracteres
-            const filteredProducts = allProductsInventario.filter(product =>
-                (product.Producto && product.Producto.toLowerCase().includes(searchTerm)) ||
-                (product.Presentacion && product.Presentacion.toLowerCase().includes(searchTerm)) ||
-                (product.Rubro && product.Rubro.toLowerCase().includes(searchTerm)) ||
-                (product.Segmento && product.Segmento.toLowerCase().includes(searchTerm))
-            );
-
-            if (filteredProducts.length > 0) {
-                filteredProducts.forEach(product => {
-                    const option = document.createElement('option');
-                    option.value = product.id;
-                    option.textContent = `${product.Producto} (${product.Presentacion}) - ${product.Rubro}/${product.Segmento}`;
-                    selectProductoCarga.appendChild(option);
-                });
-                selectProductoCarga.disabled = false;
-            }
-        }
+        displayedProducts = allProductsInventario.filter(product =>
+            (product.Producto && product.Producto.toLowerCase().includes(searchTerm)) ||
+            (product.Presentacion && product.Presentacion.toLowerCase().includes(searchTerm)) ||
+            (product.Rubro && product.Rubro.toLowerCase().includes(searchTerm)) ||
+            (product.Segmento && product.Segmento.toLowerCase().includes(searchTerm))
+        );
+        renderProductsTable(displayedProducts);
     });
-
-    selectProductoCarga.addEventListener('change', () => {
-        // Habilitar el botón de añadir si se selecciona un producto
-        btnAddProductoToCarga.disabled = !selectProductoCarga.value;
-    });
-
-    // --- Lógica para añadir producto a la carga ---
-    btnAddProductoToCarga.addEventListener('click', () => {
-        const productId = selectProductoCarga.value;
-        const cantidad = parseInt(cantidadProductoCarga.value);
-
-        if (!productId || isNaN(cantidad) || cantidad <= 0) {
-            showCustomAlert('Por favor, selecciona un producto e ingresa una cantidad válida (mayor a 0).');
-            return;
-        }
-
-        const productToAdd = allProductsInventario.find(p => p.id === productId);
-        if (productToAdd) {
-            // Verificar si el producto ya está en la carga
-            const existingProductIndex = productosEnCarga.findIndex(item => item.idProducto === productId);
-
-            if (existingProductIndex !== -1) {
-                // Si ya existe, actualizar la cantidad
-                productosEnCarga[existingProductIndex].Cantidad += cantidad;
-            } else {
-                // Si no existe, añadirlo
-                productosEnCarga.push({
-                    idProducto: productToAdd.id,
-                    Producto: productToAdd.Producto,
-                    Presentacion: productToAdd.Presentacion,
-                    Rubro: productToAdd.Rubro,
-                    Segmento: productToAdd.Segmento,
-                    Precio: productToAdd.Precio, // Incluir el precio actual del producto
-                    Cantidad: cantidad
-                });
-            }
-            renderProductosEnCarga();
-            // Limpiar campos después de añadir
-            searchProductosCarga.value = '';
-            selectProductoCarga.innerHTML = '<option value="">-- Selecciona un Producto --</option>';
-            selectProductoCarga.disabled = true;
-            cantidadProductoCarga.value = '1';
-            btnAddProductoToCarga.disabled = true;
-        } else {
-            showCustomAlert('Producto no encontrado en el inventario.');
-        }
-    });
-
-    // --- Renderizar productos en la lista de carga ---
-    function renderProductosEnCarga() {
-        listaProductosCarga.innerHTML = '';
-        if (productosEnCarga.length === 0) {
-            listaProductosCarga.innerHTML = '<li class="text-gray-500">No hay productos añadidos aún.</li>';
-            return;
-        }
-
-        productosEnCarga.forEach((item, index) => {
-            const listItem = document.createElement('li');
-            listItem.className = 'flex justify-between items-center py-2 px-1 hover:bg-gray-50 rounded-md';
-            listItem.innerHTML = `
-                <span>
-                    ${item.Producto} (${item.Presentacion}) - Cantidad: <span class="font-semibold">${item.Cantidad}</span>
-                </span>
-                <button class="bg-red-500 text-white px-2 py-1 rounded-md text-xs hover:bg-red-600 remove-producto-carga-btn" data-index="${index}">
-                    Eliminar
-                </button>
-            `;
-            listaProductosCarga.appendChild(listItem);
-        });
-
-        // Añadir event listeners para eliminar productos de la carga
-        listaProductosCarga.querySelectorAll('.remove-producto-carga-btn').forEach(button => {
-            button.addEventListener('click', (event) => {
-                const indexToRemove = parseInt(event.target.dataset.index);
-                productosEnCarga.splice(indexToRemove, 1); // Eliminar del array
-                renderProductosEnCarga(); // Re-renderizar la lista
-            });
-        });
-    }
 
     // --- Lógica para guardar la carga ---
     btnGuardarCarga.addEventListener('click', async () => {
@@ -424,8 +361,32 @@ export async function renderCargaProductosSection(container, backToMainMenuCallb
             showCustomAlert('Por favor, selecciona un usuario para la carga.');
             return;
         }
-        if (productosEnCarga.length === 0) {
-            showCustomAlert('Por favor, añade al menos un producto a la carga.');
+
+        const productosCargados = [];
+        const cantidadInputs = productosDisponiblesTableContainer.querySelectorAll('.cantidad-input');
+
+        cantidadInputs.forEach(input => {
+            const productId = input.dataset.productId;
+            const cantidad = parseInt(input.value);
+
+            if (cantidad > 0) {
+                const product = allProductsInventario.find(p => p.id === productId);
+                if (product) {
+                    productosCargados.push({
+                        idProducto: product.id,
+                        Producto: product.Producto,
+                        Presentacion: product.Presentacion,
+                        Rubro: product.Rubro,
+                        Segmento: product.Segmento,
+                        Precio: product.Precio,
+                        Cantidad: cantidad
+                    });
+                }
+            }
+        });
+
+        if (productosCargados.length === 0) {
+            showCustomAlert('Por favor, añade al menos un producto a la carga con una cantidad mayor a 0.');
             return;
         }
 
@@ -436,14 +397,18 @@ export async function renderCargaProductosSection(container, backToMainMenuCallb
 
         const cargaData = {
             fechaCarga: new Date().toISOString(),
-            vehiculoId: selectedVehiculo.id,
-            vehiculoMarca: selectedVehiculo.marca,
-            vehiculoModelo: selectedVehiculo.modelo,
-            vehiculoPlaca: selectedVehiculo.placa,
-            usuarioId: selectedUsuario.id,
-            usuarioNombre: selectedUsuario.nombre,
-            usuarioApellido: selectedUsuario.apellido,
-            productos: productosEnCarga // Array de objetos de producto con sus cantidades
+            vehiculo: {
+                id: selectedVehiculo.id,
+                marca: selectedVehiculo.marca,
+                modelo: selectedVehiculo.modelo,
+                placa: selectedVehiculo.placa,
+            },
+            usuario: {
+                id: selectedUsuario.id,
+                nombre: selectedUsuario.nombre,
+                apellido: selectedUsuario.apellido,
+            },
+            productos: productosCargados
         };
 
         const cargaId = await guardarCarga(cargaData);
@@ -455,8 +420,11 @@ export async function renderCargaProductosSection(container, backToMainMenuCallb
             selectUsuarioCarga.value = '';
             selectedVehiculo = null;
             selectedUsuario = null;
-            productosEnCarga = [];
-            renderProductosEnCarga();
+            // Resetear cantidades en la tabla
+            cantidadInputs.forEach(input => input.value = '0');
+            searchProductosCarga.value = '';
+            displayedProducts = [...allProductsInventario]; // Restaurar todos los productos
+            renderProductsTable(displayedProducts);
         } else {
             showCustomAlert('Fallo al guardar la carga.');
         }
@@ -476,3 +444,4 @@ export async function renderCargaProductosSection(container, backToMainMenuCallb
 
     console.log('renderCargaProductosSection: Función completada.');
 }
+
