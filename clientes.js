@@ -198,13 +198,39 @@ async function guardarConfiguracionZonasSectores(newMap) {
     }
 }
 
-// --- Funciones CRUD de Clientes (Placeholders por ahora) ---
+/**
+ * Agrega un nuevo cliente al sistema en Firestore.
+ * Los datos se guardarán en una colección compartida en la raíz.
+ * Ruta: /datosClientes
+ * @param {object} cliente - Objeto con los datos del cliente a agregar.
+ * @param {string} cliente.CEP - Código de Enrutamiento Postal.
+ * @param {string} cliente.NombreComercial - Nombre comercial del cliente.
+ * @param {string} cliente.NombrePersonal - Nombre personal del contacto.
+ * @param {string} cliente.Rif - Registro de Información Fiscal.
+ * @param {string} cliente.Zona - Zona geográfica del cliente.
+ * @param {string} cliente.Sector - Sector de actividad del cliente.
+ * @param {string} cliente.Tlf - Número de teléfono.
+ * @param {string} [cliente.Observaciones] - Observaciones adicionales (opcional).
+ * @returns {Promise<string|null>} El ID del documento del cliente agregado o null si hubo un error.
+ */
 export async function agregarCliente(cliente) {
-    console.log('agregarCliente: (Placeholder) Cliente a agregar:', cliente);
-    showCustomAlert('Funcionalidad "Agregar Cliente" en construcción.');
-    return null;
+    console.log('agregarCliente: Iniciando...');
+    try {
+        const { db } = await getFirestoreInstances();
+        // La ruta de la colección es /artifacts/{appId}/datosClientes
+        const clientesCollectionRef = collection(db, `artifacts/${window.__app_id}/datosClientes`);
+        const docRef = await addDoc(clientesCollectionRef, cliente);
+        console.log('Cliente agregado con ID:', docRef.id);
+        return docRef.id;
+    } catch (error) {
+        console.error('Error al agregar cliente:', error);
+        return null;
+    } finally {
+        console.log('agregarCliente: Finalizado.');
+    }
 }
 
+// --- Funciones CRUD de Clientes (Placeholders por ahora) ---
 export async function modificarCliente(idCliente, nuevosDatos) {
     console.log('modificarCliente: (Placeholder) ID:', idCliente, 'Nuevos datos:', nuevosDatos);
     showCustomAlert('Funcionalidad "Modificar Cliente" en construcción.');
@@ -245,17 +271,11 @@ export async function renderClientesSection(container) {
         <div class="modal-content">
             <h2 class="text-4xl font-bold text-gray-900 mb-6 text-center">Gestión de Clientes</h2>
 
-            <div id="clientes-main-buttons-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+            <div id="clientes-main-buttons-container" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                 <button id="btn-show-add-cliente" class="bg-blue-600 text-white p-4 rounded-md font-semibold hover:bg-blue-700 transition duration-200">
                     Agregar Cliente
                 </button>
-                <button id="btn-show-modify-delete-cliente" class="bg-yellow-600 text-white p-4 rounded-md font-semibold hover:bg-yellow-700 transition duration-200">
-                    Modificar/Eliminar Cliente
-                </button>
-                <button id="btn-show-ver-clientes" class="bg-green-600 text-white p-4 rounded-md font-semibold hover:bg-green-700 transition duration-200">
-                    Ver Lista de Clientes
-                </button>
-                <button id="btn-show-manage-zones-sectors" class="bg-purple-600 text-white p-4 rounded-md font-semibold hover:bg-purple-700 transition duration-200 col-span-full">
+                <button id="btn-show-manage-zones-sectors" class="bg-purple-600 text-white p-4 rounded-md font-semibold hover:bg-purple-700 transition duration-200">
                     Gestionar Zonas y Sectores
                 </button>
             </div>
@@ -282,8 +302,6 @@ export async function renderClientesSection(container) {
 
     // Referencias a los botones principales
     const btnShowAddCliente = container.querySelector('#btn-show-add-cliente');
-    const btnShowModifyDeleteCliente = container.querySelector('#btn-show-modify-delete-cliente');
-    const btnShowVerClientes = container.querySelector('#btn-show-ver-clientes');
     const btnShowManageZonesSectors = container.querySelector('#btn-show-manage-zones-sectors');
 
     console.log('renderClientesSection: Llamando a obtenerConfiguracionZonasSectores...');
@@ -309,39 +327,14 @@ export async function renderClientesSection(container) {
     }
 
 
-    // Lógica para mostrar la sección de agregar cliente (placeholder)
+    // Lógica para mostrar la sección de agregar cliente
     if (btnShowAddCliente) {
         btnShowAddCliente.addEventListener('click', () => {
             clientesMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
-            showCustomAlert('Funcionalidad "Agregar Cliente" en construcción.');
-            // renderAddClienteForm(clientesSubSection, showClientesMainButtons); // Descomentar cuando se implemente
+            renderAddClienteForm(clientesSubSection, showClientesMainButtons); // Carga el formulario de agregar cliente
         });
     } else {
         console.error('renderClientesSection: Botón #btn-show-add-cliente no encontrado.');
-    }
-
-
-    // Lógica para mostrar la sección de modificar/eliminar cliente (placeholder)
-    if (btnShowModifyDeleteCliente) {
-        btnShowModifyDeleteCliente.addEventListener('click', () => {
-            clientesMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
-            showCustomAlert('Funcionalidad "Modificar/Eliminar Cliente" en construcción.');
-            // showModifyDeleteSearch(); // Descomentar cuando se implemente
-        });
-    } else {
-        console.error('renderClientesSection: Botón #btn-show-modify-delete-cliente no encontrado.');
-    }
-
-
-    // Lógica para mostrar la sección de ver clientes (placeholder)
-    if (btnShowVerClientes) {
-        btnShowVerClientes.addEventListener('click', async () => {
-            clientesMainButtonsContainer.classList.add('hidden'); // Oculta los botones principales
-            showCustomAlert('Funcionalidad "Ver Lista de Clientes" en construcción.');
-            // await renderVerClientesSection(clientesSubSection, showClientesMainButtons); // Descomentar cuando se implemente
-        });
-    } else {
-        console.error('renderClientesSection: Botón #btn-show-ver-clientes no encontrado.');
     }
 
 
@@ -353,6 +346,119 @@ export async function renderClientesSection(container) {
         });
     } else {
         console.error('renderClientesSection: Botón #btn-show-manage-zones-sectors no encontrado.');
+    }
+
+
+    // --- Funciones para el formulario de Agregar Cliente ---
+    /**
+     * Renderiza el formulario para agregar un nuevo cliente.
+     * @param {HTMLElement} parentContainer - El contenedor donde se renderizará el formulario.
+     * @param {function(): void} backToMainMenuCallback - Callback para volver al menú principal de clientes.
+     */
+    function renderAddClienteForm(parentContainer, backToMainMenuCallback) {
+        console.log('renderAddClienteForm: Iniciando...');
+        parentContainer.innerHTML = `
+            <div class="p-6 bg-blue-50 rounded-lg shadow-inner">
+                <h3 class="text-2xl font-semibold text-blue-800 mb-4">Agregar Nuevo Cliente</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="text" id="add-cep" placeholder="CEP" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="text" id="add-nombre-comercial" placeholder="Nombre Comercial" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="text" id="add-nombre-personal" placeholder="Nombre Personal" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="text" id="add-rif" placeholder="Rif" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <select id="add-zona" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">Selecciona Zona</option>
+                        ${Object.keys(zonaSectorMap).map(zona => `<option value="${zona}">${zona}</option>`).join('')}
+                    </select>
+                    <select id="add-sector" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" disabled>
+                        <option value="">Selecciona Sector</option>
+                    </select>
+                    <input type="tel" id="add-tlf" placeholder="Teléfono" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <textarea id="add-observaciones" placeholder="Observaciones (opcional)" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 col-span-full"></textarea>
+                </div>
+                <button id="btn-submit-add-cliente" class="mt-6 w-full bg-blue-600 text-white p-3 rounded-md font-semibold hover:bg-blue-700 transition duration-200">
+                    Confirmar Agregar Cliente
+                </button>
+                <button id="btn-back-add-cliente" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
+                    Volver
+                </button>
+            </div>
+        `;
+        // Lógica para actualizar el select de Sector cuando cambia la Zona
+        const addZonaSelect = parentContainer.querySelector('#add-zona');
+        const addSectorSelect = parentContainer.querySelector('#add-sector');
+        if (addZonaSelect && addSectorSelect) {
+            addZonaSelect.addEventListener('change', () => {
+                const selectedZona = addZonaSelect.value;
+                addSectorSelect.innerHTML = '<option value="">Selecciona Sector</option>'; // Limpiar opciones anteriores
+                if (selectedZona && zonaSectorMap[selectedZona]) {
+                    zonaSectorMap[selectedZona].forEach(sector => {
+                        const option = document.createElement('option');
+                        option.value = sector;
+                        option.textContent = sector;
+                        addSectorSelect.appendChild(option);
+                    });
+                    addSectorSelect.disabled = false; // Habilitar el select de Sector
+                } else {
+                    addSectorSelect.disabled = true; // Deshabilitar si no hay zona seleccionada
+                }
+            });
+        } else {
+            console.error('renderAddClienteForm: Selects de zona/sector no encontrados.');
+        }
+
+
+        // Conectar el botón de agregar cliente
+        const btnSubmitAddCliente = parentContainer.querySelector('#btn-submit-add-cliente');
+        if (btnSubmitAddCliente) {
+            btnSubmitAddCliente.addEventListener('click', async () => {
+                const cliente = {
+                    CEP: parentContainer.querySelector('#add-cep')?.value || '',
+                    NombreComercial: parentContainer.querySelector('#add-nombre-comercial')?.value || '',
+                    NombrePersonal: parentContainer.querySelector('#add-nombre-personal')?.value || '',
+                    Rif: parentContainer.querySelector('#add-rif')?.value || '', // Nuevo campo Rif
+                    Zona: parentContainer.querySelector('#add-zona')?.value || '',
+                    Sector: parentContainer.querySelector('#add-sector')?.value || '',
+                    Tlf: parentContainer.querySelector('#add-tlf')?.value || '',
+                    Observaciones: parentContainer.querySelector('#add-observaciones')?.value || ''
+                };
+
+                // Pequeña validación para campos obligatorios
+                if (!cliente.CEP || !cliente.NombreComercial || !cliente.NombrePersonal || !cliente.Rif || !cliente.Zona || !cliente.Sector || !cliente.Tlf) {
+                    showCustomAlert('Por favor, complete todos los campos obligatorios (CEP, Nombre Comercial, Nombre Personal, Rif, Zona, Sector, Teléfono).');
+                    return;
+                }
+
+                const id = await agregarCliente(cliente);
+                if (id) {
+                    showCustomAlert('Cliente agregado con éxito, ID: ' + id);
+                    // Limpiar campos
+                    if (parentContainer.querySelector('#add-cep')) parentContainer.querySelector('#add-cep').value = '';
+                    if (parentContainer.querySelector('#add-nombre-comercial')) parentContainer.querySelector('#add-nombre-comercial').value = '';
+                    if (parentContainer.querySelector('#add-nombre-personal')) parentContainer.querySelector('#add-nombre-personal').value = '';
+                    if (parentContainer.querySelector('#add-rif')) parentContainer.querySelector('#add-rif').value = ''; // Limpiar Rif
+                    if (parentContainer.querySelector('#add-zona')) parentContainer.querySelector('#add-zona').value = '';
+                    if (parentContainer.querySelector('#add-sector')) {
+                        parentContainer.querySelector('#add-sector').innerHTML = '<option value="">Selecciona Sector</option>'; // Limpiar y resetear sector
+                        parentContainer.querySelector('#add-sector').disabled = true;
+                    }
+                    if (parentContainer.querySelector('#add-tlf')) parentContainer.querySelector('#add-tlf').value = '';
+                    if (parentContainer.querySelector('#add-observaciones')) parentContainer.querySelector('#add-observaciones').value = '';
+                } else {
+                    showCustomAlert('Fallo al agregar cliente.');
+                }
+            });
+        } else {
+            console.error('renderAddClienteForm: Botón #btn-submit-add-cliente no encontrado.');
+        }
+
+
+        // Conectar el botón Volver
+        const btnBackAddCliente = parentContainer.querySelector('#btn-back-add-cliente');
+        if (btnBackAddCliente) {
+            btnBackAddCliente.addEventListener('click', backToMainMenuCallback);
+        } else {
+            console.error('renderAddClienteForm: Botón #btn-back-add-cliente no encontrado.');
+        }
     }
 
 
@@ -407,7 +513,7 @@ export async function renderClientesSection(container) {
                 if (managementButtons) {
                     managementButtons.classList.add('hidden'); // Oculta los botones del menú
                 }
-                renderAddZoneSectorForm(zonesSectorsSubSection, showZonesSectorsMainButtons);
+                renderAddZoneSectorFormForManagement(zonesSectorsSubSection, showZonesSectorsMainButtons);
             });
         } else {
             console.error('renderGestionarZonasSectoresForm: Botón #btn-add-zone-sector no encontrado.');
@@ -433,9 +539,9 @@ export async function renderClientesSection(container) {
         console.log('renderGestionarZonasSectoresForm: Finalizado.');
     }
 
-    // Función para renderizar el formulario de añadir Zona o Sector
-    async function renderAddZoneSectorForm(parentContainer, backToMainMenuCallback) {
-        console.log('renderAddZoneSectorForm: Iniciando...');
+    // Función para renderizar el formulario de añadir Zona o Sector (específico para gestión)
+    async function renderAddZoneSectorFormForManagement(parentContainer, backToMainMenuCallback) {
+        console.log('renderAddZoneSectorFormForManagement: Iniciando...');
         parentContainer.innerHTML = `
             <div class="p-4 bg-blue-50 rounded-lg shadow-inner">
                 <h4 class="text-xl font-semibold text-blue-800 mb-3">Añadir Zona o Sector</h4>
@@ -498,7 +604,7 @@ export async function renderClientesSection(container) {
                 }
             });
         } else {
-            console.error('renderAddZoneSectorForm: Botón #btn-add-new-zone no encontrado.');
+            console.error('renderAddZoneSectorFormForManagement: Botón #btn-add-new-zone no encontrado.');
         }
 
 
@@ -515,7 +621,7 @@ export async function renderClientesSection(container) {
                 }
             });
         } else {
-            console.error('renderAddZoneSectorForm: Select #select-zone-for-sector no encontrado.');
+            console.error('renderAddZoneSectorFormForManagement: Select #select-zone-for-sector no encontrado.');
         }
 
 
@@ -543,16 +649,16 @@ export async function renderClientesSection(container) {
                 }
             });
         } else {
-            console.error('renderAddZoneSectorForm: Botón #btn-add-new-sector no encontrado.');
+            console.error('renderAddZoneSectorFormForManagement: Botón #btn-add-new-sector no encontrado.');
         }
 
 
         if (btnBack) {
             btnBack.addEventListener('click', backToMainMenuCallback);
         } else {
-            console.error('renderAddZoneSectorForm: Botón #btn-back-from-add-form no encontrado.');
+            console.error('renderAddZoneSectorFormForManagement: Botón #btn-back-from-add-form no encontrado.');
         }
-        console.log('renderAddZoneSectorForm: Finalizado.');
+        console.log('renderAddZoneSectorFormForManagement: Finalizado.');
     }
 
     // Función para renderizar el formulario de modificar/eliminar Zona o Sector
