@@ -215,6 +215,7 @@ export async function agregarProducto(producto) {
 
 /**
  * Modifica los datos de un producto existente en Firestore.
+ * Además de actualizar el inventario general, actualiza el precio en el inventario de cada camión.
  * @param {string} idProducto - ID único del producto a modificar.
  * @param {object} nuevosDatos - Objeto con los nuevos datos del producto.
  * @returns {Promise<boolean>} True si se modificó con éxito, false en caso contrario.
@@ -223,9 +224,29 @@ export async function modificarProducto(idProducto, nuevosDatos) {
     console.log('modificarProducto: Iniciando. ID:', idProducto, 'Nuevos datos:', nuevosDatos);
     try {
         const { db } = await getFirestoreInstances();
+        
+        // 1. Actualizar el producto en el inventario general (datosInventario)
         const productoDocRef = doc(db, `datosInventario`, idProducto);
         await updateDoc(productoDocRef, nuevosDatos);
-        console.log('Producto modificado con éxito. ID:', idProducto);
+        console.log('Producto modificado en inventario general con éxito. ID:', idProducto);
+
+        // 2. Si se actualizó el precio, propagar el cambio a los inventarios de los camiones
+        if (nuevosDatos.hasOwnProperty('Precio')) {
+            const newPrice = nuevosDatos.Precio;
+            const vehiculos = await obtenerTodosLosVehiculos(); // Obtener todos los vehículos
+
+            for (const vehiculo of vehiculos) {
+                const inventarioCamionDocRef = doc(db, 'Vehiculos', vehiculo.id, 'inventarioCamion', idProducto);
+                const docSnap = await getDoc(inventarioCamionDocRef);
+
+                if (docSnap.exists()) {
+                    // Solo actualizar el precio si el producto existe en el inventario del camión
+                    await updateDoc(inventarioCamionDocRef, { Precio: newPrice });
+                    console.log(`Precio de producto ${idProducto} actualizado en camión ${vehiculo.id}.`);
+                }
+            }
+        }
+
         return true;
     } catch (error) {
         console.error('Error al modificar producto:', error);
@@ -1361,4 +1382,3 @@ export async function renderInventarioSection(container, backToMainMenuCallback)
 
     console.log('renderInventarioSection: Función completada.');
 }
-
