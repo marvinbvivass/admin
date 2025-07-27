@@ -3,9 +3,10 @@
 // y la visualización de cierres diarios.
 // Ahora permite seleccionar un camión para la venta, muestra el stock disponible de ese camión,
 // valida la cantidad a vender y genera un archivo CSV detallado de la venta.
+// Se añade la funcionalidad de "Cierre de Ventas Diarias" para consolidar y exportar ventas por día y usuario.
 
 // Importa las funciones necesarias de Firebase Firestore.
-import { collection, addDoc, getDocs, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { collection, addDoc, getDocs, doc, getDoc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // Importa funciones de otros módulos para obtener datos necesarios
 import { obtenerTodosLosClientes } from './clientes.js';
@@ -32,6 +33,7 @@ async function getFirestoreInstances() {
     }
     return {
         db: window.firebaseDb,
+        auth: window.firebaseAuth, // También devolvemos la instancia de auth
     };
 }
 
@@ -207,6 +209,8 @@ async function guardarVenta(ventaData) {
     try {
         const { db } = await getFirestoreInstances();
         const ventasCollectionRef = collection(db, `datosVentas`);
+        // Añadir el ID del usuario actual a los datos de la venta
+        ventaData.userId = window.currentUserId; 
         const docRef = await addDoc(ventasCollectionRef, ventaData);
         console.log('Venta guardada con ID:', docRef.id);
         return docRef.id;
@@ -318,11 +322,10 @@ function convertToCsvVenta(ventaData) {
 /**
  * Genera y descarga un archivo CSV con los datos de la venta.
  * @param {object} ventaData - Los datos completos de la venta.
+ * @param {string} filenamePrefix - Prefijo para el nombre del archivo.
  */
-function generateVentaFile(ventaData) {
-    const filename = `venta_${ventaData.cliente.Rif}_${new Date().toISOString().slice(0, 10)}.csv`;
-    const csvString = convertToCsvVenta(ventaData); // Convertir a CSV
-    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+function generateCsvFile(data, filename) {
+    const blob = new Blob([data], { type: 'text/csv;charset=utf-8;' });
 
     const link = document.createElement('a');
     if (link.download !== undefined) {
@@ -334,10 +337,10 @@ function generateVentaFile(ventaData) {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-        showCustomAlert(`Archivo de venta "${filename}" generado y descargado.`);
+        showCustomAlert(`Archivo "${filename}" generado y descargado.`);
     } else {
-        showCustomAlert('Su navegador no soporta la descarga directa de archivos. Los datos de la venta se han copiado a la consola.');
-        console.log(csvString);
+        showCustomAlert('Su navegador no soporta la descarga directa de archivos. Los datos se han copiado a la consola.');
+        console.log(data);
     }
 }
 
@@ -435,10 +438,12 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
         });
     }
 
-    // Lógica para el botón "Cierre de Ventas Diarias" (aún no funcional)
+    // Lógica para el botón "Cierre de Ventas Diarias"
     if (btnCierreVentasDiarias) {
-        btnCierreVentasDiarias.addEventListener('click', () => {
-            showCustomAlert('Sección "Cierre de Ventas Diarias" en construcción.');
+        btnCierreVentasDiarias.addEventListener('click', async () => {
+            console.log('Botón "Cierre de Ventas Diarias" clickeado.');
+            ventasMainButtonsContainer.classList.add('hidden');
+            await renderCierreVentasDiarias(ventasSubSection, showVentasMainButtons, allProductsInventarioGeneral);
         });
     }
 
@@ -578,6 +583,7 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
             
             // Si no hay camión seleccionado, no mostrar productos
             if (!selectedTruck) {
+                productosVentaTableContainer.innerHTML = '<p class="text-gray-500">Selecciona un camión para ver los productos disponibles para la venta.</p>';
                 displayedProductsForSale = [];
             } else {
                 displayedProductsForSale = currentTruckInventory.filter(product => {
@@ -839,7 +845,7 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
                         showCustomAlert('Venta registrada, pero hubo problemas al actualizar el inventario del camión. Verifique la consola para más detalles.');
                     }
                     
-                    generateVentaFile(ventaData); // Generar el archivo CSV
+                    generateCsvFile(convertToCsvVenta(ventaData), `venta_${selectedClient.Rif}_${new Date().toISOString().slice(0, 10)}.csv`);
 
                     // Limpiar el formulario y resetear la tabla después de guardar
                     selectClienteVenta.value = '';
@@ -864,6 +870,271 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
             btnBack.addEventListener('click', backToMainMenuCallback);
         }
         console.log('renderNuevaVentaForm: Finalizado.');
+    }
+
+    /**
+     * Renderiza la interfaz para el cierre de ventas diarias.
+     * Consolida las ventas del día actual por el usuario logueado y permite descargar un CSV.
+     * @param {HTMLElement} parentContainer - El contenedor donde se renderizará el formulario.
+     * @param {function(): void} backToMainMenuCallback - Callback para volver al menú principal de ventas.
+     * @param {Array<object>} allProductsGeneral - Lista de todos los productos definidos en el inventario general.
+     */
+    async function renderCierreVentasDiarias(parentContainer, backToMainMenuCallback, allProductsGeneral) {
+        console.log('renderCierreVentasDiarias: Iniciando...');
+        parentContainer.innerHTML = `
+            <div class="p-6 bg-blue-50 rounded-lg shadow-inner">
+                <h3 class="text-2xl font-semibold text-blue-800 mb-4">Cierre de Ventas Diarias</h3>
+                <p class="text-gray-700 mb-4">Consolida todas las ventas realizadas por este usuario en el día de hoy.</p>
+                
+                <div id="cierre-ventas-info" class="mb-4">
+                    <p class="text-lg font-semibold">Fecha: <span id="cierre-fecha"></span></p>
+                    <p class="text-lg font-semibold">Usuario: <span id="cierre-usuario"></span></p>
+                </div>
+
+                <div id="cierre-ventas-table-container" class="bg-white p-4 rounded-md border border-gray-200 max-h-96 overflow-y-auto shadow-md mb-4">
+                    <p class="text-gray-500">Cargando ventas del día...</p>
+                </div>
+
+                <button id="btn-generar-cierre-csv" class="mt-6 w-full bg-blue-600 text-white p-3 rounded-md font-semibold hover:bg-blue-700 transition duration-200">
+                    Generar y Descargar Cierre Diario CSV
+                </button>
+                <button id="btn-back-cierre-ventas" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
+                    Volver
+                </button>
+            </div>
+        `;
+
+        const cierreFechaSpan = parentContainer.querySelector('#cierre-fecha');
+        const cierreUsuarioSpan = parentContainer.querySelector('#cierre-usuario');
+        const cierreVentasTableContainer = parentContainer.querySelector('#cierre-ventas-table-container');
+        const btnGenerarCierreCsv = parentContainer.querySelector('#btn-generar-cierre-csv');
+        const btnBack = parentContainer.querySelector('#btn-back-cierre-ventas');
+
+        const { db, auth } = await getFirestoreInstances();
+        const currentUserId = auth.currentUser?.uid;
+        const currentUserEmail = auth.currentUser?.email || 'N/A';
+
+        cierreFechaSpan.textContent = new Date().toLocaleDateString('es-ES');
+        cierreUsuarioSpan.textContent = currentUserEmail;
+
+        let consolidatedSalesData = {}; // Para almacenar los datos consolidados para el CSV y Firestore
+        let allUniqueProductIds = new Set(); // Para recopilar todos los productos únicos vendidos
+
+        // Obtener la fecha de hoy al inicio y al final del día en formato ISO
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Inicio del día
+        const startOfDayISO = today.toISOString();
+        
+        today.setHours(23, 59, 59, 999); // Fin del día
+        const endOfDayISO = today.toISOString();
+
+        console.log(`Buscando ventas para el usuario ${currentUserId} entre ${startOfDayISO} y ${endOfDayISO}`);
+
+        try {
+            const ventasRef = collection(db, 'datosVentas');
+            // Filtrar por userId y por fecha de venta
+            const q = query(
+                ventasRef,
+                where('userId', '==', currentUserId),
+                where('fechaVenta', '>=', startOfDayISO),
+                where('fechaVenta', '<=', endOfDayISO)
+            );
+            const querySnapshot = await getDocs(q);
+
+            if (querySnapshot.empty) {
+                cierreVentasTableContainer.innerHTML = '<p class="text-gray-500">No hay ventas registradas para este usuario en el día de hoy.</p>';
+                btnGenerarCierreCsv.disabled = true;
+                return;
+            }
+
+            // Consolidar ventas por cliente y por producto
+            querySnapshot.forEach(docSnap => {
+                const venta = docSnap.data();
+                const clientId = venta.cliente.id;
+
+                if (!consolidatedSalesData[clientId]) {
+                    consolidatedSalesData[clientId] = {
+                        cliente: venta.cliente,
+                        productos: {} // { productId: quantitySold }
+                    };
+                }
+
+                venta.productosVendidos.forEach(productoVendido => {
+                    const productId = productoVendido.idProducto;
+                    const cantidad = productoVendido.Cantidad;
+                    allUniqueProductIds.add(productId); // Añadir a la lista de productos únicos
+
+                    if (consolidatedSalesData[clientId].productos[productId]) {
+                        consolidatedSalesData[clientId].productos[productId] += cantidad;
+                    } else {
+                        consolidatedSalesData[clientId].productos[productId] = cantidad;
+                    }
+                });
+            });
+
+            // Obtener detalles de todos los productos únicos para los encabezados
+            const productDetailsMap = {}; // { productId: { Producto: "Nombre", Presentacion: "X" } }
+            allProductsGeneral.forEach(p => {
+                if (allUniqueProductIds.has(p.id)) {
+                    productDetailsMap[p.id] = {
+                        Producto: p.Producto,
+                        Presentacion: p.Presentacion,
+                        Rubro: p.Rubro,
+                        Segmento: p.Segmento,
+                        Precio: p.Precio // Precio en USD
+                    };
+                }
+            });
+
+            // Ordenar los productos únicos para tener un orden consistente en el CSV
+            const sortedUniqueProductIds = Array.from(allUniqueProductIds).sort((a, b) => {
+                const nameA = productDetailsMap[a]?.Producto || '';
+                const nameB = productDetailsMap[b]?.Producto || '';
+                return nameA.localeCompare(nameB);
+            });
+
+            // Renderizar la tabla de cierre de ventas
+            renderCierreVentasTable(consolidatedSalesData, sortedUniqueProductIds, productDetailsMap, cierreVentasTableContainer);
+
+        } catch (error) {
+            console.error('Error al obtener y consolidar ventas diarias:', error);
+            cierreVentasTableContainer.innerHTML = '<p class="text-red-600">Error al cargar el cierre de ventas. Por favor, verifique los permisos.</p>';
+            btnGenerarCierreCsv.disabled = true;
+        }
+
+        // Función para renderizar la tabla de cierre de ventas
+        const renderCierreVentasTable = (data, uniqueProductIds, productDetails, tableContainer) => {
+            tableContainer.innerHTML = '';
+            let tableHTML = `
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50 sticky top-0">
+                        <tr>
+                            <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre Comercial</th>
+                            ${uniqueProductIds.map(id => `<th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${productDetails[id]?.Producto} (${productDetails[id]?.Presentacion})</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+            `;
+
+            let totalQuantities = {};
+            uniqueProductIds.forEach(id => totalQuantities[id] = 0);
+
+            for (const clientId in data) {
+                const clientData = data[clientId];
+                tableHTML += `
+                    <tr class="hover:bg-gray-100">
+                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-900">${clientData.cliente.NombreComercial || 'N/A'}</td>
+                        ${uniqueProductIds.map(id => {
+                            const quantity = clientData.productos[id] || 0;
+                            totalQuantities[id] += quantity;
+                            return `<td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${quantity}</td>`;
+                        }).join('')}
+                    </tr>
+                `;
+            }
+
+            // Fila de totales
+            tableHTML += `
+                    <tr class="bg-gray-200 font-bold">
+                        <td class="px-2 py-1 whitespace-nowrap text-sm text-gray-900">Total:</td>
+                        ${uniqueProductIds.map(id => `<td class="px-2 py-1 whitespace-nowrap text-sm text-gray-900">${totalQuantities[id]}</td>`).join('')}
+                    </tr>
+                </tbody></table>`;
+            tableContainer.innerHTML = tableHTML;
+        };
+
+        // Lógica para generar y descargar el CSV
+        if (btnGenerarCierreCsv) {
+            btnGenerarCierreCsv.addEventListener('click', async () => {
+                if (Object.keys(consolidatedSalesData).length === 0) {
+                    showCustomAlert('No hay ventas para consolidar en el día de hoy.');
+                    return;
+                }
+
+                const { auth } = await getFirestoreInstances();
+                const currentUserDisplayName = auth.currentUser?.email || auth.currentUser?.uid; // Usar email o UID
+
+                const csvRows = [];
+
+                // Línea 1: Camión (general para el reporte diario)
+                csvRows.push(`"Camion: Todos los Camiones"`);
+                // Línea 2: Usuario
+                csvRows.push(`"Usuario: ${currentUserDisplayName}"`);
+
+                // Línea 3: Cabecera de las columnas
+                const productHeaders = Array.from(allUniqueProductIds).sort((a, b) => {
+                    const nameA = productDetailsMap[a]?.Producto || '';
+                    const nameB = productDetailsMap[b]?.Producto || '';
+                    return nameA.localeCompare(nameB);
+                }).map(id => `${productDetailsMap[id]?.Producto} (${productDetailsMap[id]?.Presentacion})`);
+                csvRows.push(`"Nombre Comercial",${productHeaders.map(h => `"${h}"`).join(',')}`);
+
+                // Líneas de datos de cada venta consolidada por cliente
+                let totalQuantities = {};
+                Array.from(allUniqueProductIds).forEach(id => totalQuantities[id] = 0); // Inicializar totales
+
+                for (const clientId in consolidatedSalesData) {
+                    const clientData = consolidatedSalesData[clientId];
+                    const rowValues = [clientData.cliente.NombreComercial];
+                    Array.from(allUniqueProductIds).sort((a, b) => {
+                        const nameA = productDetailsMap[a]?.Producto || '';
+                        const nameB = productDetailsMap[b]?.Producto || '';
+                        return nameA.localeCompare(nameB);
+                    }).forEach(productId => {
+                        const quantity = clientData.productos[productId] || 0;
+                        rowValues.push(quantity);
+                        totalQuantities[productId] += quantity; // Sumar al total
+                    });
+                    csvRows.push(rowValues.map(value => {
+                        if (value === undefined || value === null) return '';
+                        return `"${String(value).replace(/"/g, '""')}"`;
+                    }).join(','));
+                }
+
+                // Última línea: Sumatoria por columna
+                const totalRowValues = ["Total:"];
+                Array.from(allUniqueProductIds).sort((a, b) => {
+                    const nameA = productDetailsMap[a]?.Producto || '';
+                    const nameB = productDetailsMap[b]?.Producto || '';
+                    return nameA.localeCompare(nameB);
+                }).forEach(productId => {
+                    totalRowValues.push(totalQuantities[productId]);
+                });
+                csvRows.push(totalRowValues.map(value => {
+                    if (value === undefined || value === null) return '';
+                    return `"${String(value).replace(/"/g, '""')}"`;
+                }).join(','));
+
+                const csvString = csvRows.join('\n');
+                const filename = `cierre_ventas_diarias_${new Date().toISOString().slice(0, 10)}_${currentUserId}.csv`;
+                
+                // Guardar en Firestore
+                const cierreData = {
+                    fechaCierre: new Date().toISOString(),
+                    userId: currentUserId,
+                    userName: currentUserEmail,
+                    consolidatedSales: consolidatedSalesData, // Guardar los datos consolidados
+                    uniqueProducts: Array.from(allUniqueProductIds), // Guardar IDs de productos únicos
+                    productDetailsAtClose: productDetailsMap, // Guardar detalles de productos al momento del cierre
+                    csvContent: csvString // Opcional: guardar el contenido CSV directamente
+                };
+                try {
+                    const cierreDocRef = doc(db, 'VentasConsolidadas', `${new Date().toISOString().slice(0, 10)}_${currentUserId}`);
+                    await setDoc(cierreDocRef, cierreData, { merge: true }); // Usar setDoc con merge para evitar sobrescribir si ya existe
+                    console.log('Cierre de ventas diario guardado en Firestore.');
+                } catch (firestoreError) {
+                    console.error('Error al guardar el cierre de ventas en Firestore:', firestoreError);
+                    showCustomAlert('Error al guardar el cierre de ventas en la base de datos.');
+                }
+
+                generateCsvFile(csvString, filename);
+            });
+        }
+
+        if (btnBack) {
+            btnBack.addEventListener('click', backToMainMenuCallback);
+        }
+        console.log('renderCierreVentasDiarias: Finalizado.');
     }
 
     console.log('renderVentasSection: Función completada.');
