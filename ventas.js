@@ -1,13 +1,16 @@
 // ventas.js
 // Este archivo gestiona las operaciones de ventas, incluyendo la creación de nuevas ventas
 // y la visualización de cierres diarios.
+// Ahora permite seleccionar un camión para la venta, muestra el stock disponible de ese camión,
+// valida la cantidad a vender y genera un archivo CSV detallado de la venta.
 
 // Importa las funciones necesarias de Firebase Firestore.
 import { collection, addDoc, getDocs, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // Importa funciones de otros módulos para obtener datos necesarios
 import { obtenerTodosLosClientes } from './clientes.js';
-import { verInventarioCompleto } from './inventario.js';
+import { obtenerTodosLosVehiculos } from './CargasyVehiculos.js'; // Importa para obtener la lista de vehículos
+import { verInventarioCompleto } from './inventario.js'; // Se mantiene para obtener la definición de todos los productos
 
 // ID fijo para el documento de configuración de valores de cambio
 const EXCHANGE_RATES_DOC_ID = 'exchangeRates';
@@ -216,16 +219,17 @@ async function guardarVenta(ventaData) {
 }
 
 /**
- * Actualiza la cantidad de un producto en el inventario general.
+ * Actualiza la cantidad de un producto en el inventario de un camión específico.
+ * @param {string} vehiculoId - ID del vehículo cuyo inventario se va a actualizar.
  * @param {string} productId - ID del producto a actualizar.
- * @param {number} quantitySold - Cantidad vendida (se restará del inventario).
+ * @param {number} quantitySold - Cantidad vendida (se restará del inventario del camión).
  * @returns {Promise<boolean>} True si se actualizó con éxito, false en caso contrario.
  */
-async function actualizarInventarioGeneral(productId, quantitySold) {
-    console.log(`actualizarInventarioGeneral: Actualizando producto ${productId} con cantidad vendida ${quantitySold}`);
+async function actualizarInventarioCamion(vehiculoId, productId, quantitySold) {
+    console.log(`actualizarInventarioCamion: Actualizando producto ${productId} en camión ${vehiculoId} con cantidad vendida ${quantitySold}`);
     try {
         const { db } = await getFirestoreInstances();
-        const productDocRef = doc(db, 'datosInventario', productId);
+        const productDocRef = doc(db, 'Vehiculos', vehiculoId, 'inventarioCamion', productId);
         const docSnap = await getDoc(productDocRef);
 
         if (docSnap.exists()) {
@@ -233,24 +237,110 @@ async function actualizarInventarioGeneral(productId, quantitySold) {
             const newQuantity = currentQuantity - quantitySold;
             
             if (newQuantity < 0) {
-                console.warn(`Advertencia: La cantidad en inventario para ${productId} sería negativa (${newQuantity}). No se actualizará a negativo.`);
-                showCustomAlert(`Advertencia: No hay suficiente stock de un producto para completar la venta. Cantidad actual: ${currentQuantity}, Cantidad a vender: ${quantitySold}`);
+                console.warn(`Advertencia: La cantidad en inventario para ${productId} en el camión ${vehiculoId} sería negativa (${newQuantity}). No se actualizará a negativo.`);
+                showCustomAlert(`Advertencia: No hay suficiente stock de "${docSnap.data().Producto} (${docSnap.data().Presentacion})" en el camión seleccionado. Cantidad disponible: ${currentQuantity}, Cantidad a vender: ${quantitySold}`);
                 return false; // Indicar que no se pudo actualizar por stock insuficiente
             }
 
             await updateDoc(productDocRef, { Cantidad: newQuantity });
-            console.log(`Inventario de producto ${productId} actualizado. Nueva cantidad: ${newQuantity}`);
+            console.log(`Inventario de producto ${productId} en camión ${vehiculoId} actualizado. Nueva cantidad: ${newQuantity}`);
             return true;
         } else {
-            console.error(`Error: Producto ${productId} no encontrado en datosInventario para actualizar.`);
-            showCustomAlert(`Error: Producto no encontrado en el inventario general para actualizar.`);
+            console.error(`Error: Producto ${productId} no encontrado en el inventario del camión ${vehiculoId} para actualizar.`);
+            showCustomAlert(`Error: Producto no encontrado en el inventario del camión seleccionado para actualizar.`);
             return false;
         }
     } catch (error) {
-        console.error('Error al actualizar inventario general:', error);
+        console.error('Error al actualizar inventario del camión:', error);
         return false;
     }
 }
+
+/**
+ * Convierte los datos de la venta a formato CSV con un formato específico.
+ * @param {object} ventaData - Los datos completos de la venta.
+ * @returns {string} La cadena de texto en formato CSV.
+ */
+function convertToCsvVenta(ventaData) {
+    const csvRows = [];
+
+    // Fila 1: Información del camión
+    // Formato: "Camion: Marca Modelo, Placa: XXX-YYY"
+    const vehicleInfo = `Camion: ${ventaData.vehiculo.marca} ${ventaData.vehiculo.modelo}, Placa: ${ventaData.vehiculo.placa}`;
+    csvRows.push(`"${vehicleInfo.replace(/"/g, '""')}"`); // Escapar comillas dobles y encerrar en comillas
+
+    // Fila 2: Información del cliente
+    // Formato: "Cliente: Nombre Comercial, Rif: XXXXXXX-X"
+    const clientInfo = `Cliente: ${ventaData.cliente.NombreComercial}, Rif: ${ventaData.cliente.Rif}`;
+    csvRows.push(`"${clientInfo.replace(/"/g, '""')}"`); // Escapar comillas dobles y encerrar en comillas
+
+    // Fila 3: Cabecera de identificación de los productos
+    const productHeaders = [
+        "ProductoID",
+        "ProductoNombre",
+        "ProductoPresentacion",
+        "ProductoRubro",
+        "ProductoSegmento",
+        "PrecioUnitarioUSD",
+        "Cantidad",
+        "SubtotalUSD"
+    ];
+    csvRows.push(productHeaders.map(header => `"${header}"`).join(','));
+
+    // De la cuarta fila en adelante: Información de los productos y cantidades
+    ventaData.productosVendidos.forEach(producto => {
+        const row = [
+            producto.idProducto,
+            producto.Producto,
+            producto.Presentacion,
+            producto.Rubro,
+            producto.Segmento,
+            producto.PrecioUnitarioUSD,
+            producto.Cantidad,
+            producto.SubtotalUSD
+        ];
+        // Escapar comillas dobles y encerrar el valor en comillas si contiene comas o comillas
+        csvRows.push(row.map(value => {
+            if (value === undefined || value === null) {
+                return '';
+            }
+            value = String(value).replace(/"/g, '""');
+            return `"${value}"`;
+        }).join(','));
+    });
+
+    // Última fila: Total de la venta
+    csvRows.push(`Total Venta USD:,"${ventaData.totalVentaUSD.toFixed(2)}"`);
+
+    return csvRows.join('\n');
+}
+
+/**
+ * Genera y descarga un archivo CSV con los datos de la venta.
+ * @param {object} ventaData - Los datos completos de la venta.
+ */
+function generateVentaFile(ventaData) {
+    const filename = `venta_${ventaData.cliente.Rif}_${new Date().toISOString().slice(0, 10)}.csv`;
+    const csvString = convertToCsvVenta(ventaData); // Convertir a CSV
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+
+    const link = document.createElement('a');
+    if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        showCustomAlert(`Archivo de venta "${filename}" generado y descargado.`);
+    } else {
+        showCustomAlert('Su navegador no soporta la descarga directa de archivos. Los datos de la venta se han copiado a la consola.');
+        console.log(csvString);
+    }
+}
+
 
 /**
  * Renderiza la interfaz de usuario de la sección de ventas.
@@ -306,7 +396,8 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
 
     // Cargar datos necesarios una vez
     let allClients = await obtenerTodosLosClientes();
-    let allProductsInventario = await verInventarioCompleto();
+    let allVehiculos = await obtenerTodosLosVehiculos(); // Obtener todos los vehículos
+    let allProductsInventarioGeneral = await verInventarioCompleto(); // Todos los productos definidos
     let exchangeRates = await obtenerValoresDeCambio();
     let rubroSegmentoMap = await obtenerConfiguracionRubrosSegmentos();
 
@@ -340,7 +431,7 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
         btnNuevaVenta.addEventListener('click', async () => {
             console.log('Botón "Nueva Venta" clickeado.');
             ventasMainButtonsContainer.classList.add('hidden');
-            await renderNuevaVentaForm(ventasSubSection, showVentasMainButtons, allClients, allProductsInventario, exchangeRates, rubroSegmentoMap);
+            await renderNuevaVentaForm(ventasSubSection, showVentasMainButtons, allClients, allVehiculos, allProductsInventarioGeneral, exchangeRates, rubroSegmentoMap);
         });
     }
 
@@ -357,11 +448,12 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
      * @param {HTMLElement} parentContainer - El contenedor donde se renderizará el formulario.
      * @param {function(): void} backToMainMenuCallback - Callback para volver al menú principal de ventas.
      * @param {Array<object>} clients - Lista de todos los clientes.
-     * @param {Array<object>} products - Lista de todos los productos del inventario.
+     * @param {Array<object>} vehiculos - Lista de todos los vehículos.
+     * @param {Array<object>} allProductsGeneral - Lista de todos los productos definidos en el inventario general.
      * @param {object} rates - Valores de cambio actuales (USD, COP, Bs).
      * @param {object} rubroMap - Mapa de rubros y segmentos.
      */
-    async function renderNuevaVentaForm(parentContainer, backToMainMenuCallback, clients, products, rates, rubroMap) {
+    async function renderNuevaVentaForm(parentContainer, backToMainMenuCallback, clients, vehiculos, allProductsGeneral, rates, rubroMap) {
         console.log('renderNuevaVentaForm: Iniciando...');
         parentContainer.innerHTML = `
             <div class="p-6 bg-green-50 rounded-lg shadow-inner">
@@ -376,25 +468,33 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
                     </select>
                 </div>
 
-                <div class="mb-4">
-                    <label for="filter-rubro-venta" class="block text-sm font-medium text-gray-700 mb-1">Filtrar Productos por Rubro:</label>
-                    <select id="filter-rubro-venta" class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
-                        <option value="">Todos los Rubros</option>
-                        ${Object.keys(rubroMap).map(rubro => `<option value="${rubro}">${rubro}</option>`).join('')}
-                    </select>
-                </div>
-
-                <div class="mb-4">
-                    <label for="currency-select" class="block text-sm font-medium text-gray-700 mb-1">Mostrar Precios en:</label>
-                    <select id="currency-select" class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
-                        <option value="USD">USD</option>
-                        <option value="COP">COP</option>
-                        <option value="Bs">Bs.</option>
-                    </select>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div>
+                        <label for="select-camion-venta" class="block text-sm font-medium text-gray-700 mb-1">Seleccionar Camión:</label>
+                        <select id="select-camion-venta" class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
+                            <option value="">-- Selecciona un Camión --</option>
+                            ${vehiculos.map(vehiculo => `<option value="${vehiculo.id}">${vehiculo.marca} ${vehiculo.modelo} (${vehiculo.placa})</option>`).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="filter-rubro-venta" class="block text-sm font-medium text-gray-700 mb-1">Filtrar por Rubro:</label>
+                        <select id="filter-rubro-venta" class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
+                            <option value="">Todos los Rubros</option>
+                            ${Object.keys(rubroMap).map(rubro => `<option value="${rubro}">${rubro}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="currency-select" class="block text-sm font-medium text-gray-700 mb-1">Mostrar Precios en:</label>
+                        <select id="currency-select" class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
+                            <option value="USD">USD</option>
+                            <option value="COP">COP</option>
+                            <option value="Bs">Bs.</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div id="productos-venta-table-container" class="bg-white p-4 rounded-md border border-gray-200 max-h-96 overflow-y-auto shadow-md mb-4">
-                    <p class="text-gray-500">Selecciona un cliente para ver los productos disponibles.</p>
+                    <p class="text-gray-500">Selecciona un camión para ver los productos disponibles para la venta.</p>
                 </div>
 
                 <div class="flex justify-between items-center bg-gray-100 p-4 rounded-md mb-4">
@@ -413,6 +513,7 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
 
         const searchClienteInput = parentContainer.querySelector('#search-cliente-venta');
         const selectClienteVenta = parentContainer.querySelector('#select-cliente-venta');
+        const selectCamionVenta = parentContainer.querySelector('#select-camion-venta'); // Nuevo selector de camión
         const filterRubroVenta = parentContainer.querySelector('#filter-rubro-venta');
         const currencySelect = parentContainer.querySelector('#currency-select');
         const productosVentaTableContainer = parentContainer.querySelector('#productos-venta-table-container');
@@ -421,7 +522,9 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
         const btnBack = parentContainer.querySelector('#btn-back-nueva-venta');
 
         let selectedClient = null;
-        let currentProductsForSale = []; // Productos que se están mostrando y de los cuales se puede vender
+        let selectedTruck = null; // Nuevo: camión seleccionado
+        let currentTruckInventory = []; // Inventario del camión actualmente seleccionado
+        let displayedProductsForSale = []; // Productos actualmente mostrados en la tabla (filtrados)
 
         // Función para filtrar clientes en el select
         const filterClientSelect = () => {
@@ -449,28 +552,48 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
         selectClienteVenta.addEventListener('change', () => {
             selectedClient = clients.find(c => c.id === selectClienteVenta.value);
             console.log('Cliente seleccionado:', selectedClient);
-            // Al seleccionar un cliente, cargar los productos disponibles para la venta
-            applyProductFilters();
+        });
+
+        // Lógica para seleccionar camión y cargar su inventario
+        selectCamionVenta.addEventListener('change', async () => {
+            selectedTruck = vehiculos.find(v => v.id === selectCamionVenta.value);
+            console.log('Camión seleccionado:', selectedTruck);
+            if (selectedTruck) {
+                const { db } = await getFirestoreInstances();
+                const inventarioCamionSnapshot = await getDocs(collection(db, 'Vehiculos', selectedTruck.id, 'inventarioCamion'));
+                currentTruckInventory = [];
+                inventarioCamionSnapshot.forEach(doc => {
+                    currentTruckInventory.push({ id: doc.id, ...doc.data() });
+                });
+                console.log('Inventario del camión cargado:', currentTruckInventory);
+            } else {
+                currentTruckInventory = [];
+            }
+            applyProductFilters(); // Aplicar filtros para mostrar productos del camión
         });
 
         // Lógica de filtrado de productos por rubro y búsqueda
         const applyProductFilters = () => {
             const selectedRubro = filterRubroVenta.value;
-            const searchTerm = ""; // No hay input de búsqueda de productos por ahora, pero se puede añadir
             
-            currentProductsForSale = allProductsInventario.filter(product => {
-                const matchesRubro = !selectedRubro || (product.Rubro === selectedRubro);
-                // Aquí podrías añadir un filtro por texto si tuvieras un input de búsqueda de productos
-                // const matchesSearch = (product.Producto && product.Producto.toLowerCase().includes(searchTerm)) || ...
-                return matchesRubro;
-            });
-            renderProductsForSaleTable(currentProductsForSale);
+            // Si no hay camión seleccionado, no mostrar productos
+            if (!selectedTruck) {
+                displayedProductsForSale = [];
+            } else {
+                displayedProductsForSale = currentTruckInventory.filter(product => {
+                    const matchesRubro = !selectedRubro || (product.Rubro === selectedRubro);
+                    // Aquí podrías añadir un filtro por texto si tuvieras un input de búsqueda de productos
+                    // const matchesSearch = (product.Producto && product.Producto.toLowerCase().includes(searchTerm)) || ...
+                    return matchesRubro;
+                });
+            }
+            renderProductsForSaleTable(displayedProductsForSale);
             calculateTotal(); // Recalcular total al cambiar productos
         };
 
         filterRubroVenta.addEventListener('change', applyProductFilters);
         currencySelect.addEventListener('change', () => {
-            renderProductsForSaleTable(currentProductsForSale); // Re-renderizar tabla con nueva moneda
+            renderProductsForSaleTable(displayedProductsForSale); // Re-renderizar tabla con nueva moneda
             calculateTotal(); // Recalcular total con nueva moneda
         });
 
@@ -478,8 +601,12 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
         // Renderizar la tabla de productos para la venta
         const renderProductsForSaleTable = (productsToRender) => {
             productosVentaTableContainer.innerHTML = '';
+            if (!selectedTruck) {
+                productosVentaTableContainer.innerHTML = '<p class="text-gray-500">Selecciona un camión para ver los productos disponibles para la venta.</p>';
+                return;
+            }
             if (productsToRender.length === 0) {
-                productosVentaTableContainer.innerHTML = '<p class="text-gray-500">No hay productos disponibles para la venta o no coinciden con los filtros.</p>';
+                productosVentaTableContainer.innerHTML = '<p class="text-gray-500">No hay productos disponibles en este camión o no coinciden con los filtros.</p>';
                 return;
             }
 
@@ -495,6 +622,7 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
                             <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Producto</th>
                             <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Presentación</th>
                             <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio (${selectedCurrency})</th>
+                            <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Disp.</th>
                             <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad</th>
                             <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotal (${selectedCurrency})</th>
                         </tr>
@@ -521,8 +649,9 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
                         <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-900">${product.Producto || 'N/A'}</td>
                         <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${product.Presentacion || 'N/A'}</td>
                         <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${currencySymbol}${displayPrice.toFixed(2)}</td>
+                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${product.Cantidad || 0}</td>
                         <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">
-                            <input type="number" min="0" value="0" class="w-24 p-1 border border-gray-300 rounded-md text-center cantidad-venta-input" data-product-id="${product.id}" data-price-usd="${precioUSD}">
+                            <input type="number" min="0" max="${product.Cantidad || 0}" value="0" class="w-24 p-1 border border-gray-300 rounded-md text-center cantidad-venta-input" data-product-id="${product.id}" data-price-usd="${precioUSD}" data-available-quantity="${product.Cantidad || 0}">
                         </td>
                         <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500 subtotal-cell">${currencySymbol}0.00</td>
                     </tr>
@@ -535,7 +664,20 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
             // Añadir event listeners a los inputs de cantidad para calcular subtotales y total
             productosVentaTableContainer.querySelectorAll('.cantidad-venta-input').forEach(input => {
                 input.addEventListener('input', (event) => {
-                    const quantity = parseInt(event.target.value) || 0;
+                    let quantity = parseInt(event.target.value) || 0;
+                    const availableQuantity = parseInt(event.target.dataset.availableQuantity) || 0;
+
+                    // Validar que la cantidad no exceda la disponible
+                    if (quantity > availableQuantity) {
+                        showCustomAlert(`La cantidad no puede ser mayor que la disponible (${availableQuantity}).`);
+                        quantity = availableQuantity; // Ajustar la cantidad al máximo disponible
+                        event.target.value = quantity; // Actualizar el input
+                    }
+                    if (quantity < 0) {
+                        quantity = 0;
+                        event.target.value = quantity;
+                    }
+
                     const priceUSD = parseFloat(event.target.dataset.priceUsd);
                     
                     let subtotalUSD = quantity * priceUSD;
@@ -593,43 +735,59 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
                     showCustomAlert('Por favor, selecciona un cliente para la venta.');
                     return;
                 }
+                if (!selectedTruck) {
+                    showCustomAlert('Por favor, selecciona un camión del cual se realizará la venta.');
+                    return;
+                }
 
                 const productosVendidos = [];
                 const cantidadInputs = productosVentaTableContainer.querySelectorAll('.cantidad-venta-input');
                 let totalVentaUSD = 0;
                 let hasInsufficientStock = false;
 
+                // Primera pasada para validar stock antes de procesar la venta
                 for (const input of cantidadInputs) {
                     const productId = input.dataset.productId;
                     const cantidad = parseInt(input.value) || 0;
+                    const availableQuantity = parseInt(input.dataset.availableQuantity) || 0;
 
                     if (cantidad > 0) {
-                        const product = allProductsInventario.find(p => p.id === productId);
+                        const product = currentTruckInventory.find(p => p.id === productId);
                         if (product) {
-                            // Verificar stock antes de añadir al carrito
-                            if (product.CantidadTotal !== undefined && product.CantidadTotal < cantidad) {
-                                showCustomAlert(`No hay suficiente stock de "${product.Producto} (${product.Presentacion})". Cantidad disponible: ${product.CantidadTotal || 0}, Cantidad a vender: ${cantidad}.`);
+                            if (cantidad > availableQuantity) {
+                                showCustomAlert(`No hay suficiente stock de "${product.Producto} (${product.Presentacion})" en el camión. Cantidad disponible: ${availableQuantity}, Cantidad a vender: ${cantidad}.`);
                                 hasInsufficientStock = true;
                                 break; // Detener el proceso si hay stock insuficiente
                             }
-
-                            productosVendidos.push({
-                                idProducto: product.id,
-                                Producto: product.Producto,
-                                Presentacion: product.Presentacion,
-                                Rubro: product.Rubro,
-                                Segmento: product.Segmento,
-                                PrecioUnitarioUSD: product.Precio,
-                                Cantidad: cantidad,
-                                SubtotalUSD: cantidad * product.Precio
-                            });
-                            totalVentaUSD += (cantidad * product.Precio);
                         }
                     }
                 }
 
                 if (hasInsufficientStock) {
                     return; // No continuar con la venta si hay stock insuficiente
+                }
+
+                // Segunda pasada para construir la lista de productos vendidos y calcular el total
+                for (const input of cantidadInputs) {
+                    const productId = input.dataset.productId;
+                    const cantidad = parseInt(input.value) || 0;
+
+                    if (cantidad > 0) {
+                        const product = currentTruckInventory.find(p => p.id === productId);
+                        if (product) {
+                            productosVendidos.push({
+                                idProducto: product.id,
+                                Producto: product.Producto,
+                                Presentacion: product.Presentacion,
+                                Rubro: product.Rubro,
+                                Segmento: product.Segmento,
+                                PrecioUnitarioUSD: product.Precio, // Siempre en USD para el registro
+                                Cantidad: cantidad,
+                                SubtotalUSD: cantidad * product.Precio
+                            });
+                            totalVentaUSD += (cantidad * product.Precio);
+                        }
+                    }
                 }
 
                 if (productosVendidos.length === 0) {
@@ -651,6 +809,12 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
                         Zona: selectedClient.Zona,
                         Sector: selectedClient.Sector,
                     },
+                    vehiculo: { // Incluir información del vehículo en la venta
+                        id: selectedTruck.id,
+                        marca: selectedTruck.marca,
+                        modelo: selectedTruck.modelo,
+                        placa: selectedTruck.placa,
+                    },
                     productosVendidos: productosVendidos,
                     totalVentaUSD: totalVentaUSD,
                     exchangeRatesAtSale: rates // Guardar los valores de cambio al momento de la venta
@@ -659,9 +823,9 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
                 const ventaId = await guardarVenta(ventaData);
                 if (ventaId) {
                     let inventoryUpdateSuccess = true;
-                    // Actualizar el inventario general (restar las cantidades vendidas)
+                    // Actualizar el inventario del camión (restar las cantidades vendidas)
                     for (const item of productosVendidos) {
-                        const updated = await actualizarInventarioGeneral(item.idProducto, item.Cantidad);
+                        const updated = await actualizarInventarioCamion(selectedTruck.id, item.idProducto, item.Cantidad);
                         if (!updated) {
                             inventoryUpdateSuccess = false;
                             // Si falla la actualización de un producto, ya se mostró una alerta.
@@ -670,20 +834,25 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
                     }
 
                     if (inventoryUpdateSuccess) {
-                        showCustomAlert('Venta registrada y inventario actualizado con éxito.');
+                        showCustomAlert('Venta registrada y inventario del camión actualizado con éxito. Generando archivo de venta...');
                     } else {
-                        showCustomAlert('Venta registrada, pero hubo problemas al actualizar el inventario. Verifique la consola para más detalles.');
+                        showCustomAlert('Venta registrada, pero hubo problemas al actualizar el inventario del camión. Verifique la consola para más detalles.');
                     }
                     
+                    generateVentaFile(ventaData); // Generar el archivo CSV
+
                     // Limpiar el formulario y resetear la tabla después de guardar
                     selectClienteVenta.value = '';
                     selectedClient = null;
                     searchClienteInput.value = '';
                     filterClientSelect(); // Re-filtrar el select de clientes
-                    filterRubroVenta.value = '';
-                    // Volver a cargar el inventario completo para reflejar los cambios de stock
-                    allProductsInventario = await verInventarioCompleto();
-                    applyProductFilters(); // Re-renderizar la tabla de productos
+
+                    selectCamionVenta.value = ''; // Resetear el selector de camión
+                    selectedTruck = null;
+                    currentTruckInventory = []; // Limpiar inventario del camión
+
+                    filterRubroVenta.value = ''; // Resetear filtro de rubro
+                    applyProductFilters(); // Re-renderizar la tabla de productos (vacía o con mensaje)
                     calculateTotal(); // Resetear el total
                 } else {
                     showCustomAlert('Fallo al registrar la venta.');
