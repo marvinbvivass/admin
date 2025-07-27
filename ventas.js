@@ -6,7 +6,7 @@
 // Se añade la funcionalidad de "Cierre de Ventas Diarias" para consolidar y exportar ventas por día y usuario.
 
 // Importa las funciones necesarias de Firebase Firestore.
-import { collection, addDoc, getDocs, doc, getDoc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { collection, addDoc, getDocs, doc, getDoc, updateDoc, query, where, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // Importa funciones de otros módulos para obtener datos necesarios
 import { obtenerTodosLosClientes } from './clientes.js';
@@ -14,7 +14,7 @@ import { obtenerTodosLosVehiculos } from './CargasyVehiculos.js'; // Importa par
 import { verInventarioCompleto } from './inventario.js'; // Se mantiene para obtener la definición de todos los productos
 
 // ID fijo para el documento de configuración de valores de cambio
-const EXCHANGE_RATES_DOC_ID = 'exchangeRates';
+const EXCHANGE_RATES_DOC_DOC_ID = 'exchangeRates';
 const RUBRO_SEGMENTO_CONFIG_DOC_ID = 'rubrosSegmentos'; // Para obtener los rubros
 
 // Función auxiliar para obtener la instancia de Firestore
@@ -151,7 +151,7 @@ async function obtenerValoresDeCambio() {
     console.log('obtenerValoresDeCambio: Iniciando...');
     try {
         const { db } = await getFirestoreInstances();
-        const configDocRef = doc(db, `configuracion`, EXCHANGE_RATES_DOC_ID);
+        const configDocRef = doc(db, `configuracion`, EXCHANGE_RATES_DOC_DOC_ID);
         const configSnap = await getDoc(configDocRef);
 
         if (configSnap.exists()) {
@@ -930,6 +930,53 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
 
         console.log(`Buscando ventas para el usuario ${currentUserId} entre ${startOfDayISO} y ${endOfDayISO}`);
 
+        /**
+         * Función para renderizar la tabla de cierre de ventas.
+         * @param {object} data - Datos consolidados de ventas por cliente.
+         * @param {Array<string>} uniqueProductIds - IDs únicos de productos vendidos, ordenados.
+         * @param {object} productDetails - Detalles de los productos (nombre, presentación, etc.).
+         * @param {HTMLElement} tableContainer - El contenedor donde se renderizará la tabla.
+         */
+        const renderCierreVentasTable = (data, uniqueProductIds, productDetails, tableContainer) => {
+            tableContainer.innerHTML = '';
+            let tableHTML = `
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50 sticky top-0">
+                        <tr>
+                            <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre Comercial</th>
+                            ${uniqueProductIds.map(id => `<th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${productDetails[id]?.Producto} (${productDetails[id]?.Presentacion})</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+            `;
+
+            let totalQuantities = {};
+            uniqueProductIds.forEach(id => totalQuantities[id] = 0);
+
+            for (const clientId in data) {
+                const clientData = data[clientId];
+                tableHTML += `
+                    <tr class="hover:bg-gray-100">
+                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-900">${clientData.cliente.NombreComercial || 'N/A'}</td>
+                        ${uniqueProductIds.map(id => {
+                            const quantity = clientData.productos[id] || 0;
+                            totalQuantities[id] += quantity;
+                            return `<td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${quantity}</td>`;
+                        }).join('')}
+                    </tr>
+                `;
+            }
+
+            // Fila de totales
+            tableHTML += `
+                    <tr class="bg-gray-200 font-bold">
+                        <td class="px-2 py-1 whitespace-nowrap text-sm text-gray-900">Total:</td>
+                        ${uniqueProductIds.map(id => `<td class="px-2 py-1 whitespace-nowrap text-sm text-gray-900">${totalQuantities[id]}</td>`).join('')}
+                    </tr>
+                </tbody></table>`;
+            tableContainer.innerHTML = tableHTML;
+        };
+
         try {
             const ventasRef = collection(db, 'datosVentas');
             // Filtrar por userId y por fecha de venta
@@ -1001,47 +1048,6 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
             cierreVentasTableContainer.innerHTML = '<p class="text-red-600">Error al cargar el cierre de ventas. Por favor, verifique los permisos.</p>';
             btnGenerarCierreCsv.disabled = true;
         }
-
-        // Función para renderizar la tabla de cierre de ventas
-        const renderCierreVentasTable = (data, uniqueProductIds, productDetails, tableContainer) => {
-            tableContainer.innerHTML = '';
-            let tableHTML = `
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50 sticky top-0">
-                        <tr>
-                            <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre Comercial</th>
-                            ${uniqueProductIds.map(id => `<th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${productDetails[id]?.Producto} (${productDetails[id]?.Presentacion})</th>`).join('')}
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-            `;
-
-            let totalQuantities = {};
-            uniqueProductIds.forEach(id => totalQuantities[id] = 0);
-
-            for (const clientId in data) {
-                const clientData = data[clientId];
-                tableHTML += `
-                    <tr class="hover:bg-gray-100">
-                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-900">${clientData.cliente.NombreComercial || 'N/A'}</td>
-                        ${uniqueProductIds.map(id => {
-                            const quantity = clientData.productos[id] || 0;
-                            totalQuantities[id] += quantity;
-                            return `<td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">${quantity}</td>`;
-                        }).join('')}
-                    </tr>
-                `;
-            }
-
-            // Fila de totales
-            tableHTML += `
-                    <tr class="bg-gray-200 font-bold">
-                        <td class="px-2 py-1 whitespace-nowrap text-sm text-gray-900">Total:</td>
-                        ${uniqueProductIds.map(id => `<td class="px-2 py-1 whitespace-nowrap text-sm text-gray-900">${totalQuantities[id]}</td>`).join('')}
-                    </tr>
-                </tbody></table>`;
-            tableContainer.innerHTML = tableHTML;
-        };
 
         // Lógica para generar y descargar el CSV
         if (btnGenerarCierreCsv) {
