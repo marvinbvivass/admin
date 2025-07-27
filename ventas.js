@@ -102,45 +102,45 @@ function showCustomConfirm(message) {
                     </div>
                 </div>
             `;
-            document.body.appendChild(modal);
+        document.body.appendChild(modal);
+    }
+
+    modal.querySelector('#confirm-message').textContent = message;
+    setTimeout(() => {
+        modal.classList.remove('hidden');
+    }, 50);
+
+    const yesBtn = modal.querySelector('#confirm-yes-btn');
+    const noBtn = modal.querySelector('#confirm-no-btn');
+
+    const oldYesBtn = yesBtn.cloneNode(true);
+    const oldNoBtn = noBtn.cloneNode(true);
+    yesBtn.parentNode.replaceChild(oldYesBtn, yesBtn);
+    noBtn.parentNode.replaceChild(oldNoBtn, noBtn);
+
+    const newYesBtn = document.getElementById('confirm-yes-btn');
+    const newNoBtn = document.getElementById('confirm-no-btn');
+
+
+    const cleanup = () => {
+        if (modal && modal.parentNode) {
+            modal.remove();
         }
+    };
 
-        modal.querySelector('#confirm-message').textContent = message;
-        setTimeout(() => {
-            modal.classList.remove('hidden');
-        }, 50);
+    const onYesClick = () => {
+        cleanup();
+        resolve(true);
+    };
 
-        const yesBtn = modal.querySelector('#confirm-yes-btn');
-        const noBtn = modal.querySelector('#confirm-no-btn');
+    const onNoClick = () => {
+        cleanup();
+        resolve(false);
+    };
 
-        const oldYesBtn = yesBtn.cloneNode(true);
-        const oldNoBtn = noBtn.cloneNode(true);
-        yesBtn.parentNode.replaceChild(oldYesBtn, yesBtn);
-        noBtn.parentNode.replaceChild(oldNoBtn, noBtn);
-
-        const newYesBtn = document.getElementById('confirm-yes-btn');
-        const newNoBtn = document.getElementById('confirm-no-btn');
-
-
-        const cleanup = () => {
-            if (modal && modal.parentNode) {
-                modal.remove();
-            }
-        };
-
-        const onYesClick = () => {
-            cleanup();
-            resolve(true);
-        };
-
-        const onNoClick = () => {
-            cleanup();
-            resolve(false);
-        };
-
-        newYesBtn.addEventListener('click', onYesClick);
-        newNoBtn.addEventListener('click', onNoClick);
-    });
+    newYesBtn.addEventListener('click', onYesClick);
+    newNoBtn.addEventListener('click', onNoClick);
+});
 }
 
 /**
@@ -1053,6 +1053,16 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
         // Lógica para generar y descargar el CSV
         if (btnGenerarCierreCsv) {
             btnGenerarCierreCsv.addEventListener('click', async () => {
+                // Añadir log para verificar el estado de autenticación justo antes de la operación
+                console.log('Estado de autenticación al intentar cierre de ventas (btn click):', auth.currentUser);
+                if (!currentUserId) {
+                    showCustomAlert('Error: No se pudo obtener el ID de usuario. Por favor, intente iniciar sesión de nuevo.');
+                    console.error('Error: currentUserId es nulo al intentar guardar/eliminar ventas. Esto indica que el usuario no está autenticado.');
+                    return;
+                }
+                console.log(`Intentando guardar/eliminar ventas para userId: ${currentUserId}`);
+
+
                 if (Object.keys(consolidatedSalesData).length === 0) {
                     showCustomAlert('No hay ventas para consolidar en el día de hoy.');
                     return;
