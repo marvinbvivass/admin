@@ -4,6 +4,7 @@
 // Ahora permite seleccionar un camión para la venta, muestra el stock disponible de ese camión,
 // valida la cantidad a vender y genera un archivo CSV detallado de la venta.
 // Se añade la funcionalidad de "Cierre de Ventas Diarias" para consolidar y exportar ventas por día y usuario.
+// ¡NUEVO! Se añade una sección para ver y gestionar archivos de ventas individuales (notas de entrega).
 
 // Importa las funciones necesarias de Firebase Firestore.
 import { collection, addDoc, getDocs, doc, getDoc, updateDoc, query, where, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -151,7 +152,6 @@ async function obtenerValoresDeCambio() {
     console.log('obtenerValoresDeCambio: Iniciando...');
     try {
         const { db } = await getFirestoreInstances();
-        // Ruta directa a la colección 'configuracion'
         const configDocRef = doc(db, `configuracion`, EXCHANGE_RATES_DOC_DOC_ID);
         const configSnap = await getDoc(configDocRef);
 
@@ -182,7 +182,6 @@ async function obtenerConfiguracionRubrosSegmentos() {
     console.log('obtenerConfiguracionRubrosSegmentos: Iniciando...');
     try {
         const { db } = await getFirestoreInstances();
-        // Ruta directa a la colección 'configuracion'
         const configDocRef = doc(db, `configuracion`, RUBRO_SEGMENTO_CONFIG_DOC_ID);
         const configSnap = await getDoc(configDocRef);
 
@@ -210,7 +209,6 @@ async function guardarVenta(ventaData) {
     console.log('guardarVenta: Iniciando...');
     try {
         const { db } = await getFirestoreInstances();
-        // Ruta directa a la colección 'datosVentas'
         const ventasCollectionRef = collection(db, `datosVentas`);
         // Añadir el ID del usuario actual a los datos de la venta
         ventaData.userId = window.currentUserId; 
@@ -236,7 +234,6 @@ async function actualizarInventarioCamion(vehiculoId, productId, quantitySold) {
     console.log(`actualizarInventarioCamion: Actualizando producto ${productId} en camión ${vehiculoId} con cantidad vendida ${quantitySold}`);
     try {
         const { db } = await getFirestoreInstances();
-        // Ruta directa a la colección 'Vehiculos' y su subcolección 'inventarioCamion'
         const productDocRef = doc(db, 'Vehiculos', vehiculoId, 'inventarioCamion', productId);
         const docSnap = await getDoc(productDocRef);
 
@@ -265,6 +262,28 @@ async function actualizarInventarioCamion(vehiculoId, productId, quantitySold) {
 }
 
 /**
+ * Función auxiliar para escapar valores para CSV.
+ * Solo envuelve en comillas si el valor contiene comas, comillas dobles o saltos de línea.
+ * Escapa las comillas dobles dentro del valor.
+ * @param {any} value - El valor a escapar.
+ * @returns {string} El valor escapado para CSV.
+ */
+function escapeCsvValue(value) {
+    if (value === undefined || value === null) {
+        return '';
+    }
+    let stringValue = String(value);
+    // Verificar si el valor contiene coma, comilla doble o salto de línea
+    if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+        // Escapar comillas dobles dentro del valor con otra comilla doble
+        stringValue = stringValue.replace(/"/g, '""');
+        // Envolver el valor completo en comillas dobles
+        return `"${stringValue}"`;
+    }
+    return stringValue; // No quoting needed
+}
+
+/**
  * Convierte los datos de la venta a formato CSV con un formato específico.
  * @param {object} ventaData - Los datos completos de la venta.
  * @returns {string} La cadena de texto en formato CSV.
@@ -275,12 +294,12 @@ function convertToCsvVenta(ventaData) {
     // Fila 1: Información del camión
     // Formato: "Camion: Marca Modelo, Placa: XXX-YYY"
     const vehicleInfo = `Camion: ${ventaData.vehiculo.marca} ${ventaData.vehiculo.modelo}, Placa: ${ventaData.vehiculo.placa}`;
-    csvRows.push(`"${vehicleInfo.replace(/"/g, '""')}"`); // Escapar comillas dobles y encerrar en comillas
+    csvRows.push(escapeCsvValue(vehicleInfo)); // Usar la función de escape
 
     // Fila 2: Información del cliente
     // Formato: "Cliente: Nombre Comercial, Rif: XXXXXXX-X"
     const clientInfo = `Cliente: ${ventaData.cliente.NombreComercial}, Rif: ${ventaData.cliente.Rif}`;
-    csvRows.push(`"${clientInfo.replace(/"/g, '""')}"`); // Escapar comillas dobles y encerrar en comillas
+    csvRows.push(escapeCsvValue(clientInfo)); // Usar la función de escape
 
     // Fila 3: Cabecera de identificación de los productos
     const productHeaders = [
@@ -293,7 +312,7 @@ function convertToCsvVenta(ventaData) {
         "Cantidad",
         "SubtotalUSD"
     ];
-    csvRows.push(productHeaders.map(header => `"${header}"`).join(','));
+    csvRows.push(productHeaders.map(header => escapeCsvValue(header)).join(',')); // Usar la función de escape
 
     // De la cuarta fila en adelante: Información de los productos y cantidades
     ventaData.productosVendidos.forEach(producto => {
@@ -307,18 +326,11 @@ function convertToCsvVenta(ventaData) {
             producto.Cantidad,
             producto.SubtotalUSD
         ];
-        // Escapar comillas dobles y encerrar el valor en comillas si contiene comas o comillas
-        csvRows.push(row.map(value => {
-            if (value === undefined || value === null) {
-                return '';
-            }
-            value = String(value).replace(/"/g, '""');
-            return `"${value}"`;
-        }).join(','));
+        csvRows.push(row.map(value => escapeCsvValue(value)).join(',')); // Usar la función de escape
     });
 
     // Última fila: Total de la venta
-    csvRows.push(`Total Venta USD:,"${ventaData.totalVentaUSD.toFixed(2)}"`);
+    csvRows.push(`Total Venta USD:,${escapeCsvValue(ventaData.totalVentaUSD.toFixed(2))}`); // Usar la función de escape
 
     return csvRows.join('\n');
 }
@@ -365,9 +377,12 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
         <div class="modal-content">
             <h2 class="text-4xl font-bold text-gray-900 mb-6 text-center">Gestión de Ventas</h2>
 
-            <div id="ventas-main-buttons-container" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+            <div id="ventas-main-buttons-container" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                 <button id="btn-nueva-venta" class="bg-green-600 text-white p-4 rounded-md font-semibold hover:bg-green-700 transition duration-200">
                     Nueva Venta
+                </button>
+                <button id="btn-archivos-ventas" class="bg-yellow-600 text-white p-4 rounded-md font-semibold hover:bg-yellow-700 transition duration-200">
+                    Archivos de Ventas
                 </button>
                 <button id="btn-cierre-ventas-diarias" class="bg-blue-600 text-white p-4 rounded-md font-semibold hover:bg-blue-700 transition duration-200">
                     Cierre de Ventas Diarias
@@ -399,6 +414,7 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
     const closeVentasModalBtn = container.querySelector('#close-ventas-modal');
 
     const btnNuevaVenta = container.querySelector('#btn-nueva-venta');
+    const btnArchivosVentas = container.querySelector('#btn-archivos-ventas'); // Nuevo botón
     const btnCierreVentasDiarias = container.querySelector('#btn-cierre-ventas-diarias');
 
     // Cargar datos necesarios una vez
@@ -439,6 +455,15 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
             console.log('Botón "Nueva Venta" clickeado.');
             ventasMainButtonsContainer.classList.add('hidden');
             await renderNuevaVentaForm(ventasSubSection, showVentasMainButtons, allClients, allVehiculos, allProductsInventarioGeneral, exchangeRates, rubroSegmentoMap);
+        });
+    }
+
+    // Lógica para el nuevo botón "Archivos de Ventas"
+    if (btnArchivosVentas) {
+        btnArchivosVentas.addEventListener('click', async () => {
+            console.log('Botón "Archivos de Ventas" clickeado.');
+            ventasMainButtonsContainer.classList.add('hidden');
+            await renderArchivosVentasSection(ventasSubSection, showVentasMainButtons);
         });
     }
 
@@ -569,7 +594,6 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
             console.log('Camión seleccionado:', selectedTruck);
             if (selectedTruck) {
                 const { db } = await getFirestoreInstances();
-                // Ruta directa a la colección 'Vehiculos' y su subcolección 'inventarioCamion'
                 const inventarioCamionSnapshot = await getDocs(collection(db, 'Vehiculos', selectedTruck.id, 'inventarioCamion'));
                 currentTruckInventory = [];
                 inventarioCamionSnapshot.forEach(doc => {
@@ -878,6 +902,152 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
     }
 
     /**
+     * Renderiza la interfaz para ver archivos de ventas individuales (notas de entrega).
+     * @param {HTMLElement} parentContainer - El contenedor donde se renderizará la sección.
+     * @param {function(): void} backToMainMenuCallback - Callback para volver al menú principal de ventas.
+     */
+    async function renderArchivosVentasSection(parentContainer, backToMainMenuCallback) {
+        console.log('renderArchivosVentasSection: Iniciando...');
+        parentContainer.innerHTML = `
+            <div class="p-6 bg-yellow-50 rounded-lg shadow-inner">
+                <h3 class="text-2xl font-semibold text-yellow-800 mb-4">Archivos de Ventas (Notas de Entrega)</h3>
+                <p class="text-gray-700 mb-4">Aquí puedes ver y gestionar las notas de entrega de ventas individuales.</p>
+                
+                <input type="text" id="search-archivos-ventas-input" placeholder="Buscar venta por cliente, fecha, etc." class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 mb-4">
+
+                <div id="archivos-ventas-table-container" class="bg-white p-4 rounded-md border border-gray-200 max-h-96 overflow-y-auto shadow-md mb-4">
+                    <p class="text-gray-500">Cargando archivos de ventas...</p>
+                </div>
+
+                <button id="btn-back-archivos-ventas" class="mt-4 w-full bg-gray-400 text-white p-3 rounded-md font-semibold hover:bg-gray-500 transition duration-200">
+                    Volver
+                </button>
+            </div>
+
+            <!-- Modal para mostrar la nota de entrega simulada -->
+            <div id="nota-entrega-modal" class="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-[9999] p-4 hidden">
+                <div class="bg-white rounded-lg shadow-xl p-6 max-w-lg w-full mx-auto relative">
+                    <h4 class="text-xl font-semibold text-gray-800 mb-4">Nota de Entrega Simulada</h4>
+                    <img src="https://placehold.co/400x300/E0F2F7/2196F3?text=Nota+de+Entrega+Simulada" alt="Nota de Entrega Simulada" class="w-full h-auto rounded-md mb-4">
+                    <p class="text-gray-700 text-sm mb-4">Esta es una simulación de una nota de entrega. En una aplicación real, esto podría ser un PDF generado o una imagen detallada de la venta.</p>
+                    <div class="flex justify-end">
+                        <button id="close-nota-entrega-modal" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-200">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const searchInput = parentContainer.querySelector('#search-archivos-ventas-input');
+        const tableContainer = parentContainer.querySelector('#archivos-ventas-table-container');
+        const btnBack = parentContainer.querySelector('#btn-back-archivos-ventas');
+        const notaEntregaModal = parentContainer.querySelector('#nota-entrega-modal');
+        const closeNotaEntregaModalBtn = parentContainer.querySelector('#close-nota-entrega-modal');
+
+        let allSales = []; // Para almacenar todas las ventas y filtrar sobre ellas
+
+        const renderSalesTable = (salesToRender) => {
+            tableContainer.innerHTML = '';
+            if (salesToRender.length === 0) {
+                tableContainer.innerHTML = '<p class="text-gray-500">No hay ventas registradas.</p>';
+                return;
+            }
+
+            let tableHTML = `
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50 sticky top-0">
+                        <tr>
+                            <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                            <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
+                            <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total USD</th>
+                            <th class="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+            `;
+
+            salesToRender.forEach(sale => {
+                const saleDate = new Date(sale.fechaVenta).toLocaleDateString('es-ES', {
+                    year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                });
+                tableHTML += `
+                    <tr class="hover:bg-gray-100">
+                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-900">${saleDate}</td>
+                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-900">${sale.cliente.NombreComercial || 'N/A'}</td>
+                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">$${(sale.totalVentaUSD || 0).toFixed(2)}</td>
+                        <td class="px-2 py-1 whitespace-nowrap text-xs text-gray-500">
+                            <button class="bg-blue-500 text-white px-2 py-1 rounded-md text-xs hover:bg-blue-600 transition duration-200 view-nota-btn" data-sale-id="${sale.id}">Ver Nota</button>
+                            <button class="bg-purple-500 text-white px-2 py-1 rounded-md text-xs hover:bg-purple-600 transition duration-200 print-nota-btn" data-sale-id="${sale.id}">Imprimir</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tableHTML += `</tbody></table>`;
+            tableContainer.innerHTML = tableHTML;
+
+            // Add event listeners for view and print buttons
+            tableContainer.querySelectorAll('.view-nota-btn').forEach(button => {
+                button.addEventListener('click', (event) => {
+                    const saleId = event.target.dataset.saleId;
+                    console.log('Ver Nota de Entrega para venta ID:', saleId);
+                    // Simular mostrar la nota de entrega
+                    notaEntregaModal.classList.remove('hidden');
+                });
+            });
+
+            tableContainer.querySelectorAll('.print-nota-btn').forEach(button => {
+                button.addEventListener('click', (event) => {
+                    const saleId = event.target.dataset.saleId;
+                    console.log('Imprimir Nota de Entrega para venta ID:', saleId);
+                    showCustomAlert('Funcionalidad de impresión simulada. En una aplicación real, esto generaría un PDF para imprimir.');
+                });
+            });
+        };
+
+        // Fetch sales data
+        try {
+            const { db } = await getFirestoreInstances();
+            const ventasSnapshot = await getDocs(collection(db, 'datosVentas'));
+            allSales = [];
+            ventasSnapshot.forEach(doc => {
+                allSales.push({ id: doc.id, ...doc.data() });
+            });
+            // Ordenar ventas por fecha, las más recientes primero
+            allSales.sort((a, b) => new Date(b.fechaVenta) - new Date(a.fechaVenta));
+            renderSalesTable(allSales);
+        } catch (error) {
+            console.error('Error al cargar archivos de ventas:', error);
+            tableContainer.innerHTML = '<p class="text-red-600">Error al cargar archivos de ventas. Por favor, verifique los permisos.</p>';
+        }
+
+        // Search functionality
+        searchInput.addEventListener('input', () => {
+            const searchTerm = searchInput.value.toLowerCase();
+            const filteredSales = allSales.filter(sale => {
+                const clientName = sale.cliente?.NombreComercial?.toLowerCase() || '';
+                const saleDate = new Date(sale.fechaVenta).toLocaleDateString('es-ES').toLowerCase();
+                const total = (sale.totalVentaUSD || 0).toFixed(2).toLowerCase();
+                return clientName.includes(searchTerm) || saleDate.includes(searchTerm) || total.includes(searchTerm);
+            });
+            renderSalesTable(filteredSales);
+        });
+
+        // Close nota de entrega modal
+        if (closeNotaEntregaModalBtn) {
+            closeNotaEntregaModalBtn.addEventListener('click', () => {
+                notaEntregaModal.classList.add('hidden');
+            });
+        }
+
+        // Back button
+        if (btnBack) {
+            btnBack.addEventListener('click', backToMainMenuCallback);
+        }
+        console.log('renderArchivosVentasSection: Finalizado.');
+    }
+
+
+    /**
      * Renderiza la interfaz para el cierre de ventas diarias.
      * Consolida las ventas del día actual por el usuario logueado y permite descargar un CSV.
      * @param {HTMLElement} parentContainer - El contenedor donde se renderizará el formulario.
@@ -985,7 +1155,6 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
         };
 
         try {
-            // Ruta directa a la colección 'datosVentas'
             const ventasRef = collection(db, 'datosVentas');
             // Filtrar por userId y por fecha de venta
             const q = query(
@@ -1079,9 +1248,9 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
                 const csvRows = [];
 
                 // Línea 1: Camión (general para el reporte diario)
-                csvRows.push(`"Camion: Todos los Camiones"`);
+                csvRows.push(escapeCsvValue(`Camion: Todos los Camiones`)); // Usar la función de escape
                 // Línea 2: Usuario
-                csvRows.push(`"Usuario: ${currentUserDisplayName}"`);
+                csvRows.push(escapeCsvValue(`Usuario: ${currentUserDisplayName}`)); // Usar la función de escape
 
                 // Línea 3: Cabecera de las columnas
                 const productHeaders = Array.from(allUniqueProductIds).sort((a, b) => {
@@ -1089,7 +1258,7 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
                     const nameB = productDetailsMap[b]?.Producto || '';
                     return nameA.localeCompare(nameB);
                 }).map(id => `${productDetailsMap[id]?.Producto} (${productDetailsMap[id]?.Presentacion})`);
-                csvRows.push(`"Nombre Comercial",${productHeaders.map(h => `"${h}"`).join(',')}`);
+                csvRows.push(escapeCsvValue("Nombre Comercial") + ',' + productHeaders.map(h => escapeCsvValue(h)).join(',')); // Usar la función de escape
 
                 // Líneas de datos de cada venta consolidada por cliente
                 let totalQuantities = {};
@@ -1107,10 +1276,7 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
                         rowValues.push(quantity);
                         totalQuantities[productId] += quantity; // Sumar al total
                     });
-                    csvRows.push(rowValues.map(value => {
-                        if (value === undefined || value === null) return '';
-                        return `"${String(value).replace(/"/g, '""')}"`;
-                    }).join(','));
+                    csvRows.push(rowValues.map(value => escapeCsvValue(value)).join(',')); // Usar la función de escape
                 }
 
                 // Última línea: Sumatoria por columna
@@ -1122,10 +1288,7 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
                 }).forEach(productId => {
                     totalRowValues.push(totalQuantities[productId]);
                 });
-                csvRows.push(totalRowValues.map(value => {
-                    if (value === undefined || value === null) return '';
-                    return `"${String(value).replace(/"/g, '""')}"`;
-                }).join(','));
+                csvRows.push(totalRowValues.map(value => escapeCsvValue(value)).join(',')); // Usar la función de escape
 
                 const csvString = csvRows.join('\n');
                 const filename = `cierre_ventas_diarias_${new Date().toISOString().slice(0, 10)}_${currentUserId}.csv`;
@@ -1141,14 +1304,12 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
                     csvContent: csvString // Opcional: guardar el contenido CSV directamente
                 };
                 try {
-                    // Ruta directa a la colección 'VentasConsolidadas'
                     const cierreDocRef = doc(db, 'VentasConsolidadas', `${new Date().toISOString().slice(0, 10)}_${currentUserId}`);
                     await setDoc(cierreDocRef, cierreData, { merge: true }); // Usar setDoc con merge para evitar sobrescribir si ya existe
                     console.log('Cierre de ventas diario guardado en Firestore.');
 
                     // --- NUEVA LÓGICA: Eliminar ventas individuales después del cierre ---
                     console.log('Iniciando eliminación de ventas individuales del día...');
-                    // Ruta directa a la colección 'datosVentas'
                     const salesToDeleteQuery = query(
                         collection(db, `datosVentas`),
                         where('userId', '==', currentUserId),
@@ -1160,7 +1321,7 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
                     if (!salesToDeleteSnapshot.empty) {
                         const deletePromises = [];
                         salesToDeleteSnapshot.forEach(docToDelete => {
-                            deletePromises.push(deleteDoc(doc(db, `datosVentas`, docToDelete.id))); // Ruta directa
+                            deletePromises.push(deleteDoc(doc(db, `datosVentas`, docToDelete.id)));
                         });
                         await Promise.all(deletePromises);
                         console.log(`Se eliminaron ${salesToDeleteSnapshot.size} ventas individuales del día.`);
