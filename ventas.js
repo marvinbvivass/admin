@@ -151,6 +151,7 @@ async function obtenerValoresDeCambio() {
     console.log('obtenerValoresDeCambio: Iniciando...');
     try {
         const { db } = await getFirestoreInstances();
+        // Ruta directa a la colección 'configuracion'
         const configDocRef = doc(db, `configuracion`, EXCHANGE_RATES_DOC_DOC_ID);
         const configSnap = await getDoc(configDocRef);
 
@@ -181,6 +182,7 @@ async function obtenerConfiguracionRubrosSegmentos() {
     console.log('obtenerConfiguracionRubrosSegmentos: Iniciando...');
     try {
         const { db } = await getFirestoreInstances();
+        // Ruta directa a la colección 'configuracion'
         const configDocRef = doc(db, `configuracion`, RUBRO_SEGMENTO_CONFIG_DOC_ID);
         const configSnap = await getDoc(configDocRef);
 
@@ -208,6 +210,7 @@ async function guardarVenta(ventaData) {
     console.log('guardarVenta: Iniciando...');
     try {
         const { db } = await getFirestoreInstances();
+        // Ruta directa a la colección 'datosVentas'
         const ventasCollectionRef = collection(db, `datosVentas`);
         // Añadir el ID del usuario actual a los datos de la venta
         ventaData.userId = window.currentUserId; 
@@ -233,6 +236,7 @@ async function actualizarInventarioCamion(vehiculoId, productId, quantitySold) {
     console.log(`actualizarInventarioCamion: Actualizando producto ${productId} en camión ${vehiculoId} con cantidad vendida ${quantitySold}`);
     try {
         const { db } = await getFirestoreInstances();
+        // Ruta directa a la colección 'Vehiculos' y su subcolección 'inventarioCamion'
         const productDocRef = doc(db, 'Vehiculos', vehiculoId, 'inventarioCamion', productId);
         const docSnap = await getDoc(productDocRef);
 
@@ -565,6 +569,7 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
             console.log('Camión seleccionado:', selectedTruck);
             if (selectedTruck) {
                 const { db } = await getFirestoreInstances();
+                // Ruta directa a la colección 'Vehiculos' y su subcolección 'inventarioCamion'
                 const inventarioCamionSnapshot = await getDocs(collection(db, 'Vehiculos', selectedTruck.id, 'inventarioCamion'));
                 currentTruckInventory = [];
                 inventarioCamionSnapshot.forEach(doc => {
@@ -980,6 +985,7 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
         };
 
         try {
+            // Ruta directa a la colección 'datosVentas'
             const ventasRef = collection(db, 'datosVentas');
             // Filtrar por userId y por fecha de venta
             const q = query(
@@ -1068,8 +1074,6 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
                     return;
                 }
 
-                // REMOVED: const { auth } = await getFirestoreInstances(); // Esta línea causaba el ReferenceError
-
                 const currentUserDisplayName = auth.currentUser?.email || auth.currentUser?.uid; // Usar auth del ámbito superior
 
                 const csvRows = [];
@@ -1137,14 +1141,16 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
                     csvContent: csvString // Opcional: guardar el contenido CSV directamente
                 };
                 try {
+                    // Ruta directa a la colección 'VentasConsolidadas'
                     const cierreDocRef = doc(db, 'VentasConsolidadas', `${new Date().toISOString().slice(0, 10)}_${currentUserId}`);
                     await setDoc(cierreDocRef, cierreData, { merge: true }); // Usar setDoc con merge para evitar sobrescribir si ya existe
                     console.log('Cierre de ventas diario guardado en Firestore.');
 
                     // --- NUEVA LÓGICA: Eliminar ventas individuales después del cierre ---
                     console.log('Iniciando eliminación de ventas individuales del día...');
+                    // Ruta directa a la colección 'datosVentas'
                     const salesToDeleteQuery = query(
-                        ventasRef,
+                        collection(db, `datosVentas`),
                         where('userId', '==', currentUserId),
                         where('fechaVenta', '>=', startOfDayISO),
                         where('fechaVenta', '<=', endOfDayISO)
@@ -1154,7 +1160,7 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
                     if (!salesToDeleteSnapshot.empty) {
                         const deletePromises = [];
                         salesToDeleteSnapshot.forEach(docToDelete => {
-                            deletePromises.push(deleteDoc(doc(db, 'datosVentas', docToDelete.id)));
+                            deletePromises.push(deleteDoc(doc(db, `datosVentas`, docToDelete.id))); // Ruta directa
                         });
                         await Promise.all(deletePromises);
                         console.log(`Se eliminaron ${salesToDeleteSnapshot.size} ventas individuales del día.`);
