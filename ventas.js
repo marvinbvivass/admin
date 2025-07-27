@@ -924,13 +924,17 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
                 </button>
             </div>
 
-            <!-- Modal para mostrar la nota de entrega simulada -->
+            <!-- Modal para mostrar la nota de entrega real -->
             <div id="nota-entrega-modal" class="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-[9999] p-4 hidden">
-                <div class="bg-white rounded-lg shadow-xl p-6 max-w-lg w-full mx-auto relative">
-                    <h4 class="text-xl font-semibold text-gray-800 mb-4">Nota de Entrega Simulada</h4>
-                    <img src="https://placehold.co/400x300/E0F2F7/2196F3?text=Nota+de+Entrega+Simulada" alt="Nota de Entrega Simulada" class="w-full h-auto rounded-md mb-4">
-                    <p class="text-gray-700 text-sm mb-4">Esta es una simulación de una nota de entrega. En una aplicación real, esto podría ser un PDF generado o una imagen detallada de la venta.</p>
-                    <div class="flex justify-end">
+                <div class="bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full mx-auto relative">
+                    <h4 class="text-xl font-semibold text-gray-800 mb-4">Nota de Entrega</h4>
+                    <div id="nota-entrega-content" class="bg-gray-50 p-4 rounded-md border border-gray-200 mb-4 overflow-auto max-h-[70vh]">
+                        <!-- Contenido de la nota de entrega se cargará aquí -->
+                        Cargando nota de entrega...
+                    </div>
+                    <div class="flex justify-end space-x-3">
+                        <button id="print-nota-modal-btn" class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition duration-200">Imprimir Nota</button>
+                        <button id="share-nota-modal-btn" class="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition duration-200">Compartir (Imagen)</button>
                         <button id="close-nota-entrega-modal" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-200">Cerrar</button>
                     </div>
                 </div>
@@ -941,9 +945,137 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
         const tableContainer = parentContainer.querySelector('#archivos-ventas-table-container');
         const btnBack = parentContainer.querySelector('#btn-back-archivos-ventas');
         const notaEntregaModal = parentContainer.querySelector('#nota-entrega-modal');
+        const notaEntregaContentDiv = parentContainer.querySelector('#nota-entrega-content');
         const closeNotaEntregaModalBtn = parentContainer.querySelector('#close-nota-entrega-modal');
+        const printNotaModalBtn = parentContainer.querySelector('#print-nota-modal-btn');
+        const shareNotaModalBtn = parentContainer.querySelector('#share-nota-modal-btn');
 
         let allSales = []; // Para almacenar todas las ventas y filtrar sobre ellas
+
+        /**
+         * Genera el HTML para la nota de entrega.
+         * @param {object} saleData - Los datos de la venta.
+         * @returns {string} HTML de la nota de entrega.
+         */
+        function generateDeliveryNoteHtml(saleData) {
+            if (!saleData) return '<p class="text-red-500">No se encontraron datos para esta nota de entrega.</p>';
+
+            const saleDate = new Date(saleData.fechaVenta).toLocaleDateString('es-ES', {
+                year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+
+            const companyInfo = {
+                name: "Distribuidora XYZ C.A.",
+                rif: "J-12345678-9",
+                address: "Calle Principal, Centro, Ciudad, Estado",
+                phone: "+58 412 1234567"
+            };
+
+            let productsTableHtml = `
+                <table class="min-w-full border-collapse border border-gray-300 mb-4">
+                    <thead>
+                        <tr class="bg-gray-100">
+                            <th class="border border-gray-300 px-2 py-1 text-left text-xs font-semibold">Producto</th>
+                            <th class="border border-gray-300 px-2 py-1 text-left text-xs font-semibold">Presentación</th>
+                            <th class="border border-gray-300 px-2 py-1 text-left text-xs font-semibold">Cantidad</th>
+                            <th class="border border-gray-300 px-2 py-1 text-left text-xs font-semibold">P. Unit. (USD)</th>
+                            <th class="border border-gray-300 px-2 py-1 text-left text-xs font-semibold">Subtotal (USD)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            saleData.productosVendidos.forEach(p => {
+                productsTableHtml += `
+                    <tr>
+                        <td class="border border-gray-300 px-2 py-1 text-xs">${p.Producto || 'N/A'}</td>
+                        <td class="border border-gray-300 px-2 py-1 text-xs">${p.Presentacion || 'N/A'}</td>
+                        <td class="border border-gray-300 px-2 py-1 text-xs text-center">${p.Cantidad || 0}</td>
+                        <td class="border border-gray-300 px-2 py-1 text-xs text-right">$${(p.PrecioUnitarioUSD || 0).toFixed(2)}</td>
+                        <td class="border border-gray-300 px-2 py-1 text-xs text-right">$${(p.SubtotalUSD || 0).toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+            productsTableHtml += `
+                    </tbody>
+                    <tfoot>
+                        <tr class="bg-gray-100 font-semibold">
+                            <td colspan="4" class="border border-gray-300 px-2 py-1 text-right text-sm">TOTAL USD:</td>
+                            <td class="border border-gray-300 px-2 py-1 text-right text-sm">$${(saleData.totalVentaUSD || 0).toFixed(2)}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            `;
+
+            let exchangeRatesHtml = '';
+            if (saleData.exchangeRatesAtSale) {
+                exchangeRatesHtml = `
+                    <p class="text-xs text-gray-600 mt-2">
+                        Tasas de Cambio al momento de la venta: 
+                        1 USD = COP ${saleData.exchangeRatesAtSale.cop.toFixed(2)} | 
+                        1 USD = Bs. ${saleData.exchangeRatesAtSale.bs.toFixed(2)}
+                    </p>
+                `;
+            }
+
+            return `
+                <div class="p-4 bg-white rounded-lg shadow-md print-area">
+                    <div class="text-center mb-6">
+                        <h1 class="text-2xl font-bold text-gray-900">${companyInfo.name}</h1>
+                        <p class="text-sm text-gray-600">RIF: ${companyInfo.rif}</p>
+                        <p class="text-sm text-gray-600">${companyInfo.address}</p>
+                        <p class="text-sm text-gray-600">Tlf: ${companyInfo.phone}</p>
+                        <h2 class="text-xl font-semibold text-gray-800 mt-4">NOTA DE ENTREGA</h2>
+                        <p class="text-sm text-gray-700">No. Venta: ${saleData.id}</p>
+                        <p class="text-sm text-gray-700">Fecha: ${saleDate}</p>
+                    </div>
+
+                    <div class="mb-6 border-t border-b border-gray-200 py-3">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Datos del Cliente:</h3>
+                        <p class="text-sm text-gray-700"><strong>Nombre Comercial:</strong> ${saleData.cliente.NombreComercial || 'N/A'}</p>
+                        <p class="text-sm text-gray-700"><strong>RIF:</strong> ${saleData.cliente.Rif || 'N/A'}</p>
+                        <p class="text-sm text-gray-700"><strong>Zona:</strong> ${saleData.cliente.Zona || 'N/A'}, <strong>Sector:</strong> ${saleData.cliente.Sector || 'N/A'}</p>
+                    </div>
+
+                    <div class="mb-6 border-b border-gray-200 py-3">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Datos del Vehículo:</h3>
+                        <p class="text-sm text-gray-700"><strong>Marca:</strong> ${saleData.vehiculo.marca || 'N/A'}</p>
+                        <p class="text-sm text-gray-700"><strong>Modelo:</strong> ${saleData.vehiculo.modelo || 'N/A'}</p>
+                        <p class="text-sm text-gray-700"><strong>Placa:</strong> ${saleData.vehiculo.placa || 'N/A'}</p>
+                    </div>
+
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Productos Vendidos:</h3>
+                        ${productsTableHtml}
+                    </div>
+
+                    ${exchangeRatesHtml}
+
+                    <div class="flex justify-around mt-8 pt-4 border-t border-gray-200 text-sm text-gray-700">
+                        <div class="text-center">
+                            <p class="mb-6">_________________________</p>
+                            <p>Firma del Cliente</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="mb-6">_________________________</p>
+                            <p>Firma del Vendedor</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        /**
+         * Muestra el modal de nota de entrega con los datos de la venta.
+         * @param {object} saleData - Los datos completos de la venta.
+         */
+        async function showNotaDeEntregaModal(saleData) {
+            notaEntregaContentDiv.innerHTML = generateDeliveryNoteHtml(saleData);
+            notaEntregaModal.classList.remove('hidden');
+
+            // Asegurarse de que el botón de imprimir y compartir estén habilitados
+            printNotaModalBtn.disabled = false;
+            shareNotaModalBtn.disabled = false;
+        }
 
         const renderSalesTable = (salesToRender) => {
             tableContainer.innerHTML = '';
@@ -987,19 +1119,61 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
 
             // Add event listeners for view and print buttons
             tableContainer.querySelectorAll('.view-nota-btn').forEach(button => {
-                button.addEventListener('click', (event) => {
+                button.addEventListener('click', async (event) => {
                     const saleId = event.target.dataset.saleId;
                     console.log('Ver Nota de Entrega para venta ID:', saleId);
-                    // Simular mostrar la nota de entrega
-                    notaEntregaModal.classList.remove('hidden');
+                    const { db } = await getFirestoreInstances();
+                    const saleDocRef = doc(db, 'datosVentas', saleId);
+                    const saleSnap = await getDoc(saleDocRef);
+
+                    if (saleSnap.exists()) {
+                        showNotaDeEntregaModal({ id: saleSnap.id, ...saleSnap.data() });
+                    } else {
+                        showCustomAlert('Venta no encontrada.');
+                    }
                 });
             });
 
             tableContainer.querySelectorAll('.print-nota-btn').forEach(button => {
-                button.addEventListener('click', (event) => {
+                button.addEventListener('click', async (event) => {
                     const saleId = event.target.dataset.saleId;
                     console.log('Imprimir Nota de Entrega para venta ID:', saleId);
-                    showCustomAlert('Funcionalidad de impresión simulada. En una aplicación real, esto generaría un PDF para imprimir.');
+                    const { db } = await getFirestoreInstances();
+                    const saleDocRef = doc(db, 'datosVentas', saleId);
+                    const saleSnap = await getDoc(saleDocRef);
+
+                    if (saleSnap.exists()) {
+                        // Generar el HTML de la nota de entrega para imprimir
+                        const printContentHtml = generateDeliveryNoteHtml({ id: saleSnap.id, ...saleSnap.data() });
+                        
+                        // Crear un iframe temporal para la impresión
+                        const printWindow = window.open('', '_blank');
+                        printWindow.document.write(`
+                            <html>
+                            <head>
+                                <title>Nota de Entrega</title>
+                                <script src="https://cdn.tailwindcss.com"></script>
+                                <style>
+                                    body { font-family: 'Inter', sans-serif; margin: 0; padding: 20px; }
+                                    .print-area { max-width: 800px; margin: auto; padding: 20px; border: 1px solid #ccc; }
+                                    @media print {
+                                        body { margin: 0; }
+                                        .print-area { border: none; box-shadow: none; }
+                                    }
+                                </style>
+                            </head>
+                            <body>
+                                ${printContentHtml}
+                            </body>
+                            </html>
+                        `);
+                        printWindow.document.close();
+                        printWindow.focus();
+                        printWindow.print();
+                        // printWindow.close(); // Se podría cerrar automáticamente después de imprimir, pero a veces interfiere con el diálogo de impresión.
+                    } else {
+                        showCustomAlert('Venta no encontrada para imprimir.');
+                    }
                 });
             });
         };
@@ -1036,6 +1210,70 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
         if (closeNotaEntregaModalBtn) {
             closeNotaEntregaModalBtn.addEventListener('click', () => {
                 notaEntregaModal.classList.add('hidden');
+            });
+        }
+
+        // Print button inside modal
+        if (printNotaModalBtn) {
+            printNotaModalBtn.addEventListener('click', () => {
+                const printContent = notaEntregaContentDiv;
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(`
+                    <html>
+                    <head>
+                        <title>Nota de Entrega</title>
+                        <script src="https://cdn.tailwindcss.com"></script>
+                        <style>
+                            body { font-family: 'Inter', sans-serif; margin: 0; padding: 20px; }
+                            .print-area { max-width: 800px; margin: auto; padding: 20px; border: 1px solid #ccc; }
+                            @media print {
+                                body { margin: 0; }
+                                .print-area { border: none; box-shadow: none; }
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        ${printContent.innerHTML}
+                    </body>
+                    </html>
+                `);
+                printWindow.document.close();
+                printWindow.focus();
+                printWindow.print();
+            });
+        }
+
+        // Share (Image) button inside modal
+        if (shareNotaModalBtn) {
+            shareNotaModalBtn.addEventListener('click', async () => {
+                showCustomAlert('Generando imagen de la nota de entrega. Esto puede tardar unos segundos...');
+                try {
+                    // Asegúrate de que html2canvas esté cargado.
+                    // Si no está cargado globalmente, necesitarás importarlo o añadirlo a tu index.html.
+                    // <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+                    if (typeof html2canvas === 'undefined') {
+                        showCustomAlert('Error: La librería html2canvas no está cargada. Por favor, añádela a tu index.html.');
+                        console.error('html2canvas no está definido. Asegúrate de que el script está cargado.');
+                        return;
+                    }
+
+                    const element = notaEntregaContentDiv;
+                    const canvas = await html2canvas(element, { scale: 2 }); // Aumentar escala para mejor calidad
+                    const imageData = canvas.toDataURL('image/png');
+
+                    // Crear un enlace de descarga
+                    const link = document.createElement('a');
+                    link.href = imageData;
+                    link.download = `nota_entrega_${new Date().toISOString().slice(0, 10)}.png`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    showCustomAlert('Imagen de la nota de entrega generada y descargada con éxito.');
+
+                } catch (error) {
+                    console.error('Error al generar imagen de nota de entrega:', error);
+                    showCustomAlert('Fallo al generar la imagen de la nota de entrega.');
+                }
             });
         }
 
@@ -1116,6 +1354,11 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
          */
         const renderCierreVentasTable = (data, uniqueProductIds, productDetails, tableContainer) => {
             tableContainer.innerHTML = '';
+            if (Object.keys(data).length === 0) {
+                tableContainer.innerHTML = '<p class="text-gray-500">No hay ventas para mostrar.</p>';
+                return;
+            }
+
             let tableHTML = `
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50 sticky top-0">
