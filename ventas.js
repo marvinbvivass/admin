@@ -1068,8 +1068,9 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
                     return;
                 }
 
-                const { auth } = await getFirestoreInstances();
-                const currentUserDisplayName = auth.currentUser?.email || auth.currentUser?.uid; // Usar email o UID
+                // REMOVED: const { auth } = await getFirestoreInstances(); // Esta línea causaba el ReferenceError
+
+                const currentUserDisplayName = auth.currentUser?.email || auth.currentUser?.uid; // Usar auth del ámbito superior
 
                 const csvRows = [];
 
