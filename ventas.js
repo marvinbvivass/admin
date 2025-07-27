@@ -926,16 +926,16 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
 
             <!-- Modal para mostrar la nota de entrega real -->
             <div id="nota-entrega-modal" class="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-[9999] p-4 hidden">
-                <div class="bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full mx-auto relative">
-                    <h4 class="text-xl font-semibold text-gray-800 mb-4">Nota de Entrega</h4>
-                    <div id="nota-entrega-content" class="bg-gray-50 p-4 rounded-md border border-gray-200 mb-4 overflow-auto max-h-[70vh]">
+                <div class="bg-white rounded-lg shadow-xl p-6 max-w-xs w-full mx-auto relative"> <!-- max-w-xs para simular 80mm -->
+                    <h4 class="text-xl font-semibold text-gray-800 mb-4 text-center">Nota de Entrega</h4>
+                    <div id="nota-entrega-content" class="bg-gray-50 p-2 rounded-md border border-gray-200 mb-4 overflow-auto max-h-[70vh]">
                         <!-- Contenido de la nota de entrega se cargará aquí -->
                         Cargando nota de entrega...
                     </div>
-                    <div class="flex justify-end space-x-3">
-                        <button id="print-nota-modal-btn" class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition duration-200">Imprimir Nota</button>
-                        <button id="share-nota-modal-btn" class="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition duration-200">Compartir (Imagen)</button>
-                        <button id="close-nota-entrega-modal" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-200">Cerrar</button>
+                    <div class="flex justify-around space-x-2 mt-4 no-print"> <!-- no-print class added -->
+                        <button id="print-nota-modal-btn" class="px-3 py-1 bg-purple-600 text-white rounded-md text-sm hover:bg-purple-700 transition duration-200">Imprimir Nota</button>
+                        <button id="share-nota-modal-btn" class="px-3 py-1 bg-yellow-600 text-white rounded-md text-sm hover:bg-yellow-700 transition duration-200">Compartir (Imagen)</button>
+                        <button id="close-nota-entrega-modal" class="px-3 py-1 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 transition duration-200">Cerrar</button>
                     </div>
                 </div>
             </div>
@@ -961,7 +961,7 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
             if (!saleData) return '<p class="text-red-500">No se encontraron datos para esta nota de entrega.</p>';
 
             const saleDate = new Date(saleData.fechaVenta).toLocaleDateString('es-ES', {
-                year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
             });
 
             const companyInfo = {
@@ -972,14 +972,13 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
             };
 
             let productsTableHtml = `
-                <table class="min-w-full border-collapse border border-gray-300 mb-4">
+                <table class="min-w-full border-collapse border border-gray-300 mb-2" style="font-size: 0.6rem;">
                     <thead>
                         <tr class="bg-gray-100">
-                            <th class="border border-gray-300 px-2 py-1 text-left text-xs font-semibold">Producto</th>
-                            <th class="border border-gray-300 px-2 py-1 text-left text-xs font-semibold">Presentación</th>
-                            <th class="border border-gray-300 px-2 py-1 text-left text-xs font-semibold">Cantidad</th>
-                            <th class="border border-gray-300 px-2 py-1 text-left text-xs font-semibold">P. Unit. (USD)</th>
-                            <th class="border border-gray-300 px-2 py-1 text-left text-xs font-semibold">Subtotal (USD)</th>
+                            <th class="border border-gray-300 px-1 py-0.5 text-left font-semibold">Producto</th>
+                            <th class="border border-gray-300 px-1 py-0.5 text-center font-semibold">Cant.</th>
+                            <th class="border border-gray-300 px-1 py-0.5 text-right font-semibold">P. Unit.</th>
+                            <th class="border border-gray-300 px-1 py-0.5 text-right font-semibold">Subtotal</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -987,11 +986,10 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
             saleData.productosVendidos.forEach(p => {
                 productsTableHtml += `
                     <tr>
-                        <td class="border border-gray-300 px-2 py-1 text-xs">${p.Producto || 'N/A'}</td>
-                        <td class="border border-gray-300 px-2 py-1 text-xs">${p.Presentacion || 'N/A'}</td>
-                        <td class="border border-gray-300 px-2 py-1 text-xs text-center">${p.Cantidad || 0}</td>
-                        <td class="border border-gray-300 px-2 py-1 text-xs text-right">$${(p.PrecioUnitarioUSD || 0).toFixed(2)}</td>
-                        <td class="border border-gray-300 px-2 py-1 text-xs text-right">$${(p.SubtotalUSD || 0).toFixed(2)}</td>
+                        <td class="border border-gray-300 px-1 py-0.5">${p.Producto || 'N/A'} (${p.Presentacion || 'N/A'})</td>
+                        <td class="border border-gray-300 px-1 py-0.5 text-center">${p.Cantidad || 0}</td>
+                        <td class="border border-gray-300 px-1 py-0.5 text-right">$${(p.PrecioUnitarioUSD || 0).toFixed(2)}</td>
+                        <td class="border border-gray-300 px-1 py-0.5 text-right">$${(p.SubtotalUSD || 0).toFixed(2)}</td>
                     </tr>
                 `;
             });
@@ -999,8 +997,8 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
                     </tbody>
                     <tfoot>
                         <tr class="bg-gray-100 font-semibold">
-                            <td colspan="4" class="border border-gray-300 px-2 py-1 text-right text-sm">TOTAL USD:</td>
-                            <td class="border border-gray-300 px-2 py-1 text-right text-sm">$${(saleData.totalVentaUSD || 0).toFixed(2)}</td>
+                            <td colspan="3" class="border border-gray-300 px-1 py-0.5 text-right">TOTAL USD:</td>
+                            <td class="border border-gray-300 px-1 py-0.5 text-right">$${(saleData.totalVentaUSD || 0).toFixed(2)}</td>
                         </tr>
                     </tfoot>
                 </table>
@@ -1009,8 +1007,8 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
             let exchangeRatesHtml = '';
             if (saleData.exchangeRatesAtSale) {
                 exchangeRatesHtml = `
-                    <p class="text-xs text-gray-600 mt-2">
-                        Tasas de Cambio al momento de la venta: 
+                    <p class="text-xs text-gray-600 mt-1" style="font-size: 0.6rem;">
+                        Tasas de Cambio: 
                         1 USD = COP ${saleData.exchangeRatesAtSale.cop.toFixed(2)} | 
                         1 USD = Bs. ${saleData.exchangeRatesAtSale.bs.toFixed(2)}
                     </p>
@@ -1018,45 +1016,108 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
             }
 
             return `
-                <div class="p-4 bg-white rounded-lg shadow-md print-area">
-                    <div class="text-center mb-6">
+                <div class="p-2 bg-white rounded-lg shadow-md print-area" style="width: 80mm; max-width: 300px; margin: auto; box-sizing: border-box;">
+                    <style>
+                        /* Estilos específicos para la nota de entrega de 80mm */
+                        .print-area {
+                            font-family: 'monospace', sans-serif; /* Fuente tipo recibo */
+                            line-height: 1.2;
+                            color: #333;
+                        }
+                        .print-area h1, .print-area h2, .print-area h3, .print-area p, .print-area table {
+                            margin-bottom: 0.2rem; /* Reduce espacio entre elementos */
+                        }
+                        .print-area .text-center { text-align: center; }
+                        .print-area .text-sm { font-size: 0.7rem; }
+                        .print-area .text-xs { font-size: 0.6rem; }
+                        .print-area .text-2xl { font-size: 1.2rem; } /* Ajustar tamaños de encabezado */
+                        .print-area .text-xl { font-size: 1rem; }
+                        .print-area .font-bold { font-weight: bold; }
+                        .print-area table { width: 100%; border-collapse: collapse; }
+                        .print-area th, .print-area td { border: 1px dashed #eee; padding: 2px 4px; } /* Bordes más ligeros */
+                        .print-area thead { background-color: #f5f5f5; }
+                        .print-area .border-t, .print-area .border-b { border-color: #ddd; }
+                        .print-area .mb-6 { margin-bottom: 0.5rem; } /* Reducir márgenes */
+                        .print-area .mt-4 { margin-top: 0.5rem; }
+                        .print-area .py-3 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+                        .print-area .px-2 { padding-left: 0.2rem; padding-right: 0.2rem; }
+                        .print-area .py-1 { padding-top: 0.1rem; padding-bottom: 0.1rem; }
+                        .print-area .text-right { text-align: right; }
+                        .print-area .text-left { text-align: left; }
+                        .print-area .text-center { text-align: center; }
+                        .print-area .flex { display: flex; }
+                        .print-area .justify-around { justify-content: space-around; }
+                        .print-area .pt-4 { padding-top: 0.5rem; }
+                        .print-area .border-t { border-top-width: 1px; }
+                        .print-area .border-b { border-bottom-width: 1px; }
+                        /* Ocultar elementos específicos en la impresión real si es necesario */
+                        @media print {
+                            body { margin: 0; padding: 0; }
+                            .modal-content, .modal-content * { visibility: visible !important; }
+                            .modal-content {
+                                position: static !important;
+                                width: auto !important;
+                                max-width: none !important;
+                                box-shadow: none !important;
+                                border: none !important;
+                                padding: 0 !important;
+                                margin: 0 !important;
+                                overflow: visible !important;
+                                height: auto !important;
+                            }
+                            .modal-content .no-print {
+                                display: none !important;
+                            }
+                            .print-area {
+                                width: 80mm !important; /* Forzar el ancho de 80mm en la impresión */
+                                max-width: none !important;
+                                border: none !important;
+                                box-shadow: none !important;
+                                padding: 0 !important;
+                                margin: 0 !important;
+                                font-size: 0.7rem !important; /* Ajustar el tamaño de fuente para impresión */
+                            }
+                            .print-area table { font-size: 0.6rem !important; }
+                            .print-area th, .print-area td { padding: 1px 2px !important; }
+                        }
+                    </style>
+                    <div class="text-center mb-2">
                         <h1 class="text-2xl font-bold text-gray-900">${companyInfo.name}</h1>
                         <p class="text-sm text-gray-600">RIF: ${companyInfo.rif}</p>
                         <p class="text-sm text-gray-600">${companyInfo.address}</p>
                         <p class="text-sm text-gray-600">Tlf: ${companyInfo.phone}</p>
-                        <h2 class="text-xl font-semibold text-gray-800 mt-4">NOTA DE ENTREGA</h2>
+                        <h2 class="text-xl font-semibold text-gray-800 mt-2">NOTA DE ENTREGA</h2>
                         <p class="text-sm text-gray-700">No. Venta: ${saleData.id}</p>
                         <p class="text-sm text-gray-700">Fecha: ${saleDate}</p>
                     </div>
 
-                    <div class="mb-6 border-t border-b border-gray-200 py-3">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Datos del Cliente:</h3>
-                        <p class="text-sm text-gray-700"><strong>Nombre Comercial:</strong> ${saleData.cliente.NombreComercial || 'N/A'}</p>
+                    <div class="mb-2 border-t border-b border-gray-200 py-1">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-1">Datos del Cliente:</h3>
+                        <p class="text-sm text-gray-700"><strong>Nombre:</strong> ${saleData.cliente.NombreComercial || 'N/A'}</p>
                         <p class="text-sm text-gray-700"><strong>RIF:</strong> ${saleData.cliente.Rif || 'N/A'}</p>
-                        <p class="text-sm text-gray-700"><strong>Zona:</strong> ${saleData.cliente.Zona || 'N/A'}, <strong>Sector:</strong> ${saleData.cliente.Sector || 'N/A'}</p>
+                        <p class="text-sm text-gray-700"><strong>Zona/Sector:</strong> ${saleData.cliente.Zona || 'N/A'}, ${saleData.cliente.Sector || 'N/A'}</p>
                     </div>
 
-                    <div class="mb-6 border-b border-gray-200 py-3">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Datos del Vehículo:</h3>
-                        <p class="text-sm text-gray-700"><strong>Marca:</strong> ${saleData.vehiculo.marca || 'N/A'}</p>
-                        <p class="text-sm text-gray-700"><strong>Modelo:</strong> ${saleData.vehiculo.modelo || 'N/A'}</p>
+                    <div class="mb-2 border-b border-gray-200 py-1">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-1">Datos del Vehículo:</h3>
+                        <p class="text-sm text-gray-700"><strong>Vehículo:</strong> ${saleData.vehiculo.marca || 'N/A'} ${saleData.vehiculo.modelo || 'N/A'}</p>
                         <p class="text-sm text-gray-700"><strong>Placa:</strong> ${saleData.vehiculo.placa || 'N/A'}</p>
                     </div>
 
-                    <div class="mb-6">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Productos Vendidos:</h3>
+                    <div class="mb-2">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-1">Productos Vendidos:</h3>
                         ${productsTableHtml}
                     </div>
 
                     ${exchangeRatesHtml}
 
-                    <div class="flex justify-around mt-8 pt-4 border-t border-gray-200 text-sm text-gray-700">
+                    <div class="flex justify-around mt-4 pt-2 border-t border-gray-200 text-xs text-gray-700">
                         <div class="text-center">
-                            <p class="mb-6">_________________________</p>
+                            <p class="mb-2">_________________________</p>
                             <p>Firma del Cliente</p>
                         </div>
                         <div class="text-center">
-                            <p class="mb-6">_________________________</p>
+                            <p class="mb-2">_________________________</p>
                             <p>Firma del Vendedor</p>
                         </div>
                     </div>
@@ -1154,12 +1215,27 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
                                 <title>Nota de Entrega</title>
                                 <script src="https://cdn.tailwindcss.com"></script>
                                 <style>
-                                    body { font-family: 'Inter', sans-serif; margin: 0; padding: 20px; }
-                                    .print-area { max-width: 800px; margin: auto; padding: 20px; border: 1px solid #ccc; }
-                                    @media print {
-                                        body { margin: 0; }
-                                        .print-area { border: none; box-shadow: none; }
+                                    body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; } /* Reset body margin/padding */
+                                    .print-area {
+                                        width: 80mm !important; /* Force 80mm width for printing */
+                                        max-width: none !important; /* Override any max-width */
+                                        margin: 0 auto; /* Center content */
+                                        box-sizing: border-box;
+                                        padding: 5mm; /* Small padding for edges */
+                                        font-size: 0.7rem; /* Base font size for printer */
+                                        line-height: 1.2;
+                                        color: #000; /* Ensure black text for printing */
                                     }
+                                    .print-area h1, .print-area h2, .print-area h3, .print-area p, .print-area table {
+                                        margin-bottom: 0.2rem;
+                                    }
+                                    .print-area table { width: 100%; border-collapse: collapse; font-size: 0.6rem; }
+                                    .print-area th, .print-area td { border: 1px dashed #eee; padding: 1px 2px; } /* Compact padding */
+                                    .print-area .text-center { text-align: center; }
+                                    .print-area .text-right { text-align: right; }
+                                    .print-area .text-left { text-align: left; }
+                                    /* Hide buttons/controls in print */
+                                    .no-print { display: none !important; }
                                 </style>
                             </head>
                             <body>
@@ -1224,12 +1300,26 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
                         <title>Nota de Entrega</title>
                         <script src="https://cdn.tailwindcss.com"></script>
                         <style>
-                            body { font-family: 'Inter', sans-serif; margin: 0; padding: 20px; }
-                            .print-area { max-width: 800px; margin: auto; padding: 20px; border: 1px solid #ccc; }
-                            @media print {
-                                body { margin: 0; }
-                                .print-area { border: none; box-shadow: none; }
+                            body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
+                            .print-area {
+                                width: 80mm !important; /* Force 80mm width for printing */
+                                max-width: none !important;
+                                margin: 0 auto;
+                                box-sizing: border-box;
+                                padding: 5mm;
+                                font-size: 0.7rem;
+                                line-height: 1.2;
+                                color: #000;
                             }
+                            .print-area h1, .print-area h2, .print-area h3, .print-area p, .print-area table {
+                                margin-bottom: 0.2rem;
+                            }
+                            .print-area table { width: 100%; border-collapse: collapse; font-size: 0.6rem; }
+                            .print-area th, .print-area td { border: 1px dashed #eee; padding: 1px 2px; }
+                            .print-area .text-center { text-align: center; }
+                            .print-area .text-right { text-align: right; }
+                            .print-area .text-left { text-align: left; }
+                            .no-print { display: none !important; }
                         </style>
                     </head>
                     <body>
