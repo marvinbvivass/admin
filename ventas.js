@@ -6,7 +6,7 @@
 // Se añade la funcionalidad de "Cierre de Ventas Diarias" para consolidar y exportar ventas por día y usuario.
 
 // Importa las funciones necesarias de Firebase Firestore.
-import { collection, addDoc, getDocs, doc, getDoc, updateDoc, query, where, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { collection, addDoc, getDocs, doc, getDoc, updateDoc, query, where, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // Importa funciones de otros módulos para obtener datos necesarios
 import { obtenerTodosLosClientes } from './clientes.js';
@@ -917,8 +917,10 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
         cierreFechaSpan.textContent = new Date().toLocaleDateString('es-ES');
         cierreUsuarioSpan.textContent = currentUserEmail;
 
+        // Declarar estas variables en un ámbito más amplio para que sean accesibles en el event listener
         let consolidatedSalesData = {}; // Para almacenar los datos consolidados para el CSV y Firestore
         let allUniqueProductIds = new Set(); // Para recopilar todos los productos únicos vendidos
+        let productDetailsMap = {}; // { productId: { Producto: "Nombre", Presentacion: "X" } }
 
         // Obtener la fecha de hoy al inicio y al final del día en formato ISO
         const today = new Date();
@@ -1020,7 +1022,6 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
             });
 
             // Obtener detalles de todos los productos únicos para los encabezados
-            const productDetailsMap = {}; // { productId: { Producto: "Nombre", Presentacion: "X" } }
             allProductsGeneral.forEach(p => {
                 if (allUniqueProductIds.has(p.id)) {
                     productDetailsMap[p.id] = {
@@ -1128,9 +1129,34 @@ export async function renderVentasSection(container, backToMainMenuCallback) {
                     const cierreDocRef = doc(db, 'VentasConsolidadas', `${new Date().toISOString().slice(0, 10)}_${currentUserId}`);
                     await setDoc(cierreDocRef, cierreData, { merge: true }); // Usar setDoc con merge para evitar sobrescribir si ya existe
                     console.log('Cierre de ventas diario guardado en Firestore.');
+
+                    // --- NUEVA LÓGICA: Eliminar ventas individuales después del cierre ---
+                    console.log('Iniciando eliminación de ventas individuales del día...');
+                    const salesToDeleteQuery = query(
+                        ventasRef,
+                        where('userId', '==', currentUserId),
+                        where('fechaVenta', '>=', startOfDayISO),
+                        where('fechaVenta', '<=', endOfDayISO)
+                    );
+                    const salesToDeleteSnapshot = await getDocs(salesToDeleteQuery);
+
+                    if (!salesToDeleteSnapshot.empty) {
+                        const deletePromises = [];
+                        salesToDeleteSnapshot.forEach(docToDelete => {
+                            deletePromises.push(deleteDoc(doc(db, 'datosVentas', docToDelete.id)));
+                        });
+                        await Promise.all(deletePromises);
+                        console.log(`Se eliminaron ${salesToDeleteSnapshot.size} ventas individuales del día.`);
+                        showCustomAlert(`Cierre de ventas generado y ${salesToDeleteSnapshot.size} ventas individuales eliminadas con éxito.`);
+                    } else {
+                        console.log('No se encontraron ventas individuales para eliminar.');
+                        showCustomAlert('Cierre de ventas generado. No se encontraron ventas individuales para eliminar.');
+                    }
+                    // --- FIN NUEVA LÓGICA ---
+
                 } catch (firestoreError) {
-                    console.error('Error al guardar el cierre de ventas en Firestore:', firestoreError);
-                    showCustomAlert('Error al guardar el cierre de ventas en la base de datos.');
+                    console.error('Error al guardar el cierre de ventas en Firestore o al eliminar ventas individuales:', firestoreError);
+                    showCustomAlert('Error al guardar el cierre de ventas en la base de datos o al eliminar ventas individuales.');
                 }
 
                 generateCsvFile(csvString, filename);
